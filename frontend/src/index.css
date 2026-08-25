@@ -16,7 +16,7 @@
   body {
     background-color: #000000;
     color: #FFFFFF;
-    font-family: 'IBM Plex Mono', monospace;
+    font-family: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     overflow-x: hidden;
   }
 
@@ -48,11 +48,11 @@
 /* Leaflet container & popups */
 .leaflet-container {
   background-color: #000000 !important;
-  font-family: 'IBM Plex Mono', monospace !important;
+  font-family: 'IBM Plex Sans', sans-serif !important;
 }
 
 .leaflet-popup-content-wrapper {
-  background: #000000 !important;
+  background: #111111 !important;
   color: #FFFFFF !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
   border-radius: 0px !important;
@@ -60,7 +60,7 @@
 }
 
 .leaflet-popup-tip {
-  background: #000000 !important;
+  background: #111111 !important;
   border: 1px solid rgba(255, 255, 255, 0.2) !important;
 }
 

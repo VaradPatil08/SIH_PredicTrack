@@ -9,6 +9,10 @@ export default {
     extend: {
       colors: {
         background: '#000000',
+        surface: '#111111',
+        'surface-dim': '#181209',
+        'surface-bright': '#40382d',
+        'surface-container': '#251f15',
         foreground: '#FFFFFF',
         accent: {
           DEFAULT: '#FFB300',
@@ -21,22 +25,23 @@ export default {
         signal: {
           amber: '#FFB300',
           amberHover: '#FFC233',
-          red: '#E05252',
+          red: '#B22222',
           green: '#10B981',
         },
-        // Backward-compatible semantic mappings to prevent breakage
+        'muted-red': '#B22222',
+        // Semantic compatibility
         rail: {
           dark: '#000000',
           black: '#000000',
-          card: '#000000',
-          cardHover: 'rgba(255, 255, 255, 0.04)',
-          navy: '#080808',
+          card: '#111111',
+          cardHover: '#181209',
+          navy: '#111111',
           border: 'rgba(255, 255, 255, 0.1)',
           yellow: '#FFB300',
           yellowBright: '#FFC233',
           yellowDark: '#E09B00',
           amber: '#FFB300',
-          red: '#E05252',
+          red: '#B22222',
           green: '#10B981',
           muted: 'rgba(255, 255, 255, 0.5)',
           text: '#FFFFFF',
@@ -53,10 +58,12 @@ export default {
         full: '0px',
       },
       fontFamily: {
-        display: ['"Space Grotesk"', 'sans-serif'],
-        'mono-ui': ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
-        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
-        sans: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        display: ['"Sora"', 'sans-serif'],
+        sora: ['"Sora"', 'sans-serif'],
+        sans: ['"IBM Plex Sans"', 'sans-serif'],
+        data: ['"IBM Plex Sans"', 'sans-serif'],
+        'mono-ui': ['"IBM Plex Sans"', 'sans-serif'],
+        mono: ['"IBM Plex Sans"', 'monospace'],
       },
     },
   },

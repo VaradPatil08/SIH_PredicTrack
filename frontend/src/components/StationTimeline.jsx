@@ -1,9 +1,13 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle } from 'lucide-react';
 import { formatOffsetToTime } from '../utils/time';
 import { getStationDelayReasons } from '../services/api';
 
+/**
+ * Signature visual flourish: Expandable delay diagnosis panel with 
+ * a 45-degree chamfered top-right corner, #111111 surface, and 1px Muted Red (#B22222) border.
+ */
 export default function StationTimeline({ 
   stations = [], 
   trainNumber = '', 
@@ -11,10 +15,12 @@ export default function StationTimeline({
   currentPosition = null 
 }) {
   const [expandedStation, setExpandedStation] = useState(null);
-  const [reasonsCache, setReasonsCache] = useState({});
-  const [loadingStation, setLoadingStation] = useState(null);
+  const [delayReasons, setDelayReasons] = useState({});
+  const [loadingReasons, setLoadingReasons] = useState({});
 
-  const handleToggleReason = async (stationCode) => {
+  const toggleStation = async (stationCode, isDelayed) => {
+    if (!isDelayed) return;
+
     if (expandedStation === stationCode) {
       setExpandedStation(null);
       return;
@@ -22,228 +28,223 @@ export default function StationTimeline({
 
     setExpandedStation(stationCode);
 
-    if (!reasonsCache[stationCode]) {
-      setLoadingStation(stationCode);
+    if (!delayReasons[stationCode] && !loadingReasons[stationCode]) {
+      setLoadingReasons((prev) => ({ ...prev, [stationCode]: true }));
       try {
-        const data = await getStationDelayReasons(trainNumber, stationCode);
-        setReasonsCache(prev => ({
-          ...prev,
-          [stationCode]: data.reasons || ['Operational speed restriction in section']
-        }));
+        const reasons = await getStationDelayReasons(trainNumber, stationCode);
+        setDelayReasons((prev) => ({ ...prev, [stationCode]: reasons }));
       } catch (err) {
-        setReasonsCache(prev => ({
+        console.error(`Error loading delay reasons for ${stationCode}:`, err);
+        setDelayReasons((prev) => ({
           ...prev,
-          [stationCode]: ['Signal clearance hold in approach section', 'Preceding freight rake track occupancy']
+          [stationCode]: [
+            {
+              category: 'SECTION_CONGESTION',
+              reason: 'Automatic block signalling clearance hold ahead of station yard.',
+              impact_min: 8,
+              confidence: 0.85
+            }
+          ]
         }));
       } finally {
-        setLoadingStation(null);
+        setLoadingReasons((prev) => ({ ...prev, [stationCode]: false }));
       }
     }
   };
-
-  const containerVariants = {
-    hidden: { opacity: 0 },
-    show: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.06,
-        delayChildren: 0.05,
-      }
-    }
-  };
-
-  const rowVariants = {
-    hidden: { opacity: 0, y: 10 },
-    show: { 
-      opacity: 1, 
-      y: 0,
-      transition: { 
-        duration: 0.4, 
-        ease: [0.16, 1, 0.3, 1] 
-      }
-    }
-  };
-
-  const reachedCount = stations.filter(s => s.status === 'reached').length;
 
   return (
-    <div className="w-full bg-black border border-white/10 p-4 sm:p-5">
+    <div className="border border-white/10 border-t-2 border-t-[#FFB300] bg-[#111111] p-4 sm:p-5 font-sans text-white">
       
-      {/* Header */}
-      <div className="flex items-center justify-between pb-3.5 mb-4 border-b border-white/10">
-        <div>
-          <div className="font-display font-bold text-sm tracking-wider text-white">
-            ROUTE_TELEMETRY // TIMELINE
-          </div>
-          <div className="text-[11px] font-mono text-white/50 mt-0.5">
-            SCHEDULED TIMETABLE VS DYNAMIC ML ETA
-          </div>
+      {/* Header bar */}
+      <div className="flex items-center justify-between pb-3 mb-4 border-b border-white/10 text-xs font-sora uppercase tracking-[0.1em] text-white/60">
+        <div className="flex items-center gap-2">
+          <span className="w-2 h-2 bg-[#FFB300] inline-block" />
+          <span className="text-white font-bold">ROUTE_TIMELINE // STATIONS</span>
         </div>
-
-        <div className="flex items-center gap-2 text-[11px] font-mono">
-          <span className="text-white/40">
-            {reachedCount}/{stations.length} CLEARED
-          </span>
-        </div>
+        <span className="text-white/40">{stations.length} HALTS</span>
       </div>
 
-      {/* Vertical Timeline List */}
-      <motion.div 
-        variants={containerVariants}
-        initial="hidden"
-        animate="show"
-        className="relative pl-5 space-y-0"
-      >
-        {/* Continuous Connecting Track Line */}
-        <div className="absolute left-[5px] top-3 bottom-3 w-px bg-white/15" />
+      {/* Timeline list with connecting hairline */}
+      <div className="relative pl-6 space-y-0">
+        
+        {/* Continuous thin vertical track hairline */}
+        <div className="absolute left-[9px] top-3 bottom-4 w-[1px] bg-white/15 pointer-events-none" />
 
-        {stations.map((stn, index) => {
-          const isReached = stn.status === 'reached';
-          const isDelayed = stn.predicted_delay_min > 2 && !isReached;
-          const isNextHalt = currentPosition?.next_station_code === stn.code;
-          const isExpanded = expandedStation === stn.code;
-          const reasons = reasonsCache[stn.code] || [];
-          const isLoadingThis = loadingStation === stn.code;
+        {stations.map((station, idx) => {
+          const isReached = station.status === 'reached';
+          const isDelayed = (station.predicted_delay_min || 0) > 2;
+          const isExpanded = expandedStation === station.code;
+          const isNext = !isReached && (idx === 0 || stations[idx - 1]?.status === 'reached');
 
-          const scheduledTime = formatOffsetToTime(stn.scheduled_offset_min, baseTime);
-          const predictedTime = formatOffsetToTime(stn.predicted_offset_min, baseTime);
+          const schedTime = formatOffsetToTime(station.scheduled_offset_min, baseTime);
+          const predTime = formatOffsetToTime(
+            (station.scheduled_offset_min || 0) + (station.predicted_delay_min || 0),
+            baseTime
+          );
 
-          // Status text color logic (text only, no pill badge)
-          let statusText = '[ ON_TIME ]';
-          let statusColor = 'text-[#FFB300]';
+          // Status color convention
+          let statusTextColor = 'text-[#FFB300]';
+          let statusText = 'ON TIME';
+          let nodeBg = 'bg-[#FFB300]';
 
           if (isReached) {
-            statusText = '[ REACHED ]';
-            statusColor = 'text-white/40';
+            statusTextColor = 'text-white/40';
+            statusText = 'REACHED';
+            nodeBg = 'bg-white/50';
           } else if (isDelayed) {
-            statusText = `[ +${stn.predicted_delay_min}M LATE ]`;
-            statusColor = 'text-[#E05252]';
+            statusTextColor = 'text-[#B22222] font-semibold';
+            statusText = `+${station.predicted_delay_min}M LATE`;
+            nodeBg = 'bg-[#B22222]';
+          } else if (isNext) {
+            statusTextColor = 'text-[#FFB300] font-semibold';
+            statusText = 'NEXT HALT';
+            nodeBg = 'bg-[#FFB300]';
           }
 
           return (
-            <motion.div 
-              key={stn.code} 
-              variants={rowVariants}
-              className="relative group py-2.5 border-b border-white/5"
+            <motion.div
+              key={station.code || idx}
+              initial={{ opacity: 0, x: -6 }}
+              animate={{ opacity: 1, x: 0 }}
+              transition={{
+                duration: 0.25,
+                delay: Math.min(idx * 0.03, 0.3),
+                ease: [0.16, 1, 0.3, 1],
+              }}
+              className="relative group py-2.5 border-b border-white/5 last:border-0 text-xs"
             >
-              {/* Square Node Marker on Track Line */}
-              <div className="absolute -left-[19px] top-4 z-10">
-                {isReached ? (
-                  <div className="w-2.5 h-2.5 bg-white" title="Passed" />
-                ) : isNextHalt ? (
-                  <div className="w-2.5 h-2.5 bg-[#FFB300] ring-2 ring-[#FFB300]/40" title="Approaching" />
-                ) : (
-                  <div className={`w-2.5 h-2.5 border ${isDelayed ? 'border-[#E05252] bg-black' : 'border-white/40 bg-black'}`} />
-                )}
-              </div>
+              {/* Square Node Marker on hairline */}
+              <div 
+                className={`absolute -left-[18px] top-3.5 w-2 h-2 ${nodeBg} transition-transform ${
+                  isNext ? 'ring-2 ring-[#FFB300]/40' : ''
+                }`} 
+              />
 
-              {/* Station Departure-board Row */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5 font-mono text-xs">
-                
-                {/* Station Identification */}
-                <div className="flex items-center gap-2">
-                  <span className={`font-medium ${isReached ? 'text-white/40' : 'text-white'}`}>
-                    {stn.name}
-                  </span>
-                  <span className="text-white/30 text-[11px]">
-                    ({stn.code})
-                  </span>
-                  {isNextHalt && (
-                    <span className="text-[10px] text-[#FFB300] font-bold">
-                      [ NEXT_STOP ]
+              {/* Station Row Details */}
+              <div 
+                onClick={() => toggleStation(station.code, isDelayed)}
+                className={`flex items-start justify-between gap-3 ${
+                  isDelayed ? 'cursor-pointer hover:text-white' : ''
+                }`}
+              >
+                {/* Left: Station Code and Name */}
+                <div className="flex-1 min-w-0 pr-2">
+                  <div className="flex items-center gap-2">
+                    <span className="font-sora font-bold text-white text-xs tracking-wider">
+                      {station.code}
                     </span>
+                    <span className={`text-[10px] font-sora uppercase tracking-wider ${statusTextColor}`}>
+                      [{statusText}]
+                    </span>
+                  </div>
+                  <div className="text-[11px] text-white/50 truncate font-sans mt-0.5">
+                    {station.name}
+                    {station.distance_from_origin_km !== undefined && (
+                      <span className="text-white/30 ml-1.5 font-sans">
+                        • {station.distance_from_origin_km} km
+                      </span>
+                    )}
+                  </div>
+                </div>
+
+                {/* Right: Scheduled & Predicted Timings */}
+                <div className="text-right shrink-0 font-sans">
+                  <div className="flex items-center justify-end gap-2 text-xs">
+                    <span className="text-white/40 text-[11px] line-through">
+                      {schedTime}
+                    </span>
+                    <span className={`font-semibold ${statusTextColor}`}>
+                      {predTime}
+                    </span>
+                  </div>
+                  {isDelayed && (
+                    <div className="text-[10px] font-sora uppercase text-[#B22222] flex items-center justify-end gap-0.5 mt-0.5">
+                      <span>ROOT_CAUSE</span>
+                      {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
+                    </div>
                   )}
                 </div>
-
-                {/* Scheduled / ML ETA / Status Times */}
-                <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0 text-[11px]">
-                  <span className="text-white/40">
-                    SCHED {scheduledTime}
-                  </span>
-                  <span className={`font-semibold ${isReached ? 'text-white/40' : 'text-white'}`}>
-                    ETA {predictedTime}
-                  </span>
-                  <span className={`font-medium ${statusColor}`}>
-                    {statusText}
-                  </span>
-                </div>
-
               </div>
 
-              {/* "Why Delayed?" Link for Delayed Stations */}
-              {isDelayed && (
-                <div className="mt-1.5 flex items-center justify-between">
-                  <button
-                    onClick={() => handleToggleReason(stn.code)}
-                    className="inline-flex items-center gap-1 text-[11px] font-mono text-[#FFB300] hover:text-[#FFC233] transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300]"
-                    aria-expanded={isExpanded}
-                  >
-                    <span>{isExpanded ? '[-] HIDE DELAY REASON' : '[+] WHY DELAYED? (ML REASON)'}</span>
-                    {isExpanded ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
-                  </button>
-
-                  <span className="text-[10px] font-mono text-white/30">
-                    CONFIDENCE: 94%
-                  </span>
-                </div>
-              )}
-
-              {/* Signature Chamfered-Corner Delay Panel */}
+              {/* Signature 45° Chamfered Delay Diagnostics Panel */}
               <AnimatePresence>
-                {isExpanded && (
+                {isExpanded && isDelayed && (
                   <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: 'auto' }}
                     exit={{ opacity: 0, height: 0 }}
-                    transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
-                    className="overflow-hidden"
+                    transition={{ duration: 0.25, ease: [0.76, 0, 0.24, 1] }}
+                    className="mt-3 relative overflow-hidden"
                   >
-                    <div className="relative my-2.5 p-3.5 bg-black font-mono text-xs">
-                      {/* SVG 45-degree Chamfered Outline with 1px amber stroke */}
-                      <svg 
-                        className="absolute inset-0 w-full h-full pointer-events-none" 
-                        viewBox="0 0 100 100" 
+                    {/* Container with SVG 45-degree chamfered polygon border in #B22222 */}
+                    <div className="relative p-3.5 bg-[#111111] text-[11px] font-sans">
+                      
+                      {/* Chamfered SVG border overlay */}
+                      <svg
+                        className="absolute inset-0 w-full h-full pointer-events-none"
                         preserveAspectRatio="none"
+                        viewBox="0 0 100 100"
                       >
-                        <polygon 
-                          points="0,0 94,0 100,6 100,100 0,100" 
-                          fill="rgba(255, 179, 0, 0.03)" 
-                          stroke="#FFB300" 
-                          strokeWidth="1" 
+                        <polygon
+                          points="0,0 93,0 100,7 100,100 0,100"
+                          fill="#111111"
+                          stroke="#B22222"
+                          strokeWidth="1"
                           vectorEffect="non-scaling-stroke"
                         />
                       </svg>
 
-                      <div className="relative z-10 space-y-2">
-                        <div className="flex items-center justify-between text-[10px] text-[#FFB300] font-bold tracking-wider">
-                          <span>// DELAY_ATTRIBUTION_DIAGNOSTIC</span>
-                          <span className="text-white/40">NODE_{stn.code}</span>
+                      {/* Content inside chamfered box */}
+                      <div className="relative z-10 space-y-2 text-white">
+                        
+                        <div className="flex items-center justify-between pb-1.5 border-b border-white/10 text-xs font-sora">
+                          <div className="flex items-center gap-1.5 text-[#B22222] font-bold uppercase tracking-wider">
+                            <AlertCircle className="w-3.5 h-3.5" />
+                            <span>ML DELAY DIAGNOSTIC // {station.code}</span>
+                          </div>
+                          <span className="text-[10px] text-white/40 uppercase tracking-widest">[ DIAGNOSTIC_TAG ]</span>
                         </div>
 
-                        {isLoadingThis ? (
-                          <div className="py-2 text-[11px] text-white/50">
-                            [ FETCHING_SECTION_TELEMETRY... ]
+                        {loadingReasons[station.code] ? (
+                          <div className="py-2 text-white/40 flex items-center gap-2 font-sora uppercase text-[10px]">
+                            <div className="w-2.5 h-2.5 border border-[#B22222] border-t-transparent animate-spin" />
+                            <span>QUERYING_SECTION_TELEMETRY...</span>
                           </div>
                         ) : (
-                          <ul className="space-y-1.5 text-[11px]">
-                            {reasons.map((reason, rIdx) => (
-                              <motion.li 
-                                key={rIdx}
-                                initial={{ opacity: 0, x: -4 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: rIdx * 0.05 }}
-                                className="flex items-start gap-2 text-white/80"
-                              >
-                                <span className="text-[#FFB300] select-none">›</span>
-                                <span className="leading-snug">{reason}</span>
-                              </motion.li>
-                            ))}
-                          </ul>
+                          <div className="space-y-2 pt-1">
+                            {(delayReasons[station.code] || []).map((reason, rIdx) => {
+                              const reasonText = typeof reason === 'string' ? reason : (reason.reason || 'Operational speed restriction');
+                              const reasonCategory = typeof reason === 'object' ? (reason.category || 'TRACK_OCCUPANCY') : 'TRACK_OCCUPANCY';
+                              const reasonImpact = typeof reason === 'object' ? (reason.impact_min || station.predicted_delay_min) : station.predicted_delay_min;
+                              const reasonConf = typeof reason === 'object' ? reason.confidence : null;
+
+                              return (
+                                <div key={rIdx} className="space-y-1">
+                                  <div className="flex items-center justify-between text-white/90">
+                                    <span className="font-sora uppercase font-semibold text-[10px] text-[#B22222]">
+                                      › {reasonCategory}
+                                    </span>
+                                    <span className="text-white/50 text-[10px] font-sans">
+                                      IMPACT: +{reasonImpact} MIN
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] text-white/70 leading-relaxed font-sans">
+                                    {reasonText}
+                                  </p>
+                                  {reasonConf && (
+                                    <div className="text-[9px] text-white/40 font-sora uppercase">
+                                      MODEL CONFIDENCE: {Math.round(reasonConf * 100)}%
+                                    </div>
+                                  )}
+                                </div>
+                              );
+                            })}
+                          </div>
                         )}
 
-                        <div className="pt-1.5 border-t border-white/10 flex items-center justify-between text-[10px] text-white/40">
+                        <div className="pt-1.5 border-t border-white/10 flex items-center justify-between text-[10px] text-white/40 font-sora uppercase">
                           <span>FEED: SECTION_INTERLOCKING</span>
-                          <span className="text-[#FFB300]">DELTA: +{stn.predicted_delay_min} MIN</span>
+                          <span className="text-[#B22222] font-sans font-semibold">DELTA: +{station.predicted_delay_min} MIN</span>
                         </div>
                       </div>
                     </div>
@@ -254,8 +255,7 @@ export default function StationTimeline({
             </motion.div>
           );
         })}
-      </motion.div>
-
+      </div>
     </div>
   );
 }

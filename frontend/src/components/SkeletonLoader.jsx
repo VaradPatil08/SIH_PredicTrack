@@ -2,7 +2,7 @@ import React from 'react';
 
 export function TrainRowSkeleton() {
   return (
-    <div className="p-4 border-b border-white/10 bg-black animate-pulse flex items-center justify-between gap-4">
+    <div className="p-4 border-b border-white/10 bg-[#111111] animate-pulse flex items-center justify-between gap-4">
       <div className="flex items-center gap-4 flex-1">
         <div className="h-5 w-16 bg-white/10"></div>
         <div className="h-4 w-48 bg-white/10"></div>
@@ -15,7 +15,7 @@ export function TrainRowSkeleton() {
 
 export function TrainCardSkeleton() {
   return (
-    <div className="p-4 border border-white/10 bg-black animate-pulse space-y-3">
+    <div className="p-4 border border-white/10 bg-[#111111] border-t-2 border-t-[#FFB300] animate-pulse space-y-3">
       <div className="flex items-center justify-between">
         <div className="h-5 w-20 bg-white/10"></div>
         <div className="h-4 w-12 bg-white/10"></div>
@@ -28,7 +28,7 @@ export function TrainCardSkeleton() {
 
 export function TrackingHeaderSkeleton() {
   return (
-    <div className="p-5 border border-white/10 bg-black animate-pulse space-y-4">
+    <div className="p-5 border border-white/10 border-t-2 border-t-[#FFB300] bg-[#111111] animate-pulse space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="space-y-2 flex-1">
           <div className="flex items-center gap-3">
@@ -48,7 +48,7 @@ export function TrackingHeaderSkeleton() {
 
 export function TimelineSkeleton() {
   return (
-    <div className="border border-white/10 bg-black p-4 space-y-3 animate-pulse">
+    <div className="border border-white/10 border-t-2 border-t-[#FFB300] bg-[#111111] p-4 space-y-3 animate-pulse">
       <div className="h-5 w-32 bg-white/10 mb-4"></div>
       {[1, 2, 3, 4, 5, 6].map((idx) => (
         <div key={idx} className="flex items-center justify-between py-2.5 border-b border-white/5">
@@ -68,9 +68,9 @@ export function TimelineSkeleton() {
 
 export function MapSkeleton() {
   return (
-    <div className="w-full h-[450px] lg:h-[620px] border border-white/10 bg-black animate-pulse flex flex-col items-center justify-center p-6 text-white/40 font-mono text-xs space-y-3">
+    <div className="w-full h-[450px] lg:h-[620px] border border-white/10 border-t-2 border-t-[#FFB300] bg-[#111111] animate-pulse flex flex-col items-center justify-center p-6 text-white/40 font-mono text-xs space-y-3">
       <div className="w-8 h-8 border-2 border-[#FFB300] border-t-transparent animate-spin"></div>
-      <p>[ INITIALIZING_GIS_SATELLITE_FEED ]</p>
+      <p className="font-sora uppercase tracking-widest">[ INITIALIZING_GIS_SATELLITE_FEED ]</p>
     </div>
   );
 }

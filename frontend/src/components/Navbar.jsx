@@ -38,22 +38,22 @@ export default function Navbar() {
   };
 
   return (
-    <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-black border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-14">
           
-          {/* Wordmark in Space Grotesk */}
+          {/* Wordmark in Sora */}
           <Link 
             to="/" 
             className="flex items-center gap-2 group focus-visible:ring-1 focus-visible:ring-[#FFB300]"
           >
-            <span className="font-display font-bold text-lg tracking-wider text-white group-hover:text-[#FFB300] transition-colors">
+            <span className="font-sora font-bold text-lg tracking-wider text-white group-hover:text-[#FFB300] transition-colors">
               RAILPULSE <span className="text-[#FFB300]">//</span> ETA
             </span>
           </Link>
 
-          {/* Desktop Navigation Links (NN. LABEL format in IBM Plex Mono) */}
-          <nav className="hidden md:flex items-center space-x-6">
+          {/* Desktop Navigation Links (Sora label-sm format) */}
+          <nav className="hidden md:flex items-center space-x-6 font-sora">
             {navItems.map((item) => {
               const isActive = item.path === '/' 
                 ? location.pathname === '/' 
@@ -63,12 +63,12 @@ export default function Navbar() {
                 <Link
                   key={item.label}
                   to={item.path}
-                  className={`group text-xs font-mono-ui font-medium tracking-wider transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300] py-1 ${
+                  className={`group text-xs uppercase tracking-[0.1em] font-medium transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300] py-1 ${
                     isActive ? 'text-white' : 'text-white/60 hover:text-[#FFB300]'
                   }`}
                 >
-                  <span className="text-[#FFB300]/80 mr-1.5 font-mono">{item.num}.</span>
-                  <span className={`transition-colors ${isActive ? 'text-white underline decoration-[#FFB300] underline-offset-4 decoration-1' : 'group-hover:text-[#FFB300]'}`}>
+                  <span className="text-[#FFB300]/80 mr-1.5 font-sans font-semibold">{item.num}.</span>
+                  <span className={`transition-colors ${isActive ? 'text-white underline decoration-[#FFB300] underline-offset-4 decoration-2' : 'group-hover:text-[#FFB300]'}`}>
                     {item.label}
                   </span>
                 </Link>
@@ -76,11 +76,11 @@ export default function Navbar() {
             })}
           </nav>
 
-          {/* Right Status Indicator: Signal-Light Dot & Telemetry Status */}
-          <div className="hidden lg:flex items-center gap-4 text-xs font-mono-ui">
+          {/* Right Status Indicator: Signal-Light Square & Telemetry Status */}
+          <div className="hidden lg:flex items-center gap-4 text-xs font-sora uppercase tracking-wider">
             <div className="flex items-center gap-2 text-white/50">
               <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-              <span className="text-[11px] tracking-wider">[ LIVE_TELEMETRY ]</span>
+              <span className="text-[11px]">[ LIVE_TELEMETRY ]</span>
             </div>
           </div>
 
@@ -106,7 +106,7 @@ export default function Navbar() {
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             transition={{ duration: 0.25, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 top-14 bg-black/95 backdrop-blur-xl z-40 md:hidden flex flex-col justify-between p-6 border-t border-white/10"
+            className="fixed inset-0 top-14 bg-black z-40 md:hidden flex flex-col justify-between p-6 border-t border-white/10 font-sora"
           >
             <motion.nav
               variants={menuContainerVariants}
@@ -125,9 +125,9 @@ export default function Navbar() {
                     <Link
                       to={item.path}
                       onClick={() => setMobileMenuOpen(false)}
-                      className="block text-base font-mono-ui font-medium tracking-wider text-white hover:text-[#FFB300] py-2 border-b border-white/10"
+                      className="block text-sm uppercase tracking-widest font-medium text-white hover:text-[#FFB300] py-2 border-b border-white/10"
                     >
-                      <span className="text-[#FFB300]/80 mr-2">{item.num}.</span>
+                      <span className="text-[#FFB300]/80 mr-2 font-sans">{item.num}.</span>
                       <span className={isActive ? 'text-[#FFB300]' : 'text-white'}>{item.label}</span>
                     </Link>
                   </motion.div>
@@ -135,7 +135,7 @@ export default function Navbar() {
               })}
             </motion.nav>
 
-            <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs font-mono text-white/50">
+            <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 bg-[#FFB300] inline-block" />
                 <span>STATUS: OPERATIONAL</span>

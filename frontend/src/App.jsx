@@ -20,7 +20,7 @@ export default function App() {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen flex flex-col bg-black text-white font-mono selection:bg-[#FFB300] selection:text-black">
+    <div className="min-h-screen flex flex-col bg-black text-white font-sans selection:bg-[#FFB300] selection:text-black">
       <ScrollToTop />
       
       {/* Top Brand Navigation */}

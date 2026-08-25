@@ -1,24 +1,13 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import { 
-  Train, 
   ArrowLeft, 
   RefreshCw, 
-  Clock, 
-  Compass, 
-  MapPin, 
-  AlertTriangle, 
-  CheckCircle2, 
-  Radio, 
-  ShieldAlert,
-  Zap,
-  Activity,
-  Layers,
   Map as MapIcon,
   List
 } from 'lucide-react';
-import { getTrainETA, getTrainRoute } from '../services/api';
+import { getTrainETA } from '../services/api';
 import TrainMap from '../components/TrainMap';
 import StationTimeline from '../components/StationTimeline';
 import { TrackingHeaderSkeleton, MapSkeleton, TimelineSkeleton } from '../components/SkeletonLoader';
@@ -26,6 +15,11 @@ import { formatDuration } from '../utils/time';
 
 const POLL_INTERVAL_SECONDS = 6;
 
+/**
+ * Signature visual moment: Control-room departure-board telemetry view 
+ * with live value update highlight flashes during periodic polling, 
+ * paired with the station timeline and dark GIS route map.
+ */
 export default function TrackingPage() {
   const { trainNumber } = useParams();
   const [etaData, setEtaData] = useState(null);
@@ -34,6 +28,7 @@ export default function TrackingPage() {
   const [error, setError] = useState(null);
   const [countdown, setCountdown] = useState(POLL_INTERVAL_SECONDS);
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'map', 'timeline' (for mobile)
+  const [flashHighlight, setFlashHighlight] = useState(false);
 
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
@@ -47,6 +42,12 @@ export default function TrackingPage() {
       const data = await getTrainETA(trainNumber);
       setEtaData(data);
       setError(null);
+      
+      // Trigger live value highlight flash (background flashes to amber/15 and fades over 600ms)
+      if (isBackground) {
+        setFlashHighlight(true);
+        setTimeout(() => setFlashHighlight(false), 600);
+      }
     } catch (err) {
       console.error('Error fetching ETA telemetry:', err);
       if (!etaData) {
@@ -85,41 +86,38 @@ export default function TrackingPage() {
   const reachedCount = stations.filter(s => s.status === 'reached').length;
   const currentStationIndex = stations.findIndex(s => s.status !== 'reached');
   const activeStation = currentStationIndex !== -1 ? stations[currentStationIndex] : stations[stations.length - 1];
-  const maxDelay = stations.reduce((max, s) => Math.max(max, s.predicted_delay_min || 0), 0);
-  const isDelayedOverall = (activeStation?.predicted_delay_min || 0) > 5;
+  const activeDelay = activeStation?.predicted_delay_min || 0;
+  const isDelayedOverall = activeDelay > 2;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 font-mono text-white bg-black">
       
-      {/* Top Breadcrumb & Live Polling Status */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+      {/* Top Header & Heartbeat Synchronizer */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
         
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-xs font-mono text-rail-muted hover:text-rail-yellow transition-colors focus-visible:ring-1 focus-visible:ring-rail-yellow rounded p-1"
+          className="inline-flex items-center gap-2 text-xs font-mono-ui text-white/60 hover:text-[#FFB300] transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300]"
         >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to All Trains</span>
+          <ArrowLeft className="w-3.5 h-3.5" />
+          <span>[ 01. RETURN_TO_DIRECTORY ]</span>
         </Link>
 
         {/* Polling Heartbeat Badge & Refresh Button */}
-        <div className="flex items-center gap-3 self-end sm:self-auto">
-          <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-rail-card border border-rail-border text-xs font-mono text-slate-300 shadow-sm">
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span>SYNCING IN: <strong className="text-rail-yellow">{countdown}s</strong></span>
+        <div className="flex items-center gap-3 self-end sm:self-auto text-xs">
+          <div className="flex items-center gap-2 px-2.5 py-1 bg-black border border-white/15 text-white/70">
+            <span className="w-2 h-2 bg-[#FFB300] inline-block" />
+            <span>SYNC_TICK: <strong className="text-[#FFB300]">{countdown}S</strong></span>
           </div>
 
           <button
             onClick={() => fetchTelemetry(false)}
             disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-rail-navy hover:bg-rail-card border border-rail-border text-xs font-mono text-white hover:text-rail-yellow transition-all disabled:opacity-50 shadow-sm"
+            className="flex items-center gap-1.5 px-2.5 py-1 bg-black hover:bg-white/5 border border-white/15 hover:border-white/30 text-white transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#FFB300]"
             title="Force refresh telemetry now"
           >
-            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin text-rail-yellow' : ''}`} />
-            <span className="hidden sm:inline">Refresh</span>
+            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin text-[#FFB300]' : ''}`} />
+            <span>POLL</span>
           </button>
         </div>
 
@@ -129,11 +127,11 @@ export default function TrackingPage() {
       {loading && (
         <div className="space-y-6">
           <TrackingHeaderSkeleton />
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-            <div className="lg:col-span-6 xl:col-span-7">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+            <div>
               <MapSkeleton />
             </div>
-            <div className="lg:col-span-6 xl:col-span-5">
+            <div>
               <TimelineSkeleton />
             </div>
           </div>
@@ -142,15 +140,14 @@ export default function TrackingPage() {
 
       {/* Error View */}
       {!loading && error && (
-        <div className="p-8 rounded-2xl bg-rose-500/10 border border-rose-500/30 text-center space-y-4 max-w-lg mx-auto">
-          <ShieldAlert className="w-12 h-12 text-rose-400 mx-auto" />
-          <h2 className="text-xl font-bold text-white">Telemetry Feed Unavailable</h2>
-          <p className="text-xs text-rose-200">{error}</p>
+        <div className="p-8 border border-[#E05252]/40 bg-black text-center space-y-4 max-w-lg mx-auto">
+          <div className="text-[#E05252] font-bold text-sm tracking-wider">[ TELEMETRY_FEED_UNAVAILABLE ]</div>
+          <p className="text-xs text-white/60">{error}</p>
           <button
             onClick={() => fetchTelemetry(false)}
-            className="px-4 py-2 rounded-xl bg-rose-500 hover:bg-rose-600 text-white font-mono text-xs font-bold transition-colors shadow-lg"
+            className="px-4 py-2 bg-[#E05252] hover:bg-[#E05252]/80 text-white font-mono text-xs font-bold transition-colors"
           >
-            Retry Connection
+            RETRY_LINK
           </button>
         </div>
       )}
@@ -158,111 +155,103 @@ export default function TrackingPage() {
       {/* Live Train Board & Content */}
       {!loading && !error && etaData && (
         <>
-          {/* Indian Railways Style Train Overview Banner */}
+          {/* Header Control-Room Block */}
           <motion.div
-            initial={{ opacity: 0, y: -10 }}
+            initial={{ opacity: 0, y: -6 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            className="rounded-2xl bg-gradient-to-br from-rail-card via-rail-navy to-rail-card border border-rail-border p-5 sm:p-6 shadow-xl relative overflow-hidden"
+            transition={{ duration: 0.3, ease: [0.76, 0, 0.24, 1] }}
+            className={`border border-white/10 p-5 sm:p-6 bg-black transition-colors duration-500 ${
+              flashHighlight ? 'bg-[#FFB300]/10 border-[#FFB300]/40' : 'bg-black border-white/10'
+            }`}
           >
-            {/* Background train badge watermark */}
-            <div className="absolute -right-8 -bottom-8 opacity-5 pointer-events-none">
-              <Train className="w-64 h-64 text-white" />
-            </div>
-
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 relative z-10">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               
-              {/* Left Column: Train Info & Board */}
-              <div className="space-y-2">
-                <div className="flex items-center gap-3 flex-wrap">
-                  {/* Yellow Indian Railways Station/Train Enamel Plaque */}
-                  <span className="px-3.5 py-1 rounded-lg ir-board text-base sm:text-lg font-mono font-extrabold tracking-wider">
+              {/* Left Column: Train Info */}
+              <div className="space-y-2.5">
+                <div className="flex items-center gap-3 flex-wrap text-xs">
+                  <span className="px-2 py-0.5 bg-[#FFB300] text-black font-mono font-bold tracking-wider">
                     {etaData.train_number}
                   </span>
                   
-                  <span className="px-2.5 py-1 rounded-full bg-rail-dark/80 border border-rail-border text-xs font-mono text-emerald-400 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-                    ACTIVE IN SECTION
+                  {/* Bracketed Status Line */}
+                  <span className={`font-mono font-bold tracking-wider ${
+                    isDelayedOverall ? 'text-[#E05252]' : 'text-[#FFB300]'
+                  }`}>
+                    {isDelayedOverall ? `[ ${activeDelay} MIN LATE ]` : '[ ON_TIME ]'}
+                  </span>
+
+                  <span className="text-white/40 font-mono text-[11px]">
+                    [ LIVE_TRACKING ]
                   </span>
 
                   {etaData.is_mock && (
-                    <span className="px-2 py-0.5 rounded bg-amber-500/10 border border-amber-500/30 text-amber-300 font-mono text-[10px]">
-                      SIH SIMULATION MODE
+                    <span className="text-white/30 font-mono text-[10px]">
+                      [ SIMULATION_FEED ]
                     </span>
                   )}
                 </div>
 
-                <h1 className="text-xl sm:text-2xl lg:text-3xl font-extrabold text-white tracking-tight">
+                {/* Train Name in Space Grotesk */}
+                <h1 className="font-display font-bold text-2xl sm:text-3xl text-white tracking-tight leading-tight">
                   {etaData.name}
                 </h1>
 
-                <div className="flex flex-wrap items-center gap-4 text-xs font-mono text-rail-muted pt-1">
+                <div className="flex flex-wrap items-center gap-4 text-[11px] text-white/50 pt-1 font-mono">
                   {etaData.current_position?.speed_kmh !== undefined && (
-                    <span className="flex items-center gap-1 text-white">
-                      <Compass className="w-4 h-4 text-rail-yellow" />
-                      Speed: <strong className="text-rail-yellow">{etaData.current_position.speed_kmh} km/h</strong>
+                    <span>
+                      SPEED: <strong className="text-white">{etaData.current_position.speed_kmh} KM/H</strong>
                     </span>
                   )}
                   {etaData.elapsed_min && (
-                    <span className="flex items-center gap-1 text-slate-300">
-                      <Clock className="w-4 h-4 text-rail-muted" />
-                      Elapsed Time: {formatDuration(etaData.elapsed_min)}
+                    <span>
+                      ELAPSED: <strong className="text-white">{formatDuration(etaData.elapsed_min)}</strong>
                     </span>
                   )}
                   {etaData.current_position?.next_station_name && (
-                    <span className="flex items-center gap-1 text-slate-300">
-                      <MapPin className="w-4 h-4 text-emerald-400" />
-                      Approaching: <strong className="text-white">{etaData.current_position.next_station_name}</strong>
+                    <span>
+                      NEXT_HALT: <strong className="text-[#FFB300]">{etaData.current_position.next_station_name}</strong>
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Right Column: Live Prediction Cards */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0">
+              {/* Right Column: Telemetry Data Grid */}
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2.5 shrink-0 text-xs font-mono">
                 
-                {/* Overall Delay Status */}
-                <div className={`p-3.5 rounded-xl border text-center font-mono ${
-                  isDelayedOverall 
-                    ? 'bg-amber-500/10 border-amber-500/30 text-amber-300' 
-                    : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300'
+                {/* Delay State Card */}
+                <div className={`p-3 border text-center transition-colors duration-500 ${
+                  flashHighlight ? 'bg-[#FFB300]/15' : 'bg-black'
+                } ${
+                  isDelayedOverall ? 'border-[#E05252]/40 text-[#E05252]' : 'border-white/10 text-[#FFB300]'
                 }`}>
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-rail-muted mb-1">
-                    Current Delay
+                  <div className="text-[10px] text-white/40 uppercase mb-1">Status Delta</div>
+                  <div className="text-base font-bold">
+                    {isDelayedOverall ? `+${activeDelay} MIN` : 'ON TIME'}
                   </div>
-                  <div className="text-lg sm:text-xl font-extrabold">
-                    {activeStation?.predicted_delay_min > 2 
-                      ? `+${activeStation.predicted_delay_min} min` 
-                      : 'On Time'}
-                  </div>
-                  <div className="text-[10px] text-rail-muted mt-0.5">
-                    {isDelayedOverall ? 'Compounding' : 'Running Normal'}
+                  <div className="text-[9px] text-white/30 mt-0.5">
+                    {isDelayedOverall ? 'CASCADE_DELAY' : 'NOMINAL'}
                   </div>
                 </div>
 
-                {/* Next Halt Distance */}
-                <div className="p-3.5 rounded-xl bg-rail-dark/80 border border-rail-border text-center font-mono">
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-rail-muted mb-1">
-                    Next Stop Dist
+                {/* Distance to Next Halt */}
+                <div className="p-3 bg-black border border-white/10 text-center">
+                  <div className="text-[10px] text-white/40 uppercase mb-1">Next Halt Dist</div>
+                  <div className="text-base font-bold text-white">
+                    {etaData.current_position?.distance_to_next_km || 18} <span className="text-[10px] text-white/40 font-normal">KM</span>
                   </div>
-                  <div className="text-lg sm:text-xl font-extrabold text-white">
-                    {etaData.current_position?.distance_to_next_km || 18} <span className="text-xs font-normal text-rail-muted">km</span>
-                  </div>
-                  <div className="text-[10px] text-rail-yellow truncate">
+                  <div className="text-[9px] text-[#FFB300] truncate">
                     {etaData.current_position?.next_station_code || 'NDLS'}
                   </div>
                 </div>
 
-                {/* Total Journey Progress */}
-                <div className="p-3.5 rounded-xl bg-rail-dark/80 border border-rail-border text-center font-mono col-span-2 sm:col-span-1">
-                  <div className="text-[10px] uppercase font-bold tracking-wider text-rail-muted mb-1">
-                    Route Progress
-                  </div>
-                  <div className="text-lg sm:text-xl font-extrabold text-emerald-400">
+                {/* Journey Cleared Progress */}
+                <div className="p-3 bg-black border border-white/10 text-center col-span-2 sm:col-span-1">
+                  <div className="text-[10px] text-white/40 uppercase mb-1">Route Progress</div>
+                  <div className="text-base font-bold text-white">
                     {Math.round((reachedCount / Math.max(1, stations.length)) * 100)}%
                   </div>
-                  <div className="text-[10px] text-slate-400">
-                    {reachedCount} / {stations.length} Halts
+                  <div className="text-[9px] text-white/40">
+                    {reachedCount}/{stations.length} STATIONS
                   </div>
                 </div>
 
@@ -272,40 +261,40 @@ export default function TrackingPage() {
           </motion.div>
 
           {/* Mobile View Toggle Buttons */}
-          <div className="flex lg:hidden rounded-xl bg-rail-card border border-rail-border p-1">
+          <div className="flex lg:hidden border border-white/10 p-0.5 bg-black">
             <button
               onClick={() => setActiveTab('all')}
-              className={`flex-1 py-2 rounded-lg text-xs font-mono font-medium transition-colors ${
-                activeTab === 'all' ? 'bg-rail-navy text-white shadow' : 'text-rail-muted'
+              className={`flex-1 py-1.5 text-xs font-mono transition-colors ${
+                activeTab === 'all' ? 'bg-[#FFB300] text-black font-bold' : 'text-white/60 hover:text-white'
               }`}
             >
-              Both Views
+              ALL
             </button>
             <button
               onClick={() => setActiveTab('map')}
-              className={`flex-1 py-2 rounded-lg text-xs font-mono font-medium transition-colors flex items-center justify-center gap-1.5 ${
-                activeTab === 'map' ? 'bg-rail-navy text-white shadow' : 'text-rail-muted'
+              className={`flex-1 py-1.5 text-xs font-mono transition-colors flex items-center justify-center gap-1 ${
+                activeTab === 'map' ? 'bg-[#FFB300] text-black font-bold' : 'text-white/60 hover:text-white'
               }`}
             >
-              <MapIcon className="w-3.5 h-3.5" />
-              <span>Map Only</span>
+              <MapIcon className="w-3 h-3" />
+              <span>MAP</span>
             </button>
             <button
               onClick={() => setActiveTab('timeline')}
-              className={`flex-1 py-2 rounded-lg text-xs font-mono font-medium transition-colors flex items-center justify-center gap-1.5 ${
-                activeTab === 'timeline' ? 'bg-rail-navy text-white shadow' : 'text-rail-muted'
+              className={`flex-1 py-1.5 text-xs font-mono transition-colors flex items-center justify-center gap-1 ${
+                activeTab === 'timeline' ? 'bg-[#FFB300] text-black font-bold' : 'text-white/60 hover:text-white'
               }`}
             >
-              <List className="w-3.5 h-3.5" />
-              <span>Timeline</span>
+              <List className="w-3 h-3" />
+              <span>TIMELINE</span>
             </button>
           </div>
 
-          {/* Telemetry Dashboard: Left Map + Right Station Timeline */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+          {/* Telemetry Dashboard: Left Map (1fr) + Right Station Timeline (380px) on Desktop */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
             
             {/* Left: Leaflet Interactive GIS Route Map */}
-            <div className={`lg:col-span-6 xl:col-span-7 lg:sticky lg:top-20 ${
+            <div className={`lg:sticky lg:top-20 ${
               activeTab === 'timeline' ? 'hidden lg:block' : 'block'
             }`}>
               <TrainMap
@@ -317,7 +306,7 @@ export default function TrackingPage() {
             </div>
 
             {/* Right: Dynamic Vertical Station Timeline */}
-            <div className={`lg:col-span-6 xl:col-span-5 ${
+            <div className={`${
               activeTab === 'map' ? 'hidden lg:block' : 'block'
             }`}>
               <StationTimeline

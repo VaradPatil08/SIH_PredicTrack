@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Train, Compass, MapPin, Navigation, Maximize2, ShieldAlert } from 'lucide-react';
+import { Navigation, Maximize2, Compass } from 'lucide-react';
 
 // Fix standard Leaflet default icon path issues
 delete L.Icon.Default.prototype._getIconUrl;
@@ -11,22 +11,19 @@ L.Icon.Default.mergeOptions({
   shadowUrl: 'https://unpkg.com/leaflet@1.9.4/dist/images/marker-shadow.png',
 });
 
-// Custom Station Div Icon Generator
-function createStationIcon(status, code) {
-  let bg = '#475569';
-  let border = '#64748B';
-  let pulse = '';
-
+// Custom Station Square Div Icon Generator
+function createStationSquareIcon(status, code) {
+  let innerHtml = '';
   if (status === 'reached') {
-    bg = '#10B981';
-    border = '#059669';
+    innerHtml = '<div style="width: 7px; height: 7px; background: #FFFFFF; border: 1px solid #000000;"></div>';
   } else if (status === 'delayed') {
-    bg = '#F59E0B';
-    border = '#D97706';
+    innerHtml = '<div style="width: 7px; height: 7px; background: #000000; border: 1px solid #E05252;"></div>';
+  } else {
+    innerHtml = '<div style="width: 7px; height: 7px; background: #000000; border: 1px solid rgba(255,255,255,0.4);"></div>';
   }
 
   return L.divIcon({
-    className: 'custom-station-icon',
+    className: 'custom-station-square',
     html: `
       <div style="
         display: flex;
@@ -34,107 +31,85 @@ function createStationIcon(status, code) {
         align-items: center;
         transform: translate(-50%, -50%);
       ">
+        ${innerHtml}
         <div style="
-          width: 14px;
-          height: 14px;
-          border-radius: 50%;
-          background: ${bg};
-          border: 2.5px solid #080E1A;
-          box-shadow: 0 0 8px ${border}88;
-        "></div>
-        <div style="
-          margin-top: 3px;
-          padding: 1px 4px;
-          background: #0F172AEE;
-          border: 1px solid #243452;
-          border-radius: 4px;
-          font-family: monospace;
-          font-size: 9px;
-          font-weight: 700;
-          color: #F8FAFC;
+          margin-top: 2px;
+          padding: 1px 3px;
+          background: #000000;
+          border: 1px solid rgba(255,255,255,0.15);
+          font-family: 'IBM Plex Mono', monospace;
+          font-size: 8px;
+          font-weight: 600;
+          color: #FFFFFF;
           letter-spacing: 0.5px;
           white-space: nowrap;
-          box-shadow: 0 2px 5px rgba(0,0,0,0.5);
         ">
           ${code}
         </div>
       </div>
     `,
-    iconSize: [30, 30],
-    iconAnchor: [15, 15],
+    iconSize: [24, 24],
+    iconAnchor: [12, 12],
   });
 }
 
-// Custom Train Marker Div Icon
-function createTrainIcon(speed) {
+// Custom Train Marker Div Icon (Filled Amber Square with Slow 2s Pulse)
+function createTrainSquareIcon() {
   return L.divIcon({
-    className: 'custom-train-icon',
+    className: 'custom-train-square',
     html: `
       <div style="
         position: relative;
-        width: 42px;
-        height: 42px;
+        width: 28px;
+        height: 28px;
         transform: translate(-50%, -50%);
         display: flex;
         align-items: center;
         justify-content: center;
       ">
-        <!-- Radar Pulse Rings -->
-        <div style="
-          position: absolute;
-          width: 100%;
-          height: 100%;
-          border-radius: 50%;
-          background: rgba(245, 158, 11, 0.25);
-          animation: pulse 1.5s ease-out infinite;
-        "></div>
-        <div style="
-          position: absolute;
-          width: 70%;
-          height: 70%;
-          border-radius: 50%;
-          background: rgba(245, 158, 11, 0.4);
-        "></div>
-        <!-- Center Train Badge -->
-        <div style="
-          position: relative;
-          width: 32px;
-          height: 32px;
-          border-radius: 50%;
-          background: #F59E0B;
-          border: 2px solid #080E1A;
+        <style>
+          @keyframes trainPulse {
+            0% { transform: scale(1); opacity: 0.9; }
+            50% { transform: scale(1.15); opacity: 1; box-shadow: 0 0 10px rgba(255, 179, 0, 0.7); }
+            100% { transform: scale(1); opacity: 0.9; }
+          }
+          @media (prefers-reduced-motion: reduce) {
+            .train-square-marker { animation: none !important; }
+          }
+        </style>
+        <div class="train-square-marker" style="
+          width: 13px;
+          height: 13px;
+          background: #FFB300;
+          border: 2px solid #000000;
+          animation: trainPulse 2s ease-in-out infinite;
           display: flex;
           align-items: center;
           justify-content: center;
-          box-shadow: 0 0 15px rgba(245, 158, 11, 0.8);
-          color: #080E1A;
         ">
-          <svg style="width: 16px; height: 16px; fill: #080E1A;" viewBox="0 0 24 24">
-            <path d="M4 15.5C4 17.43 5.57 19 7.5 19L6 20.5v.5h12v-.5L16.5 19c1.93 0 3.5-1.57 3.5-3.5V5c0-3.5-3.58-4-8-4s-8 .5-8 4v10.5zm8-11.5c3.75 0 6 .47 6 2H6c0-1.53 2.25-2 6-2zm-4 12c-.83 0-1.5-.67-1.5-1.5S7.17 13 8 13s1.5.67 1.5 1.5S8.83 16 8 16zm8 0c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zM6 10h12v2H6v-2z"/>
-          </svg>
+          <div style="width: 3px; height: 3px; background: #000000;"></div>
         </div>
       </div>
     `,
-    iconSize: [42, 42],
-    iconAnchor: [21, 21],
+    iconSize: [28, 28],
+    iconAnchor: [14, 14],
   });
 }
 
 // Map Controller for Dynamic Pan & Bounds Fitting
 function MapController({ bounds, currentPosition, followTrain }) {
   const map = useMap();
-  const prevPos = useRef(null);
 
   useEffect(() => {
     if (bounds && bounds.length > 0 && !followTrain) {
-      map.fitBounds(bounds, { padding: [40, 40], maxZoom: 9 });
+      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 9 });
     }
-  }, [bounds, map]);
+  }, [bounds, map, followTrain]);
 
   useEffect(() => {
     if (followTrain && currentPosition?.lat && currentPosition?.lng) {
       map.flyTo([currentPosition.lat, currentPosition.lng], 9, {
-        duration: 1.2,
+        duration: 1.0,
       });
     }
   }, [currentPosition, followTrain, map]);
@@ -149,12 +124,55 @@ export default function TrainMap({
   trainName = '' 
 }) {
   const [followTrain, setFollowTrain] = useState(false);
-  const [mapReady, setMapReady] = useState(false);
+  const [interpolatedPos, setInterpolatedPos] = useState(
+    currentPosition ? [currentPosition.lat, currentPosition.lng] : null
+  );
+
+  const animationRef = useRef(null);
+  const prevPosRef = useRef(currentPosition ? [currentPosition.lat, currentPosition.lng] : null);
+
+  // Smoothly interpolate position between polling ticks
+  useEffect(() => {
+    if (!currentPosition?.lat || !currentPosition?.lng) return;
+    const target = [currentPosition.lat, currentPosition.lng];
+    const start = prevPosRef.current || target;
+
+    if (start[0] === target[0] && start[1] === target[1]) {
+      setInterpolatedPos(target);
+      return;
+    }
+
+    const startTime = performance.now();
+    const duration = 1200; // 1.2s smooth ease
+
+    const animate = (currentTime) => {
+      const elapsed = currentTime - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      const ease = 1 - Math.pow(1 - progress, 2);
+
+      const curLat = start[0] + (target[0] - start[0]) * ease;
+      const curLng = start[1] + (target[1] - start[1]) * ease;
+      setInterpolatedPos([curLat, curLng]);
+
+      if (progress < 1) {
+        animationRef.current = requestAnimationFrame(animate);
+      } else {
+        prevPosRef.current = target;
+      }
+    };
+
+    if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    animationRef.current = requestAnimationFrame(animate);
+
+    return () => {
+      if (animationRef.current) cancelAnimationFrame(animationRef.current);
+    };
+  }, [currentPosition?.lat, currentPosition?.lng]);
 
   // Prepare coordinate arrays
   const routeCoords = stations.map(stn => [stn.lat, stn.lng]);
   
-  // Calculate completed segment vs remaining segment
+  // Calculate completed segment (full opacity) vs remaining segment (0.35 opacity)
   const completedCoords = [];
   const upcomingCoords = [];
   let passedCurrent = false;
@@ -164,7 +182,6 @@ export default function TrainMap({
       completedCoords.push([stn.lat, stn.lng]);
     } else {
       if (!passedCurrent && completedCoords.length > 0) {
-        // bridge the gap from last reached to first upcoming
         completedCoords.push([stn.lat, stn.lng]);
       }
       upcomingCoords.push([stn.lat, stn.lng]);
@@ -172,29 +189,29 @@ export default function TrainMap({
     }
   });
 
-  // Calculate default map center
   const defaultCenter = routeCoords.length > 0 
     ? routeCoords[Math.floor(routeCoords.length / 2)] 
-    : [22.5, 78.5]; // Central India default
+    : [22.5, 78.5];
 
   const bounds = routeCoords.length > 0 ? routeCoords : null;
 
   return (
-    <div className="relative w-full h-[450px] lg:h-[620px] rounded-2xl overflow-hidden border border-rail-border bg-rail-dark shadow-2xl">
+    <div className="relative w-full h-[450px] lg:h-[620px] bg-black border border-white/10 overflow-hidden font-mono">
       
       {/* Top Map HUD Overlay */}
       <div className="absolute top-3 left-3 z-[1000] flex flex-wrap items-center gap-2 pointer-events-auto">
-        <div className="px-3 py-1.5 rounded-lg bg-rail-dark/90 backdrop-blur-md border border-rail-border text-xs font-mono text-white flex items-center gap-2 shadow-lg">
-          <div className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse"></div>
-          <span className="font-bold text-rail-yellow">{trainNumber}</span>
-          <span className="text-rail-muted">|</span>
-          <span className="text-slate-300">Live GPS Stream</span>
+        <div className="px-2.5 py-1.5 bg-black/95 border border-white/10 text-xs text-white flex items-center gap-2">
+          <span className="w-2 h-2 bg-[#FFB300] inline-block" />
+          <span className="font-bold text-[#FFB300]">{trainNumber}</span>
+          <span className="text-white/30">|</span>
+          <span className="text-white/70 text-[11px]">LIVE_GIS_TRACK</span>
         </div>
 
         {currentPosition?.speed_kmh !== undefined && (
-          <div className="px-3 py-1.5 rounded-lg bg-rail-dark/90 backdrop-blur-md border border-rail-border text-xs font-mono text-white flex items-center gap-2 shadow-lg">
-            <Compass className="w-3.5 h-3.5 text-rail-yellow" />
-            <span>{currentPosition.speed_kmh} <span className="text-rail-muted text-[10px]">KM/H</span></span>
+          <div className="px-2.5 py-1.5 bg-black/95 border border-white/10 text-xs text-white flex items-center gap-1.5">
+            <Compass className="w-3.5 h-3.5 text-[#FFB300]" />
+            <span className="font-bold text-white">{currentPosition.speed_kmh}</span>
+            <span className="text-white/40 text-[10px]">KM/H</span>
           </div>
         )}
       </div>
@@ -203,20 +220,20 @@ export default function TrainMap({
       <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2 pointer-events-auto">
         <button
           onClick={() => setFollowTrain(!followTrain)}
-          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border shadow-lg backdrop-blur-md transition-all ${
+          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-mono border transition-all focus-visible:ring-1 focus-visible:ring-[#FFB300] ${
             followTrain 
-              ? 'bg-rail-yellow text-rail-dark border-rail-yellow font-semibold' 
-              : 'bg-rail-dark/90 text-rail-muted hover:text-white border-rail-border hover:bg-rail-card'
+              ? 'bg-[#FFB300] text-black border-[#FFB300] font-bold' 
+              : 'bg-black/95 text-white/70 hover:text-white border-white/10 hover:border-white/30'
           }`}
           title="Follow train live position"
         >
-          <Navigation className={`w-3.5 h-3.5 ${followTrain ? 'fill-rail-dark' : ''}`} />
-          <span>{followTrain ? 'Tracking' : 'Follow'}</span>
+          <Navigation className={`w-3.5 h-3.5 ${followTrain ? 'fill-black' : ''}`} />
+          <span>{followTrain ? 'TRACKING' : 'FOLLOW'}</span>
         </button>
 
         <button
           onClick={() => setFollowTrain(false)}
-          className="p-1.5 rounded-lg bg-rail-dark/90 text-rail-muted hover:text-white border border-rail-border hover:bg-rail-card shadow-lg backdrop-blur-md transition-colors"
+          className="p-1.5 bg-black/95 text-white/70 hover:text-white border border-white/10 hover:border-white/30 transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300]"
           title="Fit whole route to screen"
         >
           <Maximize2 className="w-4 h-4" />
@@ -224,32 +241,31 @@ export default function TrainMap({
       </div>
 
       {/* Bottom Map Legend */}
-      <div className="absolute bottom-3 left-3 z-[1000] px-3 py-2 rounded-xl bg-rail-dark/90 backdrop-blur-md border border-rail-border text-[11px] font-mono text-slate-300 flex items-center gap-3 shadow-lg pointer-events-auto hidden sm:flex">
+      <div className="absolute bottom-3 left-3 z-[1000] px-3 py-1.5 bg-black/95 border border-white/10 text-[10px] text-white/60 flex items-center gap-4 pointer-events-auto hidden sm:flex">
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
-          <span>Passed</span>
+          <span className="w-2 h-2 bg-white inline-block"></span>
+          <span>REACHED</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-rail-yellow"></span>
-          <span>Current / In Transit</span>
+          <span className="w-2 h-2 bg-[#FFB300] inline-block"></span>
+          <span>LIVE_RAKE</span>
         </div>
         <div className="flex items-center gap-1.5">
-          <span className="w-2.5 h-2.5 rounded-full bg-slate-500"></span>
-          <span>Upcoming</span>
+          <span className="w-2 h-2 border border-white/40 inline-block"></span>
+          <span>UPCOMING</span>
         </div>
       </div>
 
-      {/* Leaflet Map Canvas */}
+      {/* Leaflet Map Canvas with CartoDB Dark Matter Tiles */}
       <MapContainer
         center={defaultCenter}
         zoom={6}
         scrollWheelZoom={true}
-        className="w-full h-full dark-map"
-        whenReady={() => setMapReady(true)}
+        className="w-full h-full"
       >
         <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> & CartoDB'
-          url="https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png"
+          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap'
+          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
 
         <MapController 
@@ -258,107 +274,86 @@ export default function TrainMap({
           followTrain={followTrain} 
         />
 
-        {/* Route Polylines */}
-        {/* Full Track Base Line */}
-        {routeCoords.length > 1 && (
-          <Polyline
-            positions={routeCoords}
-            pathOptions={{
-              color: '#334155',
-              weight: 6,
-              opacity: 0.6,
-              lineCap: 'round',
-              lineJoin: 'round',
-            }}
-          />
-        )}
-
-        {/* Completed Route Segment (Emerald) */}
+        {/* Completed Route Segment (Full Opacity Amber) */}
         {completedCoords.length > 1 && (
           <Polyline
             positions={completedCoords}
             pathOptions={{
-              color: '#10B981',
-              weight: 4,
-              opacity: 0.9,
-              lineCap: 'round',
+              color: '#FFB300',
+              weight: 2,
+              opacity: 1.0,
+              lineCap: 'square',
+              lineJoin: 'miter',
             }}
           />
         )}
 
-        {/* Upcoming Route Segment (Dashed Amber) */}
+        {/* Upcoming Route Segment (Reduced Opacity Amber) */}
         {upcomingCoords.length > 1 && (
           <Polyline
             positions={upcomingCoords}
             pathOptions={{
-              color: '#F59E0B',
-              weight: 3,
-              opacity: 0.8,
-              dashArray: '6, 8',
-              lineCap: 'round',
+              color: '#FFB300',
+              weight: 2,
+              opacity: 0.35,
+              lineCap: 'square',
+              lineJoin: 'miter',
             }}
           />
         )}
 
-        {/* Station Markers */}
+        {/* Station Markers (Square Outline Language) */}
         {stations.map((stn, index) => (
           <Marker
             key={`${stn.code}-${index}`}
             position={[stn.lat, stn.lng]}
-            icon={createStationIcon(stn.status, stn.code)}
+            icon={createStationSquareIcon(stn.status, stn.code)}
           >
             <Popup>
-              <div className="p-1 space-y-1 text-xs">
-                <div className="flex items-center justify-between gap-2 border-b border-rail-border pb-1">
-                  <strong className="text-white font-semibold">{stn.name}</strong>
-                  <span className="px-1.5 py-0.5 rounded bg-rail-navy border border-rail-border font-mono text-[10px] text-rail-yellow font-bold">
-                    {stn.code}
-                  </span>
+              <div className="font-mono text-xs space-y-1.5">
+                <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-1">
+                  <span className="font-bold text-white text-[11px]">{stn.name}</span>
+                  <span className="text-[#FFB300] font-bold text-[10px]">[{stn.code}]</span>
                 </div>
-                <div className="grid grid-cols-2 gap-2 text-slate-300 pt-1 text-[11px]">
-                  <div>Distance: <strong className="text-white font-mono">{stn.distance_km} km</strong></div>
-                  <div>Status: <strong className={`capitalize ${stn.status === 'delayed' ? 'text-amber-400' : stn.status === 'reached' ? 'text-emerald-400' : 'text-slate-300'}`}>{stn.status.replace('_', ' ')}</strong></div>
-                  <div>Sched Offset: <strong className="text-white font-mono">+{stn.scheduled_offset_min}m</strong></div>
-                  <div>ML Delay: <strong className="text-white font-mono">+{stn.predicted_delay_min || 0}m</strong></div>
+                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-white/60 pt-0.5">
+                  <div>DISTANCE: <span className="text-white">{stn.distance_km} KM</span></div>
+                  <div>STATUS: <span className={stn.status === 'delayed' ? 'text-[#E05252]' : stn.status === 'reached' ? 'text-white' : 'text-[#FFB300]'}>{stn.status.toUpperCase()}</span></div>
+                  <div>SCHED: <span className="text-white">+{stn.scheduled_offset_min}M</span></div>
+                  <div>DELAY: <span className="text-white">+{stn.predicted_delay_min || 0}M</span></div>
                 </div>
               </div>
             </Popup>
           </Marker>
         ))}
 
-        {/* Current Train Location Marker */}
-        {currentPosition?.lat && currentPosition?.lng && (
+        {/* Current Train Location Marker (Pulsing Amber Square with Interpolation) */}
+        {interpolatedPos && (
           <Marker
-            position={[currentPosition.lat, currentPosition.lng]}
-            icon={createTrainIcon(currentPosition.speed_kmh)}
+            position={interpolatedPos}
+            icon={createTrainSquareIcon()}
             zIndexOffset={1000}
           >
             <Popup autoPan={false}>
-              <div className="p-2 space-y-1.5 text-xs min-w-[200px]">
-                <div className="flex items-center justify-between border-b border-rail-border pb-1.5">
-                  <div className="flex items-center gap-1.5 text-rail-yellow font-bold">
-                    <Train className="w-3.5 h-3.5" />
-                    <span>{trainNumber}</span>
-                  </div>
-                  <span className="text-[10px] font-mono text-emerald-400 font-semibold animate-pulse">
-                    ● IN MOTION
-                  </span>
+              <div className="font-mono text-xs space-y-1.5 min-w-[190px]">
+                <div className="flex items-center justify-between border-b border-white/10 pb-1">
+                  <span className="text-[#FFB300] font-bold text-[11px]">[{trainNumber}]</span>
+                  <span className="text-[10px] text-[#FFB300] font-bold">[ IN_TRANSIT ]</span>
                 </div>
-                <p className="text-slate-300 text-[11px] font-medium leading-tight">{trainName}</p>
-                <div className="pt-1 space-y-1 font-mono text-[11px] text-slate-400">
+                <p className="text-white text-[11px] font-medium leading-snug">{trainName}</p>
+                <div className="pt-1 space-y-1 text-[10px] text-white/60">
                   <div className="flex justify-between">
-                    <span>Speed:</span>
-                    <strong className="text-white">{currentPosition.speed_kmh || 92} km/h</strong>
+                    <span>SPEED:</span>
+                    <span className="text-white font-bold">{currentPosition?.speed_kmh || 92} KM/H</span>
                   </div>
-                  {currentPosition.next_station_name && (
+                  {currentPosition?.next_station_name && (
                     <div className="flex justify-between">
-                      <span>Next Halt:</span>
-                      <strong className="text-rail-yellow">{currentPosition.next_station_name}</strong>
+                      <span>NEXT_HALT:</span>
+                      <span className="text-[#FFB300]">{currentPosition.next_station_name}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-[10px] text-slate-500 pt-1 border-t border-rail-border/60">
-                    <span>Telemetry Sync:</span>
-                    <span>{currentPosition.last_updated || 'Live'}</span>
+                  <div className="flex justify-between text-white/40 pt-1 border-t border-white/10">
+                    <span>SYNC_FEED:</span>
+                    <span>{currentPosition?.last_updated || 'LIVE'}</span>
                   </div>
                 </div>
               </div>

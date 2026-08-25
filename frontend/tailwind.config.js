@@ -8,77 +8,56 @@ export default {
   theme: {
     extend: {
       colors: {
-        border: "hsl(var(--border))",
-        input: "hsl(var(--input))",
-        ring: "hsl(var(--ring))",
-        background: "hsl(var(--background))",
-        foreground: "hsl(var(--foreground))",
-        primary: {
-          DEFAULT: "hsl(var(--primary))",
-          foreground: "hsl(var(--primary-foreground))",
-        },
-        secondary: {
-          DEFAULT: "hsl(var(--secondary))",
-          foreground: "hsl(var(--secondary-foreground))",
-        },
-        destructive: {
-          DEFAULT: "hsl(var(--destructive))",
-          foreground: "hsl(var(--destructive-foreground))",
-        },
-        muted: {
-          DEFAULT: "hsl(var(--muted))",
-          foreground: "hsl(var(--muted-foreground))",
-        },
+        background: '#000000',
+        foreground: '#FFFFFF',
         accent: {
-          DEFAULT: "hsl(var(--accent))",
-          foreground: "hsl(var(--accent-foreground))",
+          DEFAULT: '#FFB300',
+          hover: '#FFC233',
         },
-        popover: {
-          DEFAULT: "hsl(var(--popover))",
-          foreground: "hsl(var(--popover-foreground))",
-        },
-        card: {
-          DEFAULT: "hsl(var(--card))",
-          foreground: "hsl(var(--card-foreground))",
-        },
-        rail: {
-          dark: '#080E1A',
-          card: '#0F172A',
-          cardHover: '#1E293B',
-          navy: '#13203C',
-          border: '#243452',
-          yellow: '#F59E0B',
-          yellowBright: '#FBBF24',
-          yellowDark: '#D97706',
+        muted: 'rgba(255, 255, 255, 0.5)',
+        border: 'rgba(255, 255, 255, 0.8)',
+        hairline: 'rgba(255, 255, 255, 0.1)',
+        gridline: 'rgba(255, 255, 255, 0.04)',
+        signal: {
+          amber: '#FFB300',
+          amberHover: '#FFC233',
+          red: '#E05252',
           green: '#10B981',
-          greenDark: '#059669',
-          amber: '#F59E0B',
-          red: '#EF4444',
-          redDark: '#DC2626',
-          muted: '#94A3B8',
-          text: '#F8FAFC',
+        },
+        // Backward-compatible semantic mappings to prevent breakage
+        rail: {
+          dark: '#000000',
+          black: '#000000',
+          card: '#000000',
+          cardHover: 'rgba(255, 255, 255, 0.04)',
+          navy: '#080808',
+          border: 'rgba(255, 255, 255, 0.1)',
+          yellow: '#FFB300',
+          yellowBright: '#FFC233',
+          yellowDark: '#E09B00',
+          amber: '#FFB300',
+          red: '#E05252',
+          green: '#10B981',
+          muted: 'rgba(255, 255, 255, 0.5)',
+          text: '#FFFFFF',
         }
       },
       borderRadius: {
-        lg: "var(--radius)",
-        md: "calc(var(--radius) - 2px)",
-        sm: "calc(var(--radius) - 4px)",
+        none: '0px',
+        sm: '0px',
+        md: '0px',
+        lg: '0px',
+        xl: '0px',
+        '2xl': '0px',
+        '3xl': '0px',
+        full: '0px',
       },
       fontFamily: {
-        sans: ['Inter', 'system-ui', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'Roboto', 'sans-serif'],
-        mono: ['"JetBrains Mono"', 'ui-monospace', 'SFMono-Regular', 'Menlo', 'Monaco', 'Consolas', 'monospace'],
+        display: ['"Space Grotesk"', 'sans-serif'],
+        'mono-ui': ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        mono: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
+        sans: ['"IBM Plex Mono"', 'ui-monospace', 'monospace'],
       },
-      animation: {
-        'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
-        'ping-slow': 'ping 2s cubic-bezier(0, 0, 0.2, 1) infinite',
-        'radar': 'radar 2s linear infinite',
-      },
-      keyframes: {
-        radar: {
-          '0%': { transform: 'scale(1)', opacity: '0.8' },
-          '100%': { transform: 'scale(2.4)', opacity: '0' },
-        }
-      }
     },
   },
   plugins: [require("tailwindcss-animate")],

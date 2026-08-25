@@ -1,152 +1,146 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Train, Radio, Cpu, Menu, X, Zap, Compass } from 'lucide-react';
+import { Menu, X } from 'lucide-react';
 
 export default function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
-  const navLinks = [
-    { name: 'Train Search', path: '/', icon: Train },
-    { name: 'Live Tracking', path: '/train/12951', icon: Radio },
-    { name: 'ML Methodology', path: '/about', icon: Cpu },
+  const navItems = [
+    { num: '01', label: 'TRACK_TRAIN', path: '/' },
+    { num: '02', label: 'LIVE_MAP', path: '/train/12951' },
+    { num: '03', label: 'ABOUT', path: '/about' },
   ];
 
+  const menuContainerVariants = {
+    closed: { opacity: 0 },
+    open: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.08,
+        delayChildren: 0.05,
+        ease: [0.76, 0, 0.24, 1],
+      },
+    },
+  };
+
+  const menuItemVariants = {
+    closed: { opacity: 0, y: 16 },
+    open: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.35,
+        ease: [0.76, 0, 0.24, 1],
+      },
+    },
+  };
+
   return (
-    <header className="sticky top-0 z-50 bg-rail-dark/90 backdrop-blur-md border-b border-rail-border/80">
+    <header className="sticky top-0 z-50 bg-black/95 backdrop-blur-md border-b border-white/10">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+        <div className="flex items-center justify-between h-14">
           
-          {/* Brand Logo with Railway Signal Identity */}
+          {/* Wordmark in Space Grotesk */}
           <Link 
             to="/" 
-            className="flex items-center gap-3 group focus-visible:ring-2 focus-visible:ring-rail-yellow rounded-lg p-1"
+            className="flex items-center gap-2 group focus-visible:ring-1 focus-visible:ring-[#FFB300]"
           >
-            <div className="relative flex items-center justify-center w-10 h-10 rounded-xl bg-gradient-to-br from-rail-yellowDark to-rail-yellow text-rail-dark shadow-md shadow-amber-500/20 group-hover:scale-105 transition-transform duration-200">
-              <Train className="w-5 h-5 text-rail-dark stroke-[2.5]" />
-              {/* Radar pulse dot */}
-              <span className="absolute -top-1 -right-1 flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-emerald-500 border border-rail-dark"></span>
-              </span>
-            </div>
-
-            <div className="flex flex-col">
-              <div className="flex items-center gap-1.5">
-                <span className="font-extrabold text-xl tracking-tight text-white group-hover:text-rail-yellow transition-colors">
-                  Rail<span className="text-rail-yellow">Pulse</span>
-                </span>
-                <span className="text-[10px] uppercase font-bold tracking-widest px-1.5 py-0.5 rounded bg-rail-navy border border-rail-border text-rail-yellow">
-                  SIH
-                </span>
-              </div>
-              <span className="text-[11px] font-mono text-rail-muted tracking-wide flex items-center gap-1">
-                Dynamic ML ETA Network
-              </span>
-            </div>
+            <span className="font-display font-bold text-lg tracking-wider text-white group-hover:text-[#FFB300] transition-colors">
+              RAILPULSE <span className="text-[#FFB300]">//</span> ETA
+            </span>
           </Link>
 
-          {/* Desktop Navigation Links */}
-          <nav className="hidden md:flex items-center gap-1">
-            {navLinks.map((link) => {
-              const Icon = link.icon;
-              const isActive = location.pathname === link.path || 
-                (link.path.startsWith('/train') && location.pathname.startsWith('/train'));
+          {/* Desktop Navigation Links (NN. LABEL format in IBM Plex Mono) */}
+          <nav className="hidden md:flex items-center space-x-6">
+            {navItems.map((item) => {
+              const isActive = item.path === '/' 
+                ? location.pathname === '/' 
+                : location.pathname.startsWith(item.path);
 
               return (
                 <Link
-                  key={link.path}
-                  to={link.path}
-                  className={`relative flex items-center gap-2 px-3.5 py-2 rounded-lg text-sm font-medium transition-colors ${
-                    isActive 
-                      ? 'text-white' 
-                      : 'text-rail-muted hover:text-white hover:bg-rail-card/50'
+                  key={item.label}
+                  to={item.path}
+                  className={`group text-xs font-mono-ui font-medium tracking-wider transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300] py-1 ${
+                    isActive ? 'text-white' : 'text-white/60 hover:text-[#FFB300]'
                   }`}
                 >
-                  {isActive && (
-                    <motion.div
-                      layoutId="navbar-active-pill"
-                      className="absolute inset-0 bg-rail-navy border border-rail-border rounded-lg -z-10 shadow-sm"
-                      transition={{ type: 'spring', stiffness: 380, damping: 30 }}
-                    />
-                  )}
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-rail-yellow' : 'text-rail-muted'}`} />
-                  <span>{link.name}</span>
+                  <span className="text-[#FFB300]/80 mr-1.5 font-mono">{item.num}.</span>
+                  <span className={`transition-colors ${isActive ? 'text-white underline decoration-[#FFB300] underline-offset-4 decoration-1' : 'group-hover:text-[#FFB300]'}`}>
+                    {item.label}
+                  </span>
                 </Link>
               );
             })}
           </nav>
 
-          {/* Right Status Badge */}
-          <div className="hidden lg:flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-rail-card border border-rail-border text-xs font-mono text-rail-muted">
-              <span className="relative flex h-2 w-2">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-              </span>
-              <span className="text-slate-300">TELEMETRY: <strong className="text-emerald-400">ONLINE</strong></span>
+          {/* Right Status Indicator: Signal-Light Dot & Telemetry Status */}
+          <div className="hidden lg:flex items-center gap-4 text-xs font-mono-ui">
+            <div className="flex items-center gap-2 text-white/50">
+              <span className="w-2 h-2 bg-[#FFB300] inline-block" />
+              <span className="text-[11px] tracking-wider">[ LIVE_TELEMETRY ]</span>
             </div>
-            
-            <Link
-              to="/train/12951"
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-rail-yellow hover:bg-rail-yellowBright text-rail-dark font-semibold text-xs tracking-wide shadow-sm hover:shadow transition-all"
-            >
-              <Zap className="w-3.5 h-3.5 fill-rail-dark" />
-              <span>Live Express Track</span>
-            </Link>
           </div>
 
           {/* Mobile Menu Button */}
           <div className="flex md:hidden items-center">
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-lg text-rail-muted hover:text-white hover:bg-rail-card border border-rail-border"
-              aria-label="Toggle menu"
+              className="p-1.5 text-white/70 hover:text-white border border-white/10 hover:border-white/30 focus-visible:ring-1 focus-visible:ring-[#FFB300]"
+              aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
+
         </div>
       </div>
 
-      {/* Mobile Drawer */}
+      {/* Fullscreen Mobile Drawer Overlay */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            transition={{ duration: 0.2 }}
-            className="md:hidden border-b border-rail-border bg-rail-dark/95 backdrop-blur-xl px-4 pt-2 pb-4 space-y-1.5"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            transition={{ duration: 0.25, ease: [0.76, 0, 0.24, 1] }}
+            className="fixed inset-0 top-14 bg-black/95 backdrop-blur-xl z-40 md:hidden flex flex-col justify-between p-6 border-t border-white/10"
           >
-            {navLinks.map((link) => {
-              const Icon = link.icon;
-              const isActive = location.pathname === link.path || 
-                (link.path.startsWith('/train') && location.pathname.startsWith('/train'));
+            <motion.nav
+              variants={menuContainerVariants}
+              initial="closed"
+              animate="open"
+              exit="closed"
+              className="space-y-6 pt-4"
+            >
+              {navItems.map((item) => {
+                const isActive = item.path === '/' 
+                  ? location.pathname === '/' 
+                  : location.pathname.startsWith(item.path);
 
-              return (
-                <Link
-                  key={link.path}
-                  to={link.path}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={`flex items-center gap-3 px-3.5 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                    isActive
-                      ? 'bg-rail-navy text-white border border-rail-border'
-                      : 'text-rail-muted hover:text-white hover:bg-rail-card'
-                  }`}
-                >
-                  <Icon className={`w-4 h-4 ${isActive ? 'text-rail-yellow' : 'text-rail-muted'}`} />
-                  <span>{link.name}</span>
-                </Link>
-              );
-            })}
+                return (
+                  <motion.div key={item.label} variants={menuItemVariants}>
+                    <Link
+                      to={item.path}
+                      onClick={() => setMobileMenuOpen(false)}
+                      className="block text-base font-mono-ui font-medium tracking-wider text-white hover:text-[#FFB300] py-2 border-b border-white/10"
+                    >
+                      <span className="text-[#FFB300]/80 mr-2">{item.num}.</span>
+                      <span className={isActive ? 'text-[#FFB300]' : 'text-white'}>{item.label}</span>
+                    </Link>
+                  </motion.div>
+                );
+              })}
+            </motion.nav>
 
-            <div className="pt-2 border-t border-rail-border flex items-center justify-between">
-              <div className="flex items-center gap-2 text-xs font-mono text-slate-300">
-                <span className="h-2 w-2 rounded-full bg-emerald-500 inline-block"></span>
-                <span>TELEMETRY: ONLINE</span>
+            <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs font-mono text-white/50">
+              <div className="flex items-center gap-2">
+                <span className="w-2 h-2 bg-[#FFB300] inline-block" />
+                <span>STATUS: OPERATIONAL</span>
               </div>
+              <span>SIH 2026</span>
             </div>
           </motion.div>
         )}

@@ -20,14 +20,14 @@ export default function App() {
   const location = useLocation();
 
   return (
-    <div className="min-h-screen flex flex-col bg-rail-dark text-rail-text font-sans selection:bg-rail-yellow selection:text-rail-dark">
+    <div className="min-h-screen flex flex-col bg-black text-white font-mono selection:bg-[#FFB300] selection:text-black">
       <ScrollToTop />
       
       {/* Top Brand Navigation */}
       <Navbar />
 
       {/* Main Routed Content with Smooth Framer Motion Page Transitions */}
-      <main className="flex-1">
+      <main className="flex-1 bg-black">
         <AnimatePresence mode="wait">
           <Routes location={location} key={location.pathname}>
             
@@ -35,10 +35,10 @@ export default function App() {
               path="/" 
               element={
                 <motion.div
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
                 >
                   <LandingPage />
                 </motion.div>
@@ -49,10 +49,10 @@ export default function App() {
               path="/train/:trainNumber" 
               element={
                 <motion.div
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
                 >
                   <TrackingPage />
                 </motion.div>
@@ -63,10 +63,10 @@ export default function App() {
               path="/about" 
               element={
                 <motion.div
-                  initial={{ opacity: 0, y: 8 }}
+                  initial={{ opacity: 0, y: 6 }}
                   animate={{ opacity: 1, y: 0 }}
-                  exit={{ opacity: 0, y: -8 }}
-                  transition={{ duration: 0.25, ease: 'easeOut' }}
+                  exit={{ opacity: 0, y: -6 }}
+                  transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
                 >
                   <AboutPage />
                 </motion.div>

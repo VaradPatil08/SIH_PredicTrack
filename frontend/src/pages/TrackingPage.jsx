@@ -1,23 +1,35 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, 
   RefreshCw, 
   Map as MapIcon,
-  List
+  List,
+  Star,
+  AlertTriangle,
+  Send,
+  MessageSquare,
+  ChevronDown,
+  ChevronUp,
+  CheckCircle2,
+  Phone
 } from 'lucide-react';
-import { getTrainETA } from '../services/api';
+import { getTrainETA, getDisruptionReportSummary, submitDisruptionReport } from '../services/api';
 import TrainMap from '../components/TrainMap';
 import StationTimeline from '../components/StationTimeline';
 import { TrackingHeaderSkeleton, MapSkeleton, TimelineSkeleton } from '../components/SkeletonLoader';
 import { formatDuration } from '../utils/time';
+import { useAuth } from '../context/AuthContext';
 
 const POLL_INTERVAL_SECONDS = 6;
 
 export default function TrackingPage() {
   const { trainNumber } = useParams();
+  const { isFavorite, toggleFavorite, user, isAuthenticated, openLoginModal } = useAuth();
+
   const [etaData, setEtaData] = useState(null);
+  const [reportSummary, setReportSummary] = useState({ report_count: 0, flagged: false, recent_reports: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -25,17 +37,40 @@ export default function TrackingPage() {
   const [activeTab, setActiveTab] = useState('all'); // 'all', 'map', 'timeline' (for mobile)
   const [flashHighlight, setFlashHighlight] = useState(false);
 
+  // Disruption report form state
+  const [showReportForm, setShowReportForm] = useState(false);
+  const [reportStation, setReportStation] = useState('');
+  const [reportDescription, setReportDescription] = useState('');
+  const [reportPhone, setReportPhone] = useState(user?.phone_number || '');
+  const [submittingReport, setSubmittingReport] = useState(false);
+  const [reportSuccess, setReportSuccess] = useState(null);
+  const [reportError, setReportError] = useState(null);
+
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
 
-  // Core fetch function
+  // Keep phone in sync with logged-in user
+  useEffect(() => {
+    if (user?.phone_number) {
+      setReportPhone(user.phone_number);
+    }
+  }, [user]);
+
+  // Core fetch function (polls ETA and Disruption Summary in parallel)
   const fetchTelemetry = async (isBackground = false) => {
     if (!isBackground) {
       setRefreshing(true);
     }
     try {
-      const data = await getTrainETA(trainNumber);
-      setEtaData(data);
+      const [etaRes, summaryRes] = await Promise.all([
+        getTrainETA(trainNumber),
+        getDisruptionReportSummary(trainNumber).catch(() => ({ report_count: 0, flagged: false, recent_reports: [] }))
+      ]);
+
+      setEtaData(etaRes);
+      if (summaryRes) {
+        setReportSummary(summaryRes);
+      }
       setError(null);
       
       // Trigger live value highlight flash
@@ -76,6 +111,46 @@ export default function TrackingPage() {
     };
   }, [trainNumber]);
 
+  // Handle disruption report submission
+  const handleSubmitReport = async (e) => {
+    e.preventDefault();
+    setReportError(null);
+    setReportSuccess(null);
+
+    const desc = reportDescription.trim();
+    if (desc.length < 3) {
+      setReportError('Description must be at least 3 characters long.');
+      return;
+    }
+
+    try {
+      setSubmittingReport(true);
+      await submitDisruptionReport(trainNumber, {
+        station_code: reportStation || null,
+        description: desc,
+        phone_number: reportPhone.trim() || null
+      });
+
+      setReportSuccess('DISRUPTION_REPORT_SUBMITTED // LOGGED_TO_COMMUNITY_FEED');
+      setReportDescription('');
+      setReportStation('');
+      
+      // Immediately refresh report summary
+      const updatedSummary = await getDisruptionReportSummary(trainNumber);
+      if (updatedSummary) {
+        setReportSummary(updatedSummary);
+      }
+
+      setTimeout(() => {
+        setReportSuccess(null);
+      }, 3500);
+    } catch (err) {
+      setReportError(err.message || 'Failed to submit report. Please try again.');
+    } finally {
+      setSubmittingReport(false);
+    }
+  };
+
   // Overall journey metrics
   const stations = etaData?.stations || [];
   const reachedCount = stations.filter(s => s.status === 'reached').length;
@@ -101,11 +176,27 @@ export default function TrackingPage() {
           <span>[ 01. RETURN_TO_DIRECTORY ]</span>
         </Link>
 
-        {/* Polling Heartbeat Badge & Refresh Button */}
+        {/* Polling Heartbeat Badge, Save Favorite & Refresh Button */}
         <div className="flex items-center gap-3 self-end sm:self-auto text-xs font-sora">
+          
+          {/* Favorite Toggle Button */}
+          <button
+            onClick={() => toggleFavorite(trainNumber)}
+            className={`flex items-center gap-1.5 px-3 py-1 border text-xs font-sora uppercase tracking-wider transition-colors ${
+              isFavorite(trainNumber)
+                ? 'bg-[#FFB300] text-black border-[#FFB300] font-bold'
+                : 'bg-[#111111] text-white hover:bg-[#FFB300] hover:text-black border-white/20'
+            }`}
+            title={isFavorite(trainNumber) ? 'Remove from Saved' : 'Save this train to My Trains'}
+          >
+            <Star className={`w-3.5 h-3.5 ${isFavorite(trainNumber) ? 'fill-black' : ''}`} />
+            <span>{isFavorite(trainNumber) ? 'SAVED_FAVORITE' : 'SAVE_TRAIN'}</span>
+          </button>
+
+          {/* Sync Timer */}
           <div className="flex items-center gap-2 px-2.5 py-1 bg-[#111111] border border-white/10 text-white/70">
             <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-            <span>SYNC_TICK: <strong className="text-[#FFB300] font-sans">{countdown}S</strong></span>
+            <span>SYNC: <strong className="text-[#FFB300] font-sans">{countdown}S</strong></span>
           </div>
 
           <button
@@ -164,7 +255,7 @@ export default function TrackingPage() {
           >
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               
-              {/* Left Column: Train Info */}
+              {/* Left Column: Train Info & Disruption Flag Badge */}
               <div className="space-y-2.5">
                 <div className="flex items-center gap-3 flex-wrap text-xs">
                   <span className="px-2.5 py-0.5 bg-[#FFB300] text-black font-sora font-bold tracking-wider">
@@ -177,6 +268,14 @@ export default function TrackingPage() {
                   }`}>
                     {isDelayedOverall ? `[ ${activeDelay} MIN LATE ]` : '[ ON_TIME ]'}
                   </span>
+
+                  {/* Crowdsourced Disruption Flag Badge (Separate signal, unverified) */}
+                  {reportSummary?.flagged && (
+                    <span className="px-2.5 py-0.5 bg-[#B22222]/20 border border-[#B22222] text-[#B22222] font-sora font-bold text-xs tracking-wider flex items-center gap-1.5">
+                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
+                      <span>[ {reportSummary.report_count} RIDERS REPORTED DISRUPTION ]</span>
+                    </span>
+                  )}
 
                   <span className="text-white/40 font-sora text-[11px] uppercase tracking-wider">
                     [ LIVE_TRACKING ]
@@ -208,6 +307,11 @@ export default function TrackingPage() {
                   {etaData.current_position?.next_station_name && (
                     <span>
                       NEXT_HALT: <strong className="text-[#FFB300] font-medium">{etaData.current_position.next_station_name}</strong>
+                    </span>
+                  )}
+                  {reportSummary?.report_count > 0 && !reportSummary.flagged && (
+                    <span className="text-white/60 font-sora text-[11px]">
+                      CROWD_REPORTS: <strong className="text-[#FFB300]">{reportSummary.report_count}</strong>
                     </span>
                   )}
                 </div>
@@ -255,6 +359,168 @@ export default function TrackingPage() {
 
             </div>
           </motion.div>
+
+          {/* Crowdsourced Disruption Reports & Submissions Bar */}
+          <div className="p-4 bg-[#111111] border border-white/15 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2">
+                <MessageSquare className="w-4 h-4 text-[#FFB300]" />
+                <span className="font-sora font-bold text-xs uppercase tracking-wider text-white">
+                  [ CROWDSOURCED_DISRUPTION_INTEL ]
+                </span>
+                <span className="text-[11px] text-white/40 font-sans">
+                  ({reportSummary.report_count} reports in past {reportSummary.window_hours || 3}h)
+                </span>
+              </div>
+
+              <button
+                onClick={() => setShowReportForm(!showReportForm)}
+                className="self-start sm:self-auto px-3 py-1 bg-black border border-white/20 hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white font-sora font-semibold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5"
+              >
+                <span>{showReportForm ? 'COLLAPSE_REPORT_FORM' : '+ REPORT_DISRUPTION'}</span>
+                {showReportForm ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+              </button>
+            </div>
+
+            {/* Expandable Report Form */}
+            <AnimatePresence>
+              {showReportForm && (
+                <motion.div
+                  initial={{ opacity: 0, height: 0 }}
+                  animate={{ opacity: 1, height: 'auto' }}
+                  exit={{ opacity: 0, height: 0 }}
+                  transition={{ duration: 0.25, ease: [0.76, 0, 0.24, 1] }}
+                  className="overflow-hidden pt-2"
+                >
+                  <form onSubmit={handleSubmitReport} className="p-4 bg-black border border-white/10 space-y-4">
+                    
+                    <div className="text-[11px] font-sora font-bold text-[#FFB300] uppercase tracking-wider">
+                      // SUBMIT_FIELD_OBSERVATION (COMMUNITY SIGNAL)
+                    </div>
+
+                    {reportSuccess && (
+                      <div className="p-3 bg-[#FFB300]/10 border border-[#FFB300] text-xs text-[#FFB300] font-sora flex items-center gap-2">
+                        <CheckCircle2 className="w-4 h-4 shrink-0" />
+                        <span>{reportSuccess}</span>
+                      </div>
+                    )}
+
+                    {reportError && (
+                      <div className="p-3 bg-[#B22222]/15 border border-[#B22222] text-xs text-[#B22222] font-sora">
+                        {reportError}
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      {/* Station Selector */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-sora uppercase tracking-wider text-white/60">
+                          NEAREST_STATION (OPTIONAL)
+                        </label>
+                        <select
+                          value={reportStation}
+                          onChange={(e) => setReportStation(e.target.value)}
+                          className="w-full bg-[#111111] border border-white/20 text-white font-sans text-xs p-2 focus:outline-none focus:border-[#FFB300]"
+                        >
+                          <option value="">-- In-Transit / Between Stations --</option>
+                          {stations.map((st) => (
+                            <option key={st.code} value={st.code}>
+                              [{st.code}] {st.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {/* Phone Number (Optional / Pre-filled) */}
+                      <div className="space-y-1.5">
+                        <label className="block text-[11px] font-sora uppercase tracking-wider text-white/60">
+                          VERIFIED_PHONE_NUMBER
+                        </label>
+                        <div className="flex items-center px-2.5 py-1.5 bg-[#111111] border border-white/20 gap-2">
+                          <Phone className="w-3.5 h-3.5 text-white/40 shrink-0" />
+                          <input
+                            type="tel"
+                            value={reportPhone}
+                            onChange={(e) => setReportPhone(e.target.value)}
+                            placeholder="+919876543210"
+                            className="w-full bg-transparent text-white font-sans text-xs focus:outline-none"
+                          />
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Disruption Description */}
+                    <div className="space-y-1.5">
+                      <div className="flex items-center justify-between">
+                        <label className="block text-[11px] font-sora uppercase tracking-wider text-white/60">
+                          DISRUPTION_DESCRIPTION (3 - 500 CHARS)
+                        </label>
+                        <span className="text-[10px] text-white/40 font-mono">
+                          [{reportDescription.length}/500]
+                        </span>
+                      </div>
+                      <textarea
+                        rows={3}
+                        maxLength={500}
+                        value={reportDescription}
+                        onChange={(e) => setReportDescription(e.target.value)}
+                        placeholder="E.G. TRAIN IS HELD AT OUTER SIGNAL NEAR SURAT YARD FOR FREIGHT CROSSOVER..."
+                        className="w-full bg-[#111111] border border-white/20 text-white font-sans text-xs p-2.5 focus:outline-none focus:border-[#FFB300] placeholder:text-white/30 uppercase"
+                        required
+                      />
+                    </div>
+
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-[10px] text-white/40 font-sans">
+                        Note: Crowdsourced reports serve as real-time rider signals and are displayed separately from ML model inferences.
+                      </span>
+
+                      <button
+                        type="submit"
+                        disabled={submittingReport || reportDescription.trim().length < 3}
+                        className="px-4 py-2 bg-black border border-white/20 hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white font-sora font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-2 shrink-0 disabled:opacity-40"
+                      >
+                        {submittingReport ? (
+                          <>
+                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                            <span>SUBMITTING...</span>
+                          </>
+                        ) : (
+                          <>
+                            <Send className="w-3.5 h-3.5" />
+                            <span>DISPATCH_REPORT</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
+
+                  </form>
+                </motion.div>
+              )}
+            </AnimatePresence>
+
+            {/* Recent Community Reports List */}
+            {reportSummary.recent_reports && reportSummary.recent_reports.length > 0 && (
+              <div className="space-y-2 pt-2 border-t border-white/10 text-xs">
+                <div className="text-[11px] font-sora text-white/50 uppercase tracking-wider">
+                  RECENT_COMMUNITY_INTEL ({reportSummary.recent_reports.length}):
+                </div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                  {reportSummary.recent_reports.slice(0, 4).map((rep) => (
+                    <div key={rep.id} className="p-2.5 bg-black border border-white/10 space-y-1">
+                      <div className="flex items-center justify-between text-[10px] text-[#FFB300] font-sora">
+                        <span>{rep.station_code ? `LOCATION: [${rep.station_code}]` : 'IN-TRANSIT'}</span>
+                        <span className="text-white/40">{new Date(rep.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
+                      </div>
+                      <p className="text-white/80 text-xs font-sans">
+                        "{rep.description}"
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Mobile View Toggle Buttons */}
           <div className="flex lg:hidden border border-white/10 p-0.5 bg-[#111111]">
@@ -320,4 +586,5 @@ export default function TrackingPage() {
     </div>
   );
 }
+
 

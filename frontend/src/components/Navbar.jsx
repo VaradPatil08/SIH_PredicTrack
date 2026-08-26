@@ -1,11 +1,13 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, User as UserIcon, LogOut, Star } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
 
 export default function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const { isAuthenticated, user, favorites, openLoginModal, logout } = useAuth();
 
   const navItems = [
     { num: '01', label: 'TRACK_TRAIN', path: '/' },
@@ -74,6 +76,41 @@ export default function Navbar() {
                 </Link>
               );
             })}
+
+            {/* Auth / Profile Link */}
+            {isAuthenticated ? (
+              <div className="flex items-center gap-3 pl-2 border-l border-white/15">
+                <Link
+                  to="/"
+                  className="flex items-center gap-1.5 text-xs text-white/80 hover:text-[#FFB300] uppercase tracking-wider font-sora transition-colors"
+                  title="View Saved Trains"
+                >
+                  <Star className="w-3.5 h-3.5 text-[#FFB300] fill-[#FFB300]" />
+                  <span>SAVED [{favorites.length}]</span>
+                </Link>
+
+                <div className="flex items-center gap-1.5 text-xs text-white/50 font-sora truncate max-w-[140px]">
+                  <span className="text-[11px] truncate">{user?.phone_number || 'USER'}</span>
+                </div>
+
+                <button
+                  onClick={logout}
+                  className="p-1 text-white/40 hover:text-[#B22222] transition-colors"
+                  title="Logout"
+                  aria-label="Logout"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={openLoginModal}
+                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.1em] font-medium text-white/60 hover:text-[#FFB300] py-1 transition-colors pl-2 border-l border-white/15"
+              >
+                <span className="text-[#FFB300]/80 font-sans font-semibold">04.</span>
+                <span>LOGIN</span>
+              </button>
+            )}
           </nav>
 
           {/* Right Status Indicator: Signal-Light Square & Telemetry Status */}
@@ -133,6 +170,32 @@ export default function Navbar() {
                   </motion.div>
                 );
               })}
+
+              {/* Mobile Auth Item */}
+              <motion.div variants={menuItemVariants}>
+                {isAuthenticated ? (
+                  <div className="pt-2 space-y-3">
+                    <div className="text-xs text-white/60 font-sans">
+                      LOGGED IN AS: <strong className="text-white">{user?.phone_number}</strong>
+                    </div>
+                    <button
+                      onClick={() => { logout(); setMobileMenuOpen(false); }}
+                      className="w-full py-2 bg-black border border-[#B22222] text-[#B22222] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+                    >
+                      <LogOut className="w-4 h-4" />
+                      <span>DISCONNECT_SESSION</span>
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => { setMobileMenuOpen(false); openLoginModal(); }}
+                    className="w-full py-2 bg-[#111111] hover:bg-[#FFB300] hover:text-black border border-white/20 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
+                  >
+                    <UserIcon className="w-4 h-4" />
+                    <span>04. AUTHENTICATE_USER</span>
+                  </button>
+                )}
+              </motion.div>
             </motion.nav>
 
             <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
@@ -148,4 +211,5 @@ export default function Navbar() {
     </header>
   );
 }
+
 

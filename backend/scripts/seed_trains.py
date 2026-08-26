@@ -32,8 +32,8 @@ USAGE:
 
 import csv
 import json
-import sys
 import os
+import sys
 
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "..", "app", "data", "mock_trains.json")
 

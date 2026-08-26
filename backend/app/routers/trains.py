@@ -95,6 +95,7 @@ def get_train_eta(train_number: str):
                 station_code=st["code"],
                 distance_km=st.get("distance_km", 0),
                 current_delay_min=base_delay,
+                total_distance_km=train.get("total_distance_km"),
             )
             status = eta.status_from_delay(delay)
 

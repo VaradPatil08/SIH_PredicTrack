@@ -4,6 +4,7 @@ import { AnimatePresence, motion } from 'framer-motion';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import AuthModal from './components/AuthModal';
+import ErrorBoundary from './components/ErrorBoundary';
 import LandingPage from './pages/LandingPage';
 import TrackingPage from './pages/TrackingPage';
 import AboutPage from './pages/AboutPage';
@@ -23,74 +24,77 @@ export default function App() {
 
   return (
     <AuthProvider>
-      <div className="min-h-screen flex flex-col bg-black text-white font-sans selection:bg-[#FFB300] selection:text-black">
-        <ScrollToTop />
-        
-        {/* Global Auth Modal */}
-        <AuthModal />
+      <ErrorBoundary>
+        <div className="min-h-screen flex flex-col bg-black text-white font-sans selection:bg-[#FFB300] selection:text-black">
+          <ScrollToTop />
+          
+          {/* Global Auth Modal */}
+          <AuthModal />
 
-        {/* Top Brand Navigation */}
-        <Navbar />
+          {/* Top Brand Navigation */}
+          <Navbar />
 
-        {/* Main Routed Content with Smooth Framer Motion Page Transitions */}
-        <main className="flex-1 bg-black">
-          <AnimatePresence mode="wait">
-            <Routes location={location} key={location.pathname}>
-              
-              <Route 
-                path="/" 
-                element={
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
-                  >
-                    <LandingPage />
-                  </motion.div>
-                } 
-              />
+          {/* Main Routed Content with Smooth Framer Motion Page Transitions */}
+          <main className="flex-1 bg-black">
+            <AnimatePresence mode="wait">
+              <Routes location={location} key={location.pathname}>
+                
+                <Route 
+                  path="/" 
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
+                    >
+                      <LandingPage />
+                    </motion.div>
+                  } 
+                />
 
-              <Route 
-                path="/train/:trainNumber" 
-                element={
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
-                  >
-                    <TrackingPage />
-                  </motion.div>
-                } 
-              />
+                <Route 
+                  path="/train/:trainNumber" 
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
+                    >
+                      <TrackingPage />
+                    </motion.div>
+                  } 
+                />
 
-              <Route 
-                path="/about" 
-                element={
-                  <motion.div
-                    initial={{ opacity: 0, y: 6 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -6 }}
-                    transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
-                  >
-                    <AboutPage />
-                  </motion.div>
-                } 
-              />
+                <Route 
+                  path="/about" 
+                  element={
+                    <motion.div
+                      initial={{ opacity: 0, y: 6 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      exit={{ opacity: 0, y: -6 }}
+                      transition={{ duration: 0.2, ease: [0.76, 0, 0.24, 1] }}
+                    >
+                      <AboutPage />
+                    </motion.div>
+                  } 
+                />
 
-              {/* Fallback to Home */}
-              <Route path="*" element={<Navigate to="/" replace />} />
+                {/* Fallback to Home */}
+                <Route path="*" element={<Navigate to="/" replace />} />
 
-            </Routes>
-          </AnimatePresence>
-        </main>
+              </Routes>
+            </AnimatePresence>
+          </main>
 
-        {/* Global Footer */}
-        <Footer />
-      </div>
+          {/* Global Footer */}
+          <Footer />
+        </div>
+      </ErrorBoundary>
     </AuthProvider>
   );
 }
+
 
 

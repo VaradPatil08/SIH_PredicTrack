@@ -4,84 +4,55 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, 
   RefreshCw, 
-  Map as MapIcon,
-  List,
-  Star,
-  AlertTriangle,
-  Send,
-  MessageSquare,
-  ChevronDown,
-  ChevronUp,
-  CheckCircle2,
-  Phone
+  Map as MapIcon, 
+  List, 
+  Clock, 
+  Train, 
+  Gauge, 
+  AlertTriangle 
 } from 'lucide-react';
-import { getTrainETA, getDisruptionReportSummary, submitDisruptionReport } from '../services/api';
+import { getTrainETA } from '../services/api';
 import TrainMap from '../components/TrainMap';
 import StationTimeline from '../components/StationTimeline';
+import DelaySparkline from '../components/DelaySparkline';
 import { TrackingHeaderSkeleton, MapSkeleton, TimelineSkeleton } from '../components/SkeletonLoader';
+import AnimatedNumber from '../components/AnimatedNumber';
 import { formatDuration } from '../utils/time';
-import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 
 const POLL_INTERVAL_SECONDS = 6;
 
 export default function TrackingPage() {
   const { trainNumber } = useParams();
-  const { isFavorite, toggleFavorite, user, isAuthenticated, openLoginModal } = useAuth();
-
+  const { t } = useSettings();
   const [etaData, setEtaData] = useState(null);
-  const [reportSummary, setReportSummary] = useState({ report_count: 0, flagged: false, recent_reports: [] });
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [countdown, setCountdown] = useState(POLL_INTERVAL_SECONDS);
-  const [activeTab, setActiveTab] = useState('all'); // 'all', 'map', 'timeline' (for mobile)
+  const [activeTab, setActiveTab] = useState('all'); // 'all' | 'map' | 'timeline'
   const [flashHighlight, setFlashHighlight] = useState(false);
-
-  // Disruption report form state
-  const [showReportForm, setShowReportForm] = useState(false);
-  const [reportStation, setReportStation] = useState('');
-  const [reportDescription, setReportDescription] = useState('');
-  const [reportPhone, setReportPhone] = useState(user?.phone_number || '');
-  const [submittingReport, setSubmittingReport] = useState(false);
-  const [reportSuccess, setReportSuccess] = useState(null);
-  const [reportError, setReportError] = useState(null);
 
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
 
-  // Keep phone in sync with logged-in user
-  useEffect(() => {
-    if (user?.phone_number) {
-      setReportPhone(user.phone_number);
-    }
-  }, [user]);
-
-  // Core fetch function (polls ETA and Disruption Summary in parallel)
   const fetchTelemetry = async (isBackground = false) => {
     if (!isBackground) {
       setRefreshing(true);
     }
     try {
-      const [etaRes, summaryRes] = await Promise.all([
-        getTrainETA(trainNumber),
-        getDisruptionReportSummary(trainNumber).catch(() => ({ report_count: 0, flagged: false, recent_reports: [] }))
-      ]);
-
-      setEtaData(etaRes);
-      if (summaryRes) {
-        setReportSummary(summaryRes);
-      }
+      const data = await getTrainETA(trainNumber);
+      setEtaData(data);
       setError(null);
       
-      // Trigger live value highlight flash
       if (isBackground) {
         setFlashHighlight(true);
-        setTimeout(() => setFlashHighlight(false), 600);
+        setTimeout(() => setFlashHighlight(false), 800);
       }
     } catch (err) {
       console.error('Error fetching ETA telemetry:', err);
       if (!etaData) {
-        setError(`Unable to retrieve live telemetry for Train ${trainNumber}.`);
+        setError(t('telemetryOffline', { trainNumber }));
       }
     } finally {
       setLoading(false);
@@ -90,17 +61,14 @@ export default function TrackingPage() {
     }
   };
 
-  // Initial load and polling setup
   useEffect(() => {
     setLoading(true);
     fetchTelemetry(false);
 
-    // Polling interval
     timerRef.current = setInterval(() => {
       fetchTelemetry(true);
     }, POLL_INTERVAL_SECONDS * 1000);
 
-    // 1-second countdown ticker
     countdownRef.current = setInterval(() => {
       setCountdown((prev) => (prev > 1 ? prev - 1 : POLL_INTERVAL_SECONDS));
     }, 1000);
@@ -111,47 +79,6 @@ export default function TrackingPage() {
     };
   }, [trainNumber]);
 
-  // Handle disruption report submission
-  const handleSubmitReport = async (e) => {
-    e.preventDefault();
-    setReportError(null);
-    setReportSuccess(null);
-
-    const desc = reportDescription.trim();
-    if (desc.length < 3) {
-      setReportError('Description must be at least 3 characters long.');
-      return;
-    }
-
-    try {
-      setSubmittingReport(true);
-      await submitDisruptionReport(trainNumber, {
-        station_code: reportStation || null,
-        description: desc,
-        phone_number: reportPhone.trim() || null
-      });
-
-      setReportSuccess('DISRUPTION_REPORT_SUBMITTED // LOGGED_TO_COMMUNITY_FEED');
-      setReportDescription('');
-      setReportStation('');
-      
-      // Immediately refresh report summary
-      const updatedSummary = await getDisruptionReportSummary(trainNumber);
-      if (updatedSummary) {
-        setReportSummary(updatedSummary);
-      }
-
-      setTimeout(() => {
-        setReportSuccess(null);
-      }, 3500);
-    } catch (err) {
-      setReportError(err.message || 'Failed to submit report. Please try again.');
-    } finally {
-      setSubmittingReport(false);
-    }
-  };
-
-  // Overall journey metrics
   const stations = etaData?.stations || [];
   const reachedCount = stations.filter(s => s.status === 'reached').length;
   const currentStationIndex = stations.findIndex(s => s.status !== 'reached');
@@ -160,53 +87,37 @@ export default function TrackingPage() {
   const isDelayedOverall = activeDelay > 2;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 font-sans text-white bg-black">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 space-y-6 font-sans text-foreground dark:text-slate-100 transition-colors">
       
-      {/* 2px Horizontal Signal Amber Section Divider */}
-      <div className="w-full h-[2px] bg-[#FFB300]" />
-
-      {/* Top Header & Heartbeat Synchronizer */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-2 border-b border-white/10">
+      {/* Top Header & Navigation */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-border dark:border-slate-800">
         
         <Link
           to="/"
-          className="inline-flex items-center gap-2 text-xs font-sora uppercase tracking-wider text-white/60 hover:text-[#FFB300] transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300]"
+          className="inline-flex items-center gap-1.5 min-h-[40px] text-xs sm:text-sm font-semibold text-muted dark:text-slate-400 hover:text-navy dark:hover:text-blue-400 transition-all duration-200 focus-visible:ring-2 focus-visible:ring-navy rounded p-1 group active:scale-95 self-start"
         >
-          <ArrowLeft className="w-3.5 h-3.5" />
-          <span>[ 01. RETURN_TO_DIRECTORY ]</span>
+          <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
+          <span>{t('backToDirectory')}</span>
         </Link>
 
-        {/* Polling Heartbeat Badge, Save Favorite & Refresh Button */}
-        <div className="flex items-center gap-3 self-end sm:self-auto text-xs font-sora">
-          
-          {/* Favorite Toggle Button */}
-          <button
-            onClick={() => toggleFavorite(trainNumber)}
-            className={`flex items-center gap-1.5 px-3 py-1 border text-xs font-sora uppercase tracking-wider transition-colors ${
-              isFavorite(trainNumber)
-                ? 'bg-[#FFB300] text-black border-[#FFB300] font-bold'
-                : 'bg-[#111111] text-white hover:bg-[#FFB300] hover:text-black border-white/20'
-            }`}
-            title={isFavorite(trainNumber) ? 'Remove from Saved' : 'Save this train to My Trains'}
-          >
-            <Star className={`w-3.5 h-3.5 ${isFavorite(trainNumber) ? 'fill-black' : ''}`} />
-            <span>{isFavorite(trainNumber) ? 'SAVED_FAVORITE' : 'SAVE_TRAIN'}</span>
-          </button>
-
-          {/* Sync Timer */}
-          <div className="flex items-center gap-2 px-2.5 py-1 bg-[#111111] border border-white/10 text-white/70">
-            <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-            <span>SYNC: <strong className="text-[#FFB300] font-sans">{countdown}S</strong></span>
+        {/* Polling Heartbeat Badge & Refresh Button */}
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 text-xs w-full sm:w-auto">
+          <div className="flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-full bg-white dark:bg-slate-800 border border-border dark:border-slate-700 text-muted dark:text-slate-300 shadow-2xs">
+            <span className="w-2 h-2 rounded-full bg-transit-green inline-block animate-pulse" />
+            <span className="text-[11px] font-medium">
+              {t('autoSync')} <strong>{countdown}s</strong>
+            </span>
           </div>
 
           <button
             onClick={() => fetchTelemetry(false)}
             disabled={refreshing}
-            className="flex items-center gap-1.5 px-3 py-1 bg-[#111111] hover:bg-[#FFB300] hover:text-black border border-white/20 text-white font-sora font-semibold transition-colors disabled:opacity-40 focus-visible:ring-1 focus-visible:ring-[#FFB300]"
-            title="Force refresh telemetry now"
+            className="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-navy dark:text-blue-400 border border-border dark:border-slate-700 font-semibold text-xs transition-all duration-200 disabled:opacity-50 shadow-2xs hover:shadow-xs active:scale-95"
+            title={t('syncTelemetry')}
+            aria-label={t('syncTelemetry')}
           >
-            <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin text-[#FFB300]' : ''}`} />
-            <span>POLL</span>
+            <RefreshCw className={`w-3.5 h-3.5 ${refreshing ? 'animate-spin' : ''}`} />
+            <span>{refreshing ? t('syncing') : t('syncTelemetry')}</span>
           </button>
         </div>
 
@@ -216,7 +127,7 @@ export default function TrackingPage() {
       {loading && (
         <div className="space-y-6">
           <TrackingHeaderSkeleton />
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_390px] gap-6">
             <div>
               <MapSkeleton />
             </div>
@@ -229,129 +140,125 @@ export default function TrackingPage() {
 
       {/* Error View */}
       {!loading && error && (
-        <div className="p-8 border border-[#B22222] bg-[#111111] text-center space-y-4 max-w-lg mx-auto">
-          <div className="text-[#B22222] font-sora font-bold text-sm tracking-wider">[ TELEMETRY_FEED_UNAVAILABLE ]</div>
-          <p className="text-xs text-white/60">{error}</p>
+        <div className="p-6 sm:p-8 rounded-lg border border-transit-red-border dark:border-red-900 bg-white dark:bg-slate-900 text-center space-y-4 max-w-lg mx-auto shadow-card">
+          <div className="text-transit-red dark:text-red-400 font-bold text-sm flex items-center justify-center gap-2">
+            <AlertTriangle className="w-5 h-5 shrink-0" />
+            <span>{error}</span>
+          </div>
           <button
             onClick={() => fetchTelemetry(false)}
-            className="px-4 py-2 bg-[#B22222] hover:bg-[#B22222]/80 text-white font-sora text-xs font-bold uppercase transition-colors"
+            className="px-4 py-2.5 min-h-[44px] rounded-lg bg-navy dark:bg-blue-600 text-white text-xs font-semibold transition-colors active:scale-95"
           >
-            RETRY_LINK
+            {t('retryConnection')}
           </button>
         </div>
       )}
 
-      {/* Live Train Board & Content */}
+      {/* Live Train Cockpit */}
       {!loading && !error && etaData && (
         <>
-          {/* Header Control-Room Block */}
+          {/* Top Key Metrics Header Card */}
           <motion.div
-            initial={{ opacity: 0, y: -6 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3, ease: [0.76, 0, 0.24, 1] }}
-            className={`border border-white/10 border-t-2 border-t-[#FFB300] p-5 sm:p-6 bg-[#111111] transition-colors duration-500 ${
-              flashHighlight ? 'bg-[#FFB300]/10 border-[#FFB300]' : 'bg-[#111111] border-white/10'
+            transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
+            className={`rounded-lg border p-4 sm:p-6 transition-all duration-300 shadow-card ${
+              flashHighlight 
+                ? 'bg-blue-50/70 dark:bg-blue-950/40 border-navy dark:border-blue-400 shadow-md' 
+                : 'bg-white dark:bg-slate-900 border-border dark:border-slate-800'
             }`}
           >
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-5 sm:gap-6">
               
-              {/* Left Column: Train Info & Disruption Flag Badge */}
-              <div className="space-y-2.5">
-                <div className="flex items-center gap-3 flex-wrap text-xs">
-                  <span className="px-2.5 py-0.5 bg-[#FFB300] text-black font-sora font-bold tracking-wider">
-                    {etaData.train_number}
+              {/* Left Column: Train Info & Identity */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2 flex-wrap text-xs">
+                  <span className="px-2.5 py-1 rounded bg-navy dark:bg-blue-600 text-white font-mono font-bold text-sm shadow-2xs">
+                    #{etaData.train_number}
                   </span>
                   
-                  {/* Bracketed Status Line in Sora */}
-                  <span className={`font-sora font-bold tracking-wider ${
-                    isDelayedOverall ? 'text-[#B22222]' : 'text-[#FFB300]'
+                  {/* Status Pill */}
+                  <span className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
+                    isDelayedOverall 
+                      ? 'bg-transit-orange-light dark:bg-amber-950/60 text-transit-orange dark:text-amber-400 border border-transit-orange-border dark:border-amber-800' 
+                      : 'bg-transit-green-light dark:bg-emerald-950/60 text-transit-green dark:text-emerald-400 border border-transit-green-border dark:border-emerald-800'
                   }`}>
-                    {isDelayedOverall ? `[ ${activeDelay} MIN LATE ]` : '[ ON_TIME ]'}
+                    {isDelayedOverall ? t('delayedBy', { delay: activeDelay }) : t('runningOnTime')}
                   </span>
 
-                  {/* Crowdsourced Disruption Flag Badge (Separate signal, unverified) */}
-                  {reportSummary?.flagged && (
-                    <span className="px-2.5 py-0.5 bg-[#B22222]/20 border border-[#B22222] text-[#B22222] font-sora font-bold text-xs tracking-wider flex items-center gap-1.5">
-                      <AlertTriangle className="w-3.5 h-3.5 shrink-0" />
-                      <span>[ {reportSummary.report_count} RIDERS REPORTED DISRUPTION ]</span>
-                    </span>
-                  )}
-
-                  <span className="text-white/40 font-sora text-[11px] uppercase tracking-wider">
-                    [ LIVE_TRACKING ]
+                  <span className="px-2 py-0.5 rounded bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 text-[11px] font-medium border border-border dark:border-slate-700">
+                    {t('liveGpsTelemetry')}
                   </span>
-
-                  {etaData.is_mock && (
-                    <span className="text-white/30 font-sora text-[10px] uppercase">
-                      [ SIMULATION_FEED ]
-                    </span>
-                  )}
                 </div>
 
-                {/* Train Name in Sora */}
-                <h1 className="font-sora font-bold text-2xl sm:text-3xl text-white tracking-tight leading-tight">
+                {/* Train Name */}
+                <h1 className="font-bold text-xl sm:text-2xl lg:text-3xl text-navy dark:text-blue-400 tracking-tight leading-tight">
                   {etaData.name}
                 </h1>
 
-                <div className="flex flex-wrap items-center gap-4 text-xs text-white/50 pt-1 font-sans">
+                <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-muted dark:text-slate-400 pt-1">
                   {etaData.current_position?.speed_kmh !== undefined && (
-                    <span>
-                      SPEED: <strong className="text-white font-medium">{etaData.current_position.speed_kmh} KM/H</strong>
+                    <span className="flex items-center gap-1.5">
+                      <Gauge className="w-3.5 h-3.5 text-navy dark:text-blue-400 shrink-0" />
+                      <span>{t('currentSpeed')}: <strong className="text-foreground dark:text-slate-200 font-semibold"><AnimatedNumber value={etaData.current_position.speed_kmh} /> {t('km')}/h</strong></span>
                     </span>
                   )}
                   {etaData.elapsed_min && (
-                    <span>
-                      ELAPSED: <strong className="text-white font-medium">{formatDuration(etaData.elapsed_min)}</strong>
+                    <span className="flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-navy dark:text-blue-400 shrink-0" />
+                      <span>{t('elapsedJourney')}: <strong className="text-foreground dark:text-slate-200 font-semibold">{formatDuration(etaData.elapsed_min)}</strong></span>
                     </span>
                   )}
                   {etaData.current_position?.next_station_name && (
-                    <span>
-                      NEXT_HALT: <strong className="text-[#FFB300] font-medium">{etaData.current_position.next_station_name}</strong>
-                    </span>
-                  )}
-                  {reportSummary?.report_count > 0 && !reportSummary.flagged && (
-                    <span className="text-white/60 font-sora text-[11px]">
-                      CROWD_REPORTS: <strong className="text-[#FFB300]">{reportSummary.report_count}</strong>
+                    <span className="flex items-center gap-1.5">
+                      <Train className="w-3.5 h-3.5 text-navy dark:text-blue-400 shrink-0" />
+                      <span>{t('nextStation')}: <strong className="text-navy dark:text-blue-300 font-semibold">{etaData.current_position.next_station_name}</strong></span>
                     </span>
                   )}
                 </div>
               </div>
 
-              {/* Right Column: Telemetry Data Chips with 4px left status bar */}
-              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 shrink-0 text-xs">
+              {/* Right Column: Telemetry Summary Boxes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 shrink-0 text-xs w-full lg:w-auto">
                 
-                {/* Delay State Data Chip */}
-                <div className={`p-3 bg-[#111111] transition-colors duration-500 ${
-                  isDelayedOverall ? 'border-l-4 border-l-[#B22222]' : 'border-l-4 border-l-[#FFB300]'
-                } ${flashHighlight ? 'bg-[#FFB300]/15' : 'bg-[#111111]'}`}>
-                  <div className="text-[11px] font-sora text-white/50 uppercase tracking-wider mb-1">Status Delta</div>
-                  <div className={`text-base font-bold font-sora ${isDelayedOverall ? 'text-[#B22222]' : 'text-[#FFB300]'}`}>
-                    {isDelayedOverall ? `+${activeDelay} MIN` : 'ON TIME'}
+                {/* Delay Delta */}
+                <div className={`p-3 rounded-lg border transition-all ${
+                  isDelayedOverall 
+                    ? 'bg-transit-orange-light/50 dark:bg-amber-950/40 border-transit-orange-border dark:border-amber-800' 
+                    : 'bg-slate-50 dark:bg-slate-800/60 border-border dark:border-slate-700'
+                }`}>
+                  <div className="text-[11px] text-muted dark:text-slate-400 font-medium mb-0.5">{t('peakDelay')}</div>
+                  <div className={`text-xl font-bold ${isDelayedOverall ? 'text-transit-orange dark:text-amber-400' : 'text-transit-green dark:text-emerald-400'}`}>
+                    <AnimatedNumber 
+                      value={activeDelay} 
+                      prefix={isDelayedOverall ? '+' : ''} 
+                      suffix="m" 
+                    />
                   </div>
-                  <div className="text-[10px] text-white/40 mt-0.5 font-sora uppercase">
-                    {isDelayedOverall ? 'CASCADE_DELAY' : 'NOMINAL'}
+                  <div className="text-[10px] text-muted dark:text-slate-400 mt-0.5">
+                    {isDelayedOverall ? 'Cascade Propagation' : 'Nominal Transit'}
                   </div>
                 </div>
 
-                {/* Distance to Next Halt Data Chip */}
-                <div className="p-3 bg-[#111111] border-l-4 border-l-white/30">
-                  <div className="text-[11px] font-sora text-white/50 uppercase tracking-wider mb-1">Next Halt Dist</div>
-                  <div className="text-base font-bold text-white font-sans">
-                    {etaData.current_position?.distance_to_next_km || 18} <span className="text-xs text-white/40 font-normal">KM</span>
+                {/* Distance to Next Halt */}
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-border dark:border-slate-700">
+                  <div className="text-[11px] text-muted dark:text-slate-400 font-medium mb-0.5">{t('nextHaltDistance')}</div>
+                  <div className="text-xl font-bold text-navy dark:text-blue-400">
+                    <AnimatedNumber value={etaData.current_position?.distance_to_next_km || 18} /> <span className="text-xs text-muted dark:text-slate-400 font-normal">{t('km')}</span>
                   </div>
-                  <div className="text-[10px] text-[#FFB300] font-sora uppercase truncate">
+                  <div className="text-[10px] text-muted dark:text-slate-400 truncate">
                     {etaData.current_position?.next_station_code || 'NDLS'}
                   </div>
                 </div>
 
-                {/* Route Progress Data Chip */}
-                <div className="p-3 bg-[#111111] border-l-4 border-l-[#10B981] col-span-2 sm:col-span-1">
-                  <div className="text-[11px] font-sora text-white/50 uppercase tracking-wider mb-1">Route Progress</div>
-                  <div className="text-base font-bold text-white font-sans">
-                    {Math.round((reachedCount / Math.max(1, stations.length)) * 100)}%
+                {/* Route Progress */}
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-border dark:border-slate-700">
+                  <div className="text-[11px] text-muted dark:text-slate-400 font-medium mb-0.5">{t('routeProgress')}</div>
+                  <div className="text-xl font-bold text-navy dark:text-blue-400">
+                    <AnimatedNumber value={Math.round((reachedCount / Math.max(1, stations.length)) * 100)} suffix="%" />
                   </div>
-                  <div className="text-[10px] text-white/40 font-sora uppercase">
-                    {reachedCount}/{stations.length} STATIONS
+                  <div className="text-[10px] text-muted dark:text-slate-400">
+                    {reachedCount} / {stations.length} {t('halt')}
                   </div>
                 </div>
 
@@ -360,203 +267,42 @@ export default function TrackingPage() {
             </div>
           </motion.div>
 
-          {/* Crowdsourced Disruption Reports & Submissions Bar */}
-          <div className="p-4 bg-[#111111] border border-white/15 space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="w-4 h-4 text-[#FFB300]" />
-                <span className="font-sora font-bold text-xs uppercase tracking-wider text-white">
-                  [ CROWDSOURCED_DISRUPTION_INTEL ]
-                </span>
-                <span className="text-[11px] text-white/40 font-sans">
-                  ({reportSummary.report_count} reports in past {reportSummary.window_hours || 3}h)
-                </span>
-              </div>
-
-              <button
-                onClick={() => setShowReportForm(!showReportForm)}
-                className="self-start sm:self-auto px-3 py-1 bg-black border border-white/20 hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white font-sora font-semibold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-1.5"
-              >
-                <span>{showReportForm ? 'COLLAPSE_REPORT_FORM' : '+ REPORT_DISRUPTION'}</span>
-                {showReportForm ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-              </button>
-            </div>
-
-            {/* Expandable Report Form */}
-            <AnimatePresence>
-              {showReportForm && (
-                <motion.div
-                  initial={{ opacity: 0, height: 0 }}
-                  animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
-                  transition={{ duration: 0.25, ease: [0.76, 0, 0.24, 1] }}
-                  className="overflow-hidden pt-2"
-                >
-                  <form onSubmit={handleSubmitReport} className="p-4 bg-black border border-white/10 space-y-4">
-                    
-                    <div className="text-[11px] font-sora font-bold text-[#FFB300] uppercase tracking-wider">
-                      // SUBMIT_FIELD_OBSERVATION (COMMUNITY SIGNAL)
-                    </div>
-
-                    {reportSuccess && (
-                      <div className="p-3 bg-[#FFB300]/10 border border-[#FFB300] text-xs text-[#FFB300] font-sora flex items-center gap-2">
-                        <CheckCircle2 className="w-4 h-4 shrink-0" />
-                        <span>{reportSuccess}</span>
-                      </div>
-                    )}
-
-                    {reportError && (
-                      <div className="p-3 bg-[#B22222]/15 border border-[#B22222] text-xs text-[#B22222] font-sora">
-                        {reportError}
-                      </div>
-                    )}
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* Station Selector */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[11px] font-sora uppercase tracking-wider text-white/60">
-                          NEAREST_STATION (OPTIONAL)
-                        </label>
-                        <select
-                          value={reportStation}
-                          onChange={(e) => setReportStation(e.target.value)}
-                          className="w-full bg-[#111111] border border-white/20 text-white font-sans text-xs p-2 focus:outline-none focus:border-[#FFB300]"
-                        >
-                          <option value="">-- In-Transit / Between Stations --</option>
-                          {stations.map((st) => (
-                            <option key={st.code} value={st.code}>
-                              [{st.code}] {st.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Phone Number (Optional / Pre-filled) */}
-                      <div className="space-y-1.5">
-                        <label className="block text-[11px] font-sora uppercase tracking-wider text-white/60">
-                          VERIFIED_PHONE_NUMBER
-                        </label>
-                        <div className="flex items-center px-2.5 py-1.5 bg-[#111111] border border-white/20 gap-2">
-                          <Phone className="w-3.5 h-3.5 text-white/40 shrink-0" />
-                          <input
-                            type="tel"
-                            value={reportPhone}
-                            onChange={(e) => setReportPhone(e.target.value)}
-                            placeholder="+919876543210"
-                            className="w-full bg-transparent text-white font-sans text-xs focus:outline-none"
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Disruption Description */}
-                    <div className="space-y-1.5">
-                      <div className="flex items-center justify-between">
-                        <label className="block text-[11px] font-sora uppercase tracking-wider text-white/60">
-                          DISRUPTION_DESCRIPTION (3 - 500 CHARS)
-                        </label>
-                        <span className="text-[10px] text-white/40 font-mono">
-                          [{reportDescription.length}/500]
-                        </span>
-                      </div>
-                      <textarea
-                        rows={3}
-                        maxLength={500}
-                        value={reportDescription}
-                        onChange={(e) => setReportDescription(e.target.value)}
-                        placeholder="E.G. TRAIN IS HELD AT OUTER SIGNAL NEAR SURAT YARD FOR FREIGHT CROSSOVER..."
-                        className="w-full bg-[#111111] border border-white/20 text-white font-sans text-xs p-2.5 focus:outline-none focus:border-[#FFB300] placeholder:text-white/30 uppercase"
-                        required
-                      />
-                    </div>
-
-                    <div className="flex items-center justify-between pt-1">
-                      <span className="text-[10px] text-white/40 font-sans">
-                        Note: Crowdsourced reports serve as real-time rider signals and are displayed separately from ML model inferences.
-                      </span>
-
-                      <button
-                        type="submit"
-                        disabled={submittingReport || reportDescription.trim().length < 3}
-                        className="px-4 py-2 bg-black border border-white/20 hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white font-sora font-bold text-xs uppercase tracking-wider transition-colors inline-flex items-center gap-2 shrink-0 disabled:opacity-40"
-                      >
-                        {submittingReport ? (
-                          <>
-                            <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                            <span>SUBMITTING...</span>
-                          </>
-                        ) : (
-                          <>
-                            <Send className="w-3.5 h-3.5" />
-                            <span>DISPATCH_REPORT</span>
-                          </>
-                        )}
-                      </button>
-                    </div>
-
-                  </form>
-                </motion.div>
-              )}
-            </AnimatePresence>
-
-            {/* Recent Community Reports List */}
-            {reportSummary.recent_reports && reportSummary.recent_reports.length > 0 && (
-              <div className="space-y-2 pt-2 border-t border-white/10 text-xs">
-                <div className="text-[11px] font-sora text-white/50 uppercase tracking-wider">
-                  RECENT_COMMUNITY_INTEL ({reportSummary.recent_reports.length}):
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {reportSummary.recent_reports.slice(0, 4).map((rep) => (
-                    <div key={rep.id} className="p-2.5 bg-black border border-white/10 space-y-1">
-                      <div className="flex items-center justify-between text-[10px] text-[#FFB300] font-sora">
-                        <span>{rep.station_code ? `LOCATION: [${rep.station_code}]` : 'IN-TRANSIT'}</span>
-                        <span className="text-white/40">{new Date(rep.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
-                      </div>
-                      <p className="text-white/80 text-xs font-sans">
-                        "{rep.description}"
-                      </p>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Mobile View Toggle Buttons */}
-          <div className="flex lg:hidden border border-white/10 p-0.5 bg-[#111111]">
+          {/* Mobile View Switcher with 44px Touch Targets */}
+          <div className="flex lg:hidden rounded-lg border border-border dark:border-slate-800 p-1 bg-white dark:bg-slate-900 shadow-sm">
             <button
               onClick={() => setActiveTab('all')}
-              className={`flex-1 py-1.5 text-xs font-sora uppercase transition-colors ${
-                activeTab === 'all' ? 'bg-[#FFB300] text-black font-bold' : 'text-white/60 hover:text-white'
+              className={`flex-1 py-2.5 min-h-[44px] rounded-md text-xs font-semibold transition-colors flex items-center justify-center ${
+                activeTab === 'all' ? 'bg-navy dark:bg-blue-600 text-white shadow-xs' : 'text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white'
               }`}
             >
-              ALL
+              {t('allViews')}
             </button>
             <button
               onClick={() => setActiveTab('map')}
-              className={`flex-1 py-1.5 text-xs font-sora uppercase transition-colors flex items-center justify-center gap-1 ${
-                activeTab === 'map' ? 'bg-[#FFB300] text-black font-bold' : 'text-white/60 hover:text-white'
+              className={`flex-1 py-2.5 min-h-[44px] rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
+                activeTab === 'map' ? 'bg-navy dark:bg-blue-600 text-white shadow-xs' : 'text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white'
               }`}
             >
-              <MapIcon className="w-3 h-3" />
-              <span>MAP</span>
+              <MapIcon className="w-3.5 h-3.5" />
+              <span>{t('routeMap')}</span>
             </button>
             <button
               onClick={() => setActiveTab('timeline')}
-              className={`flex-1 py-1.5 text-xs font-sora uppercase transition-colors flex items-center justify-center gap-1 ${
-                activeTab === 'timeline' ? 'bg-[#FFB300] text-black font-bold' : 'text-white/60 hover:text-white'
+              className={`flex-1 py-2.5 min-h-[44px] rounded-md text-xs font-semibold transition-colors flex items-center justify-center gap-1.5 ${
+                activeTab === 'timeline' ? 'bg-navy dark:bg-blue-600 text-white shadow-xs' : 'text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white'
               }`}
             >
-              <List className="w-3 h-3" />
-              <span>TIMELINE</span>
+              <List className="w-3.5 h-3.5" />
+              <span>{t('stationTimeline')}</span>
             </button>
           </div>
 
-          {/* Telemetry Dashboard: Left Map (1fr) + Right Station Timeline (380px) on Desktop */}
-          <div className="grid grid-cols-1 lg:grid-cols-[1fr_380px] gap-6 items-start">
+
+          {/* Telemetry Main Grid: Left Map + Right Station Timeline */}
+          <div className="grid grid-cols-1 lg:grid-cols-[1fr_390px] gap-6 items-start">
             
-            {/* Left: Leaflet Interactive GIS Route Map */}
-            <div className={`lg:sticky lg:top-20 ${
+            {/* Left: Leaflet Interactive GIS Route Map + Delay Sparkline */}
+            <div className={`space-y-4 lg:sticky lg:top-20 ${
               activeTab === 'timeline' ? 'hidden lg:block' : 'block'
             }`}>
               <TrainMap
@@ -565,6 +311,9 @@ export default function TrackingPage() {
                 trainNumber={etaData.train_number}
                 trainName={etaData.name}
               />
+
+              {/* Delay Progression Sparkline Graph */}
+              <DelaySparkline stations={stations} />
             </div>
 
             {/* Right: Dynamic Vertical Station Timeline */}
@@ -574,7 +323,7 @@ export default function TrackingPage() {
               <StationTimeline
                 stations={stations}
                 trainNumber={etaData.train_number}
-                baseTime="06:00"
+                baseTime={etaData.scheduled_departure || '06:00'}
                 currentPosition={etaData.current_position}
               />
             </div>
@@ -586,5 +335,7 @@ export default function TrackingPage() {
     </div>
   );
 }
+
+
 
 

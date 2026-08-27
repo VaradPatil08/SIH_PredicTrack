@@ -1,61 +1,50 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, User as UserIcon, LogOut, Star } from 'lucide-react';
-import { useAuth } from '../context/AuthContext';
+import { Menu, X, Train, Settings as SettingsIcon } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function Navbar() {
   const location = useLocation();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const { isAuthenticated, user, favorites, openLoginModal, logout } = useAuth();
+  const { openSettings, t } = useSettings();
 
   const navItems = [
-    { num: '01', label: 'TRACK_TRAIN', path: '/' },
-    { num: '02', label: 'LIVE_MAP', path: '/train/12951' },
-    { num: '03', label: 'ABOUT', path: '/about' },
+    { label: t('liveTrains'), path: '/' },
+    { label: t('trackTrain'), path: '/train/12951' },
   ];
 
-  const menuContainerVariants = {
-    closed: { opacity: 0 },
-    open: {
-      opacity: 1,
-      transition: {
-        staggerChildren: 0.08,
-        delayChildren: 0.05,
-        ease: [0.76, 0, 0.24, 1],
-      },
-    },
-  };
-
-  const menuItemVariants = {
-    closed: { opacity: 0, y: 16 },
-    open: {
-      opacity: 1,
-      y: 0,
-      transition: {
-        duration: 0.35,
-        ease: [0.76, 0, 0.24, 1],
-      },
-    },
-  };
-
   return (
-    <header className="sticky top-0 z-50 bg-black border-b border-white/10">
+    <header className="sticky top-0 z-50 bg-white dark:bg-slate-900 border-b border-border dark:border-slate-800 shadow-nav transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-14">
+        <div className="flex items-center justify-between h-16">
           
-          {/* Wordmark in Sora */}
+          {/* Brand Wordmark & Official Emblem */}
           <Link 
             to="/" 
-            className="flex items-center gap-2 group focus-visible:ring-1 focus-visible:ring-[#FFB300]"
+            className="flex items-center gap-3 group focus-visible:ring-2 focus-visible:ring-navy rounded-lg p-1 shrink-0 active:scale-98 transition-transform"
           >
-            <span className="font-sora font-bold text-lg tracking-wider text-white group-hover:text-[#FFB300] transition-colors">
-              RAILPULSE <span className="text-[#FFB300]">//</span> ETA
-            </span>
+            <div className="flex items-center justify-center w-9 h-9 rounded bg-navy dark:bg-blue-600 text-white shadow-sm group-hover:bg-railway-red transition-all duration-200 group-hover:scale-105">
+              <Train className="w-5 h-5 transition-transform duration-200" />
+            </div>
+
+            <div className="flex flex-col">
+              <div className="flex items-center gap-1.5">
+                <span className="font-bold text-base tracking-tight text-navy dark:text-blue-400 group-hover:text-railway-red transition-colors">
+                  {t('brandTitle')}
+                </span>
+                <span className="text-xs font-semibold px-1.5 py-0.2 rounded bg-railway-light text-railway-red border border-railway-border text-[10px]">
+                  {t('brandBadge')}
+                </span>
+              </div>
+              <span className="text-[11px] text-muted dark:text-slate-400 font-medium tracking-normal">
+                {t('brandTagline')}
+              </span>
+            </div>
           </Link>
 
-          {/* Desktop Navigation Links (Sora label-sm format) */}
-          <nav className="hidden md:flex items-center space-x-6 font-sora">
+          {/* Desktop Navigation Links - Centered across available space */}
+          <nav className="hidden md:flex flex-1 items-center justify-center space-x-2 font-sans">
             {navItems.map((item) => {
               const isActive = item.path === '/' 
                 ? location.pathname === '/' 
@@ -63,69 +52,55 @@ export default function Navbar() {
 
               return (
                 <Link
-                  key={item.label}
+                  key={item.path}
                   to={item.path}
-                  className={`group text-xs uppercase tracking-[0.1em] font-medium transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300] py-1 ${
-                    isActive ? 'text-white' : 'text-white/60 hover:text-[#FFB300]'
+                  className={`px-4 py-2 rounded-md text-sm font-semibold tracking-normal transition-all duration-200 ${
+                    isActive 
+                      ? 'text-navy dark:text-blue-300 bg-navy-subtle dark:bg-blue-950/60 font-bold border-b-2 border-navy dark:border-blue-400 shadow-xs' 
+                      : 'text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 font-medium active:scale-95'
                   }`}
                 >
-                  <span className="text-[#FFB300]/80 mr-1.5 font-sans font-semibold">{item.num}.</span>
-                  <span className={`transition-colors ${isActive ? 'text-white underline decoration-[#FFB300] underline-offset-4 decoration-2' : 'group-hover:text-[#FFB300]'}`}>
-                    {item.label}
-                  </span>
+                  {item.label}
                 </Link>
               );
             })}
-
-            {/* Auth / Profile Link */}
-            {isAuthenticated ? (
-              <div className="flex items-center gap-3 pl-2 border-l border-white/15">
-                <Link
-                  to="/"
-                  className="flex items-center gap-1.5 text-xs text-white/80 hover:text-[#FFB300] uppercase tracking-wider font-sora transition-colors"
-                  title="View Saved Trains"
-                >
-                  <Star className="w-3.5 h-3.5 text-[#FFB300] fill-[#FFB300]" />
-                  <span>SAVED [{favorites.length}]</span>
-                </Link>
-
-                <div className="flex items-center gap-1.5 text-xs text-white/50 font-sora truncate max-w-[140px]">
-                  <span className="text-[11px] truncate">{user?.phone_number || 'USER'}</span>
-                </div>
-
-                <button
-                  onClick={logout}
-                  className="p-1 text-white/40 hover:text-[#B22222] transition-colors"
-                  title="Logout"
-                  aria-label="Logout"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                </button>
-              </div>
-            ) : (
-              <button
-                onClick={openLoginModal}
-                className="flex items-center gap-1.5 text-xs uppercase tracking-[0.1em] font-medium text-white/60 hover:text-[#FFB300] py-1 transition-colors pl-2 border-l border-white/15"
-              >
-                <span className="text-[#FFB300]/80 font-sans font-semibold">04.</span>
-                <span>LOGIN</span>
-              </button>
-            )}
           </nav>
 
-          {/* Right Status Indicator: Signal-Light Square & Telemetry Status */}
-          <div className="hidden lg:flex items-center gap-4 text-xs font-sora uppercase tracking-wider">
-            <div className="flex items-center gap-2 text-white/50">
-              <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-              <span className="text-[11px]">[ LIVE_TELEMETRY ]</span>
+          {/* Right Section: Live Network Badge & Settings Button (Visible on Tablet & Desktop) */}
+          <div className="hidden md:flex items-center gap-3 text-xs font-sans shrink-0">
+            <div className="hidden lg:flex items-center gap-2 px-3 py-1.5 rounded-full bg-transit-green-light dark:bg-emerald-950/60 border border-transit-green-border dark:border-emerald-800 text-transit-green dark:text-emerald-400 font-medium shadow-2xs">
+              <span className="relative flex h-2 w-2">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-transit-green opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2 w-2 bg-transit-green"></span>
+              </span>
+              <span className="text-[11px] font-semibold">{t('liveNetwork')}</span>
             </div>
+
+            {/* Settings Trigger Button */}
+            <button
+              onClick={openSettings}
+              className="group flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-md border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-muted dark:text-slate-300 hover:text-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-700 hover:border-slate-300 dark:hover:border-slate-600 transition-all duration-200 text-xs font-semibold shadow-2xs active:scale-95"
+              title={t('settings')}
+              aria-label={t('settings')}
+            >
+              <SettingsIcon className="w-4 h-4 group-hover:rotate-45 transition-transform duration-300" />
+              <span>{t('settings')}</span>
+            </button>
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="flex md:hidden items-center">
+          {/* Mobile Actions (Settings + Hamburger) with Accessible 44x44px Tap Targets */}
+          <div className="flex md:hidden items-center gap-2">
+            <button
+              onClick={openSettings}
+              className="w-11 h-11 flex items-center justify-center rounded-lg text-muted hover:text-navy dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-border dark:border-slate-700 active:scale-95 transition-transform"
+              aria-label={t('settings')}
+            >
+              <SettingsIcon className="w-5 h-5" />
+            </button>
+
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-1.5 text-white/70 hover:text-white border border-white/10 hover:border-white/30 focus-visible:ring-1 focus-visible:ring-[#FFB300]"
+              className="w-11 h-11 flex items-center justify-center rounded-lg text-muted hover:text-navy dark:text-slate-300 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 border border-border dark:border-slate-700 focus-visible:ring-2 focus-visible:ring-navy active:scale-95 transition-transform"
               aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -135,75 +110,44 @@ export default function Navbar() {
         </div>
       </div>
 
-      {/* Fullscreen Mobile Drawer Overlay */}
+      {/* Mobile Drawer Overlay with Accessible Touch Targets */}
       <AnimatePresence>
         {mobileMenuOpen && (
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.25, ease: [0.76, 0, 0.24, 1] }}
-            className="fixed inset-0 top-14 bg-black z-40 md:hidden flex flex-col justify-between p-6 border-t border-white/10 font-sora"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: 'auto' }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.18, ease: [0.16, 1, 0.3, 1] }}
+            className="border-b border-border dark:border-slate-800 bg-white dark:bg-slate-900 md:hidden px-4 py-4 space-y-3 font-sans shadow-dropdown"
           >
-            <motion.nav
-              variants={menuContainerVariants}
-              initial="closed"
-              animate="open"
-              exit="closed"
-              className="space-y-6 pt-4"
-            >
+            <nav className="space-y-1.5">
               {navItems.map((item) => {
                 const isActive = item.path === '/' 
                   ? location.pathname === '/' 
                   : location.pathname.startsWith(item.path);
 
                 return (
-                  <motion.div key={item.label} variants={menuItemVariants}>
-                    <Link
-                      to={item.path}
-                      onClick={() => setMobileMenuOpen(false)}
-                      className="block text-sm uppercase tracking-widest font-medium text-white hover:text-[#FFB300] py-2 border-b border-white/10"
-                    >
-                      <span className="text-[#FFB300]/80 mr-2 font-sans">{item.num}.</span>
-                      <span className={isActive ? 'text-[#FFB300]' : 'text-white'}>{item.label}</span>
-                    </Link>
-                  </motion.div>
+                  <Link
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen(false)}
+                    className={`flex items-center px-4 py-3 min-h-[44px] rounded-lg text-sm font-semibold transition-colors ${
+                      isActive 
+                        ? 'bg-navy dark:bg-blue-600 text-white shadow-xs' 
+                        : 'text-foreground dark:text-slate-200 hover:text-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                    }`}
+                  >
+                    {item.label}
+                  </Link>
                 );
               })}
+            </nav>
 
-              {/* Mobile Auth Item */}
-              <motion.div variants={menuItemVariants}>
-                {isAuthenticated ? (
-                  <div className="pt-2 space-y-3">
-                    <div className="text-xs text-white/60 font-sans">
-                      LOGGED IN AS: <strong className="text-white">{user?.phone_number}</strong>
-                    </div>
-                    <button
-                      onClick={() => { logout(); setMobileMenuOpen(false); }}
-                      className="w-full py-2 bg-black border border-[#B22222] text-[#B22222] text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
-                    >
-                      <LogOut className="w-4 h-4" />
-                      <span>DISCONNECT_SESSION</span>
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    onClick={() => { setMobileMenuOpen(false); openLoginModal(); }}
-                    className="w-full py-2 bg-[#111111] hover:bg-[#FFB300] hover:text-black border border-white/20 text-white text-xs font-bold uppercase tracking-wider flex items-center justify-center gap-2"
-                  >
-                    <UserIcon className="w-4 h-4" />
-                    <span>04. AUTHENTICATE_USER</span>
-                  </button>
-                )}
-              </motion.div>
-            </motion.nav>
-
-            <div className="pt-6 border-t border-white/10 flex items-center justify-between text-xs text-white/50">
-              <div className="flex items-center gap-2">
-                <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-                <span>STATUS: OPERATIONAL</span>
+            <div className="pt-3 border-t border-border dark:border-slate-800 flex items-center justify-between text-xs text-muted dark:text-slate-400">
+              <div className="flex items-center gap-2 text-transit-green font-medium py-1">
+                <span className="w-2.5 h-2.5 rounded-full bg-transit-green inline-block animate-pulse" />
+                <span>{t('irSatOperational')}</span>
               </div>
-              <span>SIH 2026</span>
             </div>
           </motion.div>
         )}
@@ -211,5 +155,7 @@ export default function Navbar() {
     </header>
   );
 }
+
+
 
 

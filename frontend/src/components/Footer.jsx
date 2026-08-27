@@ -1,40 +1,43 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { Train } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 export default function Footer() {
+  const { t } = useSettings();
+
   return (
-    <footer className="mt-auto border-t-2 border-t-[#FFB300] bg-[#111111] text-xs font-sans text-white/50">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+    <footer className="mt-auto border-t border-border dark:border-slate-800 bg-white dark:bg-slate-900 text-xs font-sans text-muted dark:text-slate-400 transition-colors">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+        <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
           
           <div className="flex items-center gap-3">
-            <span className="font-sora font-bold text-sm tracking-wider text-white">
-              RAILPULSE <span className="text-[#FFB300]">//</span> ETA
-            </span>
-            <span className="text-white/20">|</span>
-            <span className="text-[11px] font-sora uppercase tracking-wider text-white/40">SIH 2026</span>
+            <div className="flex items-center justify-center w-8 h-8 rounded bg-navy dark:bg-blue-600 text-white">
+              <Train className="w-4 h-4" />
+            </div>
+            <div>
+              <span className="font-bold text-sm tracking-tight text-navy dark:text-blue-400">
+                {t('brandTitle')} <span className="text-railway-red">•</span> PREDICTRACK
+              </span>
+              <p className="text-[11px] text-muted dark:text-slate-400">{t('footerTagline')}</p>
+            </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-6 text-[11px] font-sora uppercase tracking-wider">
-            <Link to="/" className="hover:text-[#FFB300] transition-colors">
-              01. SEARCH
+          <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs font-medium">
+            <Link to="/" className="min-h-[40px] flex items-center text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white transition-colors">
+              {t('liveTrains')}
             </Link>
-            <Link to="/train/12951" className="hover:text-[#FFB300] transition-colors">
-              02. LIVE_MAP
-            </Link>
-            <Link to="/about" className="hover:text-[#FFB300] transition-colors">
-              03. ABOUT_SYSTEM
+            <Link to="/train/12951" className="min-h-[40px] flex items-center text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white transition-colors">
+              {t('trackTrain')}
             </Link>
           </div>
 
-        </div>
-
-        <div className="mt-6 pt-4 border-t border-white/5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2 text-[10px] text-white/40 tracking-wider">
-          <p>INDIAN RAILWAYS COACHING TRAIN DYNAMIC ETA PREDICTION ENGINE</p>
-          <p>FASTAPI REST + GRADIENT BOOSTED PROPAGATION MODEL</p>
         </div>
       </div>
     </footer>
   );
 }
+
+
+
 

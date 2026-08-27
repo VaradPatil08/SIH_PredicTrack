@@ -8,8 +8,6 @@
     "zone": "WR / Northern Railway",
     "scheduled_departure": "17:00",
     "total_distance_km": 1386,
-    "featured": true,
-    "sim_start_offset_min": 0,
     "stations": [
       {
         "code": "MMCT",
@@ -83,7 +81,8 @@
         "scheduled_offset_min": 1040,
         "distance_km": 1386
       }
-    ]
+    ],
+    "featured": true
   },
   "22436": {
     "train_number": "22436",
@@ -94,8 +93,6 @@
     "zone": "NR / North Central",
     "scheduled_departure": "06:00",
     "total_distance_km": 759,
-    "featured": true,
-    "sim_start_offset_min": 120,
     "stations": [
       {
         "code": "NDLS",
@@ -129,7 +126,8 @@
         "scheduled_offset_min": 480,
         "distance_km": 759
       }
-    ]
+    ],
+    "featured": true
   },
   "12009": {
     "train_number": "12009",
@@ -140,8 +138,6 @@
     "zone": "Western Railway",
     "scheduled_departure": "06:20",
     "total_distance_km": 493,
-    "featured": true,
-    "sim_start_offset_min": 60,
     "stations": [
       {
         "code": "MMCT",
@@ -215,7 +211,8 @@
         "scheduled_offset_min": 375,
         "distance_km": 493
       }
-    ]
+    ],
+    "featured": true
   },
   "12301": {
     "train_number": "12301",
@@ -226,8 +223,6 @@
     "zone": "Eastern Railway",
     "scheduled_departure": "16:50",
     "total_distance_km": 1451,
-    "featured": true,
-    "sim_start_offset_min": 200,
     "stations": [
       {
         "code": "HWH",
@@ -301,7 +296,8 @@
         "scheduled_offset_min": 1025,
         "distance_km": 1451
       }
-    ]
+    ],
+    "featured": true
   },
   "20608": {
     "train_number": "20608",
@@ -312,8 +308,6 @@
     "zone": "Southern Railway",
     "scheduled_departure": "13:05",
     "total_distance_km": 496,
-    "featured": true,
-    "sim_start_offset_min": 80,
     "stations": [
       {
         "code": "MYS",
@@ -371,7 +365,8 @@
         "scheduled_offset_min": 390,
         "distance_km": 496
       }
-    ]
+    ],
+    "featured": true
   },
   "12626": {
     "train_number": "12626",

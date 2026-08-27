@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Compass, Navigation, Maximize2 } from 'lucide-react';
+import { Navigation, Maximize2, Gauge } from 'lucide-react';
+import { useSettings } from '../context/SettingsContext';
 
 // Fix standard Leaflet default icon path issues
 delete L.Icon.Default.prototype._getIconUrl;
@@ -19,13 +20,13 @@ function MapController({ bounds, currentPosition, followTrain }) {
 
   useEffect(() => {
     if (bounds && bounds.length > 0 && !followTrain) {
-      map.fitBounds(bounds, { padding: [30, 30], maxZoom: 9 });
+      map.fitBounds(bounds, { padding: [35, 35], maxZoom: 8 });
     }
   }, [bounds, map, followTrain]);
 
   useEffect(() => {
     if (followTrain && currentPosition?.lat && currentPosition?.lng) {
-      map.flyTo([currentPosition.lat, currentPosition.lng], 9, {
+      map.flyTo([currentPosition.lat, currentPosition.lng], 8.5, {
         duration: 1.0,
       });
     }
@@ -35,95 +36,117 @@ function MapController({ bounds, currentPosition, followTrain }) {
 }
 
 /**
- * Creates custom square station node markers (0px border-radius)
+ * Creates clean railway station node markers
  */
-function createSquareStationIcon(status, code) {
-  let innerHtml = '';
+function createRailwayStationIcon(status, code, isDark = false) {
+  let dotBg = isDark ? '#3B82F6' : '#17324D';
+  let dotBorder = isDark ? '#0F172A' : '#FFFFFF';
+  let textColor = isDark ? '#93C5FD' : '#17324D';
+  let labelBg = isDark ? '#1E293B' : '#FFFFFF';
+  let labelBorder = isDark ? '#334155' : '#D9DEE5';
+
   if (status === 'reached') {
-    // Reached: solid white square
-    innerHtml = '<div style="width: 7px; height: 7px; background-color: #FFFFFF; border: 1px solid #FFFFFF;"></div>';
+    dotBg = '#2E7D32';
+    dotBorder = isDark ? '#0F172A' : '#FFFFFF';
+    textColor = isDark ? '#6EE7B7' : '#2E7D32';
   } else if (status === 'delayed') {
-    // Delayed: solid Muted Red square
-    innerHtml = '<div style="width: 7px; height: 7px; background-color: #B22222; border: 1px solid #B22222;"></div>';
+    dotBg = '#ED8B00';
+    dotBorder = isDark ? '#0F172A' : '#FFFFFF';
+    textColor = isDark ? '#FDE68A' : '#ED8B00';
   } else {
-    // Upcoming: hollow white/50 square
-    innerHtml = '<div style="width: 7px; height: 7px; background-color: #000000; border: 1px solid rgba(255,255,255,0.6);"></div>';
+    dotBg = isDark ? '#1E293B' : '#FFFFFF';
+    dotBorder = isDark ? '#60A5FA' : '#17324D';
+    textColor = isDark ? '#94A3B8' : '#667085';
   }
 
   return L.divIcon({
-    className: 'custom-square-station-marker',
+    className: 'railway-station-node',
     html: `
       <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%);">
-        ${innerHtml}
         <div style="
-          margin-top: 2px;
-          padding: 1px 3px;
-          background: #111111;
-          border: 1px solid rgba(255,255,255,0.15);
-          font-family: 'IBM Plex Sans', sans-serif;
-          font-size: 8px;
-          font-weight: 600;
-          color: #FFFFFF;
-          letter-spacing: 0.5px;
+          width: 10px;
+          height: 10px;
+          border-radius: 50%;
+          background-color: ${dotBg};
+          border: 2px solid ${dotBorder};
+          box-shadow: 0 1px 3px rgba(0,0,0,0.4);
+        "></div>
+        <div style="
+          margin-top: 3px;
+          padding: 1px 4px;
+          background: ${labelBg};
+          border: 1px solid ${labelBorder};
+          border-radius: 3px;
+          font-family: 'Inter', sans-serif;
+          font-size: 9px;
+          font-weight: 700;
+          color: ${textColor};
+          box-shadow: 0 1px 2px rgba(0,0,0,0.15);
           white-space: nowrap;
         ">
           ${code}
         </div>
       </div>
     `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    iconSize: [26, 26],
+    iconAnchor: [13, 13],
   });
 }
 
 /**
- * Creates live train position marker: solid filled amber square with slow 2s pulse
+ * Creates live locomotive position marker
  */
-function createLiveTrainIcon() {
+function createLiveTrainIcon(trainNumber, speed, isDark = false) {
+  const bg = isDark ? '#1E3A8A' : '#17324D';
+  const border = isDark ? '#60A5FA' : '#FFFFFF';
+
   return L.divIcon({
-    className: 'custom-live-train-marker',
+    className: 'railway-locomotive-marker',
     html: `
-      <div style="position: relative; display: flex; align-items: center; justify-content: center; width: 28px; height: 28px; transform: translate(-50%, -50%);">
-        <style>
-          @keyframes squarePulse {
-            0% { transform: scale(1); opacity: 0.9; }
-            50% { transform: scale(1.25); opacity: 0.4; }
-            100% { transform: scale(1); opacity: 0.9; }
-          }
-          @media (prefers-reduced-motion: reduce) {
-            .pulse-square { animation: none !important; }
-          }
-        </style>
-        <!-- Outer pulsing square outline -->
-        <div class="pulse-square" style="
-          position: absolute;
-          width: 22px;
-          height: 22px;
-          border: 1.5px solid #FFB300;
-          background-color: rgba(255, 179, 0, 0.15);
-          animation: squarePulse 2s ease-in-out infinite;
-        "></div>
-        <!-- Center solid signal amber square -->
+      <div style="position: relative; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%);">
         <div style="
-          width: 10px;
-          height: 10px;
-          background-color: #FFB300;
-          box-shadow: 0 0 8px rgba(255, 179, 0, 0.9);
-          z-index: 2;
+          display: flex;
+          align-items: center;
+          gap: 4px;
+          padding: 3px 6px;
+          background-color: ${bg};
+          color: #FFFFFF;
+          border: 2px solid ${border};
+          border-radius: 6px;
+          box-shadow: 0 4px 10px rgba(0,0,0,0.35);
+          font-family: 'Inter', sans-serif;
+          font-size: 11px;
+          font-weight: 700;
+          white-space: nowrap;
+        ">
+          <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #2E7D32;"></span>
+          <span>${trainNumber || 'TRAIN'}</span>
+          <span style="font-size: 9px; opacity: 0.9; font-weight: 500;">${speed || 95} km/h</span>
+        </div>
+        <div style="
+          width: 0; 
+          height: 0; 
+          border-left: 5px solid transparent;
+          border-right: 5px solid transparent;
+          border-top: 6px solid ${bg};
         "></div>
       </div>
     `,
-    iconSize: [28, 28],
-    iconAnchor: [14, 14],
+    iconSize: [80, 36],
+    iconAnchor: [40, 36],
   });
 }
 
 export default function TrainMap({ 
   stations = [], 
   currentPosition = null, 
-  trainNumber = '',
-  trainName = '' 
+  trainNumber = '', 
+  trainName = '',
+  onSelectStation = null
 }) {
+  const { theme, t } = useSettings();
+  const isDark = theme === 'dark';
+
   const [followTrain, setFollowTrain] = useState(false);
   const [interpolatedPos, setInterpolatedPos] = useState(
     currentPosition ? [currentPosition.lat, currentPosition.lng] : null
@@ -143,7 +166,7 @@ export default function TrainMap({
     }
 
     const startTime = performance.now();
-    const duration = 1200; // 1.2s ease
+    const duration = 1000;
 
     const animate = (currentTime) => {
       const elapsed = currentTime - startTime;
@@ -169,7 +192,6 @@ export default function TrainMap({
     };
   }, [currentPosition?.lat, currentPosition?.lng]);
 
-  // Route path calculations
   const routeCoords = useMemo(() => {
     return stations.map(stn => [stn.lat, stn.lng]);
   }, [stations]);
@@ -201,67 +223,52 @@ export default function TrainMap({
   const bounds = routeCoords.length > 0 ? routeCoords : null;
 
   return (
-    <div className="relative w-full h-[450px] lg:h-[620px] bg-black border border-white/10 border-t-2 border-t-[#FFB300] overflow-hidden font-sans">
+    <div className="relative w-full h-[340px] sm:h-[450px] lg:h-[600px] bg-slate-100 dark:bg-slate-900 rounded-lg border border-border dark:border-slate-800 shadow-card overflow-hidden font-sans transition-colors">
       
-      {/* Top Map HUD Overlay */}
-      <div className="absolute top-3 left-3 z-[1000] flex flex-wrap items-center gap-2 pointer-events-auto">
-        <div className="px-2.5 py-1.5 bg-[#111111] border border-white/15 text-xs text-white flex items-center gap-2">
-          <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-          <span className="font-sora font-bold text-[#FFB300]">{trainNumber}</span>
-          <span className="text-white/30">|</span>
-          <span className="text-white/70 text-[11px] font-sora uppercase">LIVE_GIS_TRACK</span>
+      {/* Top Left Floating Status Card */}
+      <div className="absolute top-2 sm:top-3 left-2 sm:left-3 z-[1000] flex flex-wrap items-center gap-1.5 sm:gap-2 pointer-events-auto max-w-[calc(100%-120px)]">
+        <div className="px-2.5 sm:px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 border border-border dark:border-slate-700 shadow-sm text-xs text-foreground dark:text-slate-100 flex items-center gap-1.5 sm:gap-2 font-medium">
+          <span className="w-2 h-2 rounded-full bg-transit-green inline-block shrink-0"></span>
+          <span className="font-bold text-navy dark:text-blue-400">#{trainNumber}</span>
+          <span className="text-slate-300 dark:text-slate-700 hidden xs:inline">|</span>
+          <span className="text-muted dark:text-slate-300 text-[11px] hidden xs:inline">{t('routeMap')}</span>
         </div>
 
         {currentPosition?.speed_kmh !== undefined && (
-          <div className="px-2.5 py-1.5 bg-[#111111] border border-white/15 text-xs text-white flex items-center gap-1.5 font-sans">
-            <Compass className="w-3.5 h-3.5 text-[#FFB300]" />
-            <span className="font-bold text-white">{currentPosition.speed_kmh}</span>
-            <span className="text-white/40 text-[10px]">KM/H</span>
+          <div className="hidden sm:flex px-3 py-1.5 rounded-md bg-white dark:bg-slate-900 border border-border dark:border-slate-700 shadow-sm text-xs text-foreground dark:text-slate-100 items-center gap-1.5 font-sans">
+            <Gauge className="w-3.5 h-3.5 text-navy dark:text-blue-400" />
+            <span className="font-bold text-navy dark:text-blue-400">{currentPosition.speed_kmh}</span>
+            <span className="text-muted dark:text-slate-400 text-[11px]">{t('km')}/h</span>
           </div>
         )}
       </div>
 
-      {/* Map Control Buttons */}
-      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2 pointer-events-auto">
+      {/* Top Right Controls Overlay */}
+      <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-[1000] flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
         <button
           onClick={() => setFollowTrain(!followTrain)}
-          className={`flex items-center gap-1.5 px-2.5 py-1.5 text-xs font-sora border transition-all focus-visible:ring-1 focus-visible:ring-[#FFB300] ${
+          className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-md text-xs font-semibold border shadow-sm transition-all active:scale-95 ${
             followTrain 
-              ? 'bg-[#FFB300] text-black border-[#FFB300] font-bold' 
-              : 'bg-[#111111] text-white/70 hover:text-white border-white/10 hover:border-white/30'
+              ? 'bg-navy dark:bg-blue-600 text-white border-navy dark:border-blue-500' 
+              : 'bg-white dark:bg-slate-900 text-muted dark:text-slate-300 hover:text-navy dark:hover:text-white border-border dark:border-slate-700'
           }`}
-          title="Follow train live position"
+          title="Auto-follow train"
         >
-          <Navigation className={`w-3.5 h-3.5 ${followTrain ? 'fill-black' : ''}`} />
-          <span>{followTrain ? 'TRACKING' : 'FOLLOW'}</span>
+          <Navigation className={`w-3.5 h-3.5 ${followTrain ? 'fill-white' : ''}`} />
+          <span className="hidden xs:inline">{followTrain ? 'Tracking' : 'Follow'}</span>
         </button>
 
         <button
           onClick={() => setFollowTrain(false)}
-          className="p-1.5 bg-[#111111] text-white/70 hover:text-white border border-white/10 hover:border-white/30 transition-colors focus-visible:ring-1 focus-visible:ring-[#FFB300]"
-          title="Fit whole route to screen"
+          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md bg-white dark:bg-slate-900 text-muted dark:text-slate-300 hover:text-navy dark:hover:text-white border border-border dark:border-slate-700 shadow-sm transition-all active:scale-95"
+          title={t('recenterRoute')}
+          aria-label={t('recenterRoute')}
         >
-          <Maximize2 className="w-4 h-4" />
+          <Maximize2 className="w-3.5 h-3.5" />
         </button>
       </div>
 
-      {/* Bottom Map Legend */}
-      <div className="absolute bottom-3 left-3 z-[1000] px-3 py-1.5 bg-[#111111] border border-white/10 text-[10px] font-sora text-white/60 flex items-center gap-4 pointer-events-auto hidden sm:flex">
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-white inline-block"></span>
-          <span>REACHED</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 bg-[#FFB300] inline-block"></span>
-          <span>LIVE_RAKE</span>
-        </div>
-        <div className="flex items-center gap-1.5">
-          <span className="w-2 h-2 border border-white/40 inline-block"></span>
-          <span>UPCOMING</span>
-        </div>
-      </div>
-
-      {/* Leaflet Map Canvas with CartoDB Dark Matter Tiles */}
+      {/* Leaflet Map with Dynamic CartoDB Tiles (Positron in Light, Dark Matter in Dark) */}
       <MapContainer
         center={defaultCenter}
         zoom={6}
@@ -269,8 +276,13 @@ export default function TrainMap({
         className="w-full h-full"
       >
         <TileLayer
+          key={isDark ? 'dark-tiles' : 'light-tiles'}
           attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
+          url={
+            isDark
+              ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
+              : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+          }
         />
 
         <MapController 
@@ -279,87 +291,87 @@ export default function TrainMap({
           followTrain={followTrain} 
         />
 
-        {/* Completed Route Segment (Full Opacity Amber) */}
+        {/* Completed Route Segment (Solid Navy/Blue Polyline) */}
         {completedCoords.length > 1 && (
           <Polyline
             positions={completedCoords}
             pathOptions={{
-              color: '#FFB300',
-              weight: 2,
-              opacity: 1.0,
-              lineCap: 'square',
-              lineJoin: 'miter',
+              color: isDark ? '#3B82F6' : '#17324D',
+              weight: 4,
+              opacity: 0.9,
+              lineCap: 'round',
+              lineJoin: 'round',
             }}
           />
         )}
 
-        {/* Upcoming Route Segment (Reduced Opacity Amber) */}
+        {/* Upcoming Route Segment (Dashed Grey Polyline) */}
         {upcomingCoords.length > 1 && (
           <Polyline
             positions={upcomingCoords}
             pathOptions={{
-              color: '#FFB300',
-              weight: 2,
-              opacity: 0.35,
-              lineCap: 'square',
-              lineJoin: 'miter',
+              color: isDark ? '#64748B' : '#667085',
+              weight: 3.5,
+              opacity: 0.6,
+              dashArray: '6, 8',
+              lineCap: 'round',
+              lineJoin: 'round',
             }}
           />
         )}
 
-        {/* Station Markers (Square Outline Language) */}
+        {/* Station Markers with Status Nodes */}
         {stations.map((stn, index) => (
           <Marker
             key={`${stn.code}-${index}`}
             position={[stn.lat, stn.lng]}
-            icon={createSquareStationIcon(stn.status, stn.code)}
+            icon={createRailwayStationIcon(stn.status, stn.code, isDark)}
           >
             <Popup>
-              <div className="font-sans text-xs space-y-1.5 bg-[#111111] text-white">
-                <div className="flex items-center justify-between gap-3 border-b border-white/10 pb-1">
-                  <span className="font-sora font-bold text-white text-[11px]">{stn.name}</span>
-                  <span className="text-[#FFB300] font-sora font-bold text-[10px]">[{stn.code}]</span>
+              <div className="font-sans text-xs space-y-1.5 text-foreground dark:text-slate-100 min-w-[190px]">
+                <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
+                  <span className="font-bold text-navy dark:text-blue-400 text-xs">{stn.name}</span>
+                  <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 font-bold text-[10px]">
+                    {stn.code}
+                  </span>
                 </div>
-                <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[10px] text-white/60 pt-0.5 font-sans">
-                  <div>DISTANCE: <span className="text-white">{stn.distance_km} KM</span></div>
-                  <div>STATUS: <span className={stn.status === 'delayed' ? 'text-[#B22222] font-semibold' : stn.status === 'reached' ? 'text-white' : 'text-[#FFB300]'}>{stn.status.toUpperCase()}</span></div>
-                  <div>SCHED: <span className="text-white">+{stn.scheduled_offset_min}M</span></div>
-                  <div>DELAY: <span className={stn.predicted_delay_min > 2 ? 'text-[#B22222] font-semibold' : 'text-white'}>+{stn.predicted_delay_min || 0}M</span></div>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-muted dark:text-slate-400 pt-0.5">
+                  <div>{t('distance')} <span className="text-foreground dark:text-slate-200 font-semibold">{stn.distance_km || 0} {t('km')}</span></div>
+                  <div>{t('action')} <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'text-navy dark:text-blue-400 font-medium'}>{stn.status.toUpperCase()}</span></div>
+                  <div>{t('scheduled')} <span className="text-foreground dark:text-slate-200 font-medium">+{stn.scheduled_offset_min}m</span></div>
+                  <div>{t('peakDelay')} <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
                 </div>
               </div>
             </Popup>
           </Marker>
         ))}
 
-        {/* Current Train Location Marker (Pulsing Amber Square with Interpolation) */}
+        {/* Current Train Location Marker */}
         {interpolatedPos && (
           <Marker
             position={interpolatedPos}
-            icon={createLiveTrainIcon()}
+            icon={createLiveTrainIcon(trainNumber, currentPosition?.speed_kmh, isDark)}
             zIndexOffset={1000}
           >
             <Popup autoPan={false}>
-              <div className="font-sans text-xs space-y-1.5 min-w-[190px] bg-[#111111] text-white">
-                <div className="flex items-center justify-between border-b border-white/10 pb-1 font-sora">
-                  <span className="text-[#FFB300] font-bold text-[11px]">[{trainNumber}]</span>
-                  <span className="text-[10px] text-[#FFB300] font-bold">[ IN_TRANSIT ]</span>
+              <div className="font-sans text-xs space-y-1.5 min-w-[210px] text-foreground dark:text-slate-100">
+                <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
+                  <span className="text-navy dark:text-blue-400 font-bold text-xs">{trainNumber} {trainName}</span>
+                  <span className="px-1.5 py-0.5 rounded text-[10px] bg-transit-green-light dark:bg-emerald-950 text-transit-green dark:text-emerald-400 font-bold">
+                    {t('liveTrack')}
+                  </span>
                 </div>
-                <p className="text-white text-[11px] font-medium leading-snug font-sans">{trainName}</p>
-                <div className="pt-1 space-y-1 text-[10px] text-white/60 font-sans">
+                <div className="space-y-1 text-[11px] text-muted dark:text-slate-400">
                   <div className="flex justify-between">
-                    <span className="font-sora uppercase">SPEED:</span>
-                    <span className="text-white font-bold">{currentPosition?.speed_kmh || 92} KM/H</span>
+                    <span>{t('currentSpeed')}:</span>
+                    <span className="text-navy dark:text-blue-400 font-bold">{currentPosition?.speed_kmh || 95} {t('km')}/h</span>
                   </div>
                   {currentPosition?.next_station_name && (
                     <div className="flex justify-between">
-                      <span className="font-sora uppercase">NEXT_HALT:</span>
-                      <span className="text-[#FFB300]">{currentPosition.next_station_name}</span>
+                      <span>{t('nextStation')}:</span>
+                      <span className="text-navy dark:text-blue-300 font-semibold">{currentPosition.next_station_name}</span>
                     </div>
                   )}
-                  <div className="flex justify-between text-white/40 pt-1 border-t border-white/10">
-                    <span className="font-sora uppercase">SYNC_FEED:</span>
-                    <span>{currentPosition?.last_updated || 'LIVE'}</span>
-                  </div>
                 </div>
               </div>
             </Popup>
@@ -369,4 +381,7 @@ export default function TrainMap({
     </div>
   );
 }
+
+
+
 

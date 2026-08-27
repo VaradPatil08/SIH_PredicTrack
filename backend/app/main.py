@@ -1,13 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.db import Base, engine
-from app.routers import trains, auth, preferences, reports, pnr
-
-# Creates railpulse.db and new tables (users/preferences/reports/otp) on
-# startup if they don't exist yet. Doesn't affect trains.py, which still
-# reads mock_trains.json directly and is untouched by this.
-Base.metadata.create_all(bind=engine)
+from app.routers import trains
 
 app = FastAPI(
     title="RailPulse API",
@@ -25,10 +19,6 @@ app.add_middleware(
 )
 
 app.include_router(trains.router)
-app.include_router(auth.router)
-app.include_router(preferences.router)
-app.include_router(reports.router)
-app.include_router(pnr.router)
 
 
 @app.get("/")

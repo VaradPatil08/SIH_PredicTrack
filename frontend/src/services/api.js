@@ -397,16 +397,15 @@ function generateSyntheticETA(routeData) {
 }
 
 /**
- * 1. GET /trains → list of trains (supports optional ?featured=true query)
+ * 1. GET /trains → list of trains (default: featured only, pass featured:true explicitly or omit for homepage)
  */
 export async function getTrains(params = {}) {
   try {
     const query = new URLSearchParams();
-    if (params.featured !== undefined) {
-      query.set('featured', params.featured);
-    }
-    const queryString = query.toString();
-    const url = queryString ? `${BASE_URL}/trains?${queryString}` : `${BASE_URL}/trains`;
+    // Default to featured:true so the homepage never fetches the full 9,525-train set
+    const featuredParam = params.featured !== undefined ? params.featured : true;
+    query.set('featured', String(featuredParam));
+    const url = `${BASE_URL}/trains?${query.toString()}`;
     const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
@@ -416,10 +415,33 @@ export async function getTrains(params = {}) {
     if (params.featured !== undefined) {
       return MOCK_TRAINS.filter(t => Boolean(t.featured) === Boolean(params.featured));
     }
-    return MOCK_TRAINS;
+    return MOCK_TRAINS.filter(t => Boolean(t.featured));
   }
 }
 
+/**
+ * 1b. GET /trains/search?q={query}&limit={limit} → search full 9,525-train network
+ */
+export async function getTrainsSearch(query, limit = 20) {
+  const q = (query || '').trim();
+  if (q.length < 2) return [];
+  try {
+    const params = new URLSearchParams({ q, limit: String(Math.min(limit, 50)) });
+    const res = await fetchWithTimeout(`${BASE_URL}/trains/search?${params}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    return Array.isArray(data) ? data : [];
+  } catch (err) {
+    console.warn(`[RailPulse API] Search failed, falling back to local mock filter:`, err.message);
+    const ql = q.toLowerCase();
+    return MOCK_TRAINS.filter(t =>
+      t.train_number.toLowerCase().includes(ql) ||
+      t.name.toLowerCase().includes(ql) ||
+      (t.origin || '').toLowerCase().includes(ql) ||
+      (t.destination || '').toLowerCase().includes(ql)
+    ).slice(0, limit);
+  }
+}
 
 
 /**
@@ -733,3 +755,31 @@ export async function lookupPNR(pnrNumber) {
 }
 
 
+/**
+ * 14. ADMIN: GET /admin/stations — station picker list [{code, name}] sorted by name
+ */
+export async function getAdminStations() {
+  try {
+    const res = await fetchWithTimeout(`${BASE_URL}/admin/stations`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[RailPulse API] getAdminStations error:`, err.message);
+    return [];
+  }
+}
+
+/**
+ * 15. ADMIN: GET /admin/station/{code}/arrivals — live arrivals board for a station
+ */
+export async function getAdminStationArrivals(stationCode) {
+  try {
+    const code = (stationCode || '').trim().toUpperCase();
+    const res = await fetchWithTimeout(`${BASE_URL}/admin/station/${code}/arrivals`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[RailPulse API] getAdminStationArrivals error:`, err.message);
+    return [];
+  }
+}

@@ -27,13 +27,58 @@ with open(_DATA_PATH, encoding="utf-8") as f:
 _DELAY_SIM_START = time.time()
 
 
-@router.get("/trains", response_model=list[TrainSummary])
-def list_trains(featured: bool | None = Query(None, description="If true, return only featured flagship homepage trains (6 trains)")):
+@router.get("/trains/search", response_model=list[TrainSummary])
+def search_trains(
+    q: str = Query(..., min_length=2, description="Search query — min 2 chars; matches train number, name, origin, destination"),
+    limit: int = Query(20, ge=1, le=50, description="Max results (1–50, default 20)"),
+):
     """
-    Returns train list. Pass ?featured=true for the curated homepage flagship set (6 trains).
-    Omit the param (or pass ?featured=false) to get the full network train set for search and lookup.
+    Full-network search across all 9,525 trains.
+    Case-insensitive match on train_number (prefix/exact) or name/origin/destination (substring).
+    This is the ONLY endpoint that should surface non-featured trains — never dump the full set.
     """
+    ql = q.strip().lower()
+    if len(ql) < 2:
+        from fastapi import HTTPException as _HTTPException
+        raise _HTTPException(status_code=400, detail="Query must be at least 2 characters.")
 
+    results = []
+    for t in _MOCK_TRAINS.values():
+        if (
+            ql in t.get("train_number", "").lower()
+            or ql in t.get("name", "").lower()
+            or ql in (t.get("origin") or "").lower()
+            or ql in (t.get("destination") or "").lower()
+        ):
+            results.append(
+                TrainSummary(
+                    train_number=t["train_number"],
+                    name=t["name"],
+                    origin=t["origin"],
+                    destination=t["destination"],
+                    type=t.get("type"),
+                    zone=t.get("zone"),
+                    scheduled_departure=t.get("scheduled_departure"),
+                    total_distance_km=t.get("total_distance_km"),
+                    train_name=t["name"],
+                    featured=bool(t.get("featured", False)),
+                )
+            )
+            if len(results) >= limit:
+                break
+    return results
+
+
+@router.get("/trains", response_model=list[TrainSummary])
+def list_trains(featured: bool | None = Query(None, description="If true (default), return only featured flagship homepage trains (6 trains). Pass false to return the full network — large response, use deliberately.")):
+    """
+    Returns train list.
+    - Default (no param): returns only the 6 curated featured trains — fast, suitable for homepage.
+    - ?featured=true: same as default.
+    - ?featured=false: returns full 9,525-train network — large, use only when explicitly needed.
+    Use GET /trains/search?q=... to search the full network without loading it all at once.
+    """
+    show_featured_only = featured if featured is not None else True
     return [
         TrainSummary(
             train_number=t["train_number"],
@@ -48,7 +93,7 @@ def list_trains(featured: bool | None = Query(None, description="If true, return
             featured=bool(t.get("featured", False)),
         )
         for t in _MOCK_TRAINS.values()
-        if featured is None or bool(t.get("featured", False)) == featured
+        if bool(t.get("featured", False)) == show_featured_only
     ]
 
 

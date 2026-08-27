@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Menu, X, Train, Settings as SettingsIcon } from 'lucide-react';
+import { Menu, X, Train, Settings as SettingsIcon, LayoutGrid } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
 
 export default function Navbar() {
@@ -64,6 +64,21 @@ export default function Navbar() {
                 </Link>
               );
             })}
+
+            {/* Secondary operational link — visually separated and muted */}
+            <span className="text-border dark:text-slate-700 select-none px-1">|</span>
+            <Link
+              to="/admin"
+              className={`px-3 py-1.5 rounded-md text-xs font-semibold tracking-wide transition-all duration-200 flex items-center gap-1.5 ${
+                location.pathname.startsWith('/admin')
+                  ? 'text-navy dark:text-blue-300 bg-navy-subtle dark:bg-blue-950/60'
+                  : 'text-muted dark:text-slate-500 hover:text-navy dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
+              }`}
+              title="Station Admin — Arrivals Board"
+            >
+              <LayoutGrid className="w-3.5 h-3.5" />
+              <span>Station Admin</span>
+            </Link>
           </nav>
 
           {/* Right Section: Live Network Badge & Settings Button (Visible on Tablet & Desktop) */}
@@ -141,6 +156,19 @@ export default function Navbar() {
                   </Link>
                 );
               })}
+              {/* Secondary admin link in mobile drawer */}
+              <Link
+                to="/admin"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center gap-2 px-4 py-2.5 min-h-[40px] rounded-lg text-xs font-semibold transition-colors ${
+                  location.pathname.startsWith('/admin')
+                    ? 'bg-navy dark:bg-blue-600 text-white'
+                    : 'text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800'
+                }`}
+              >
+                <LayoutGrid className="w-4 h-4" />
+                Station Admin
+              </Link>
             </nav>
 
             <div className="pt-3 border-t border-border dark:border-slate-800 flex items-center justify-between text-xs text-muted dark:text-slate-400">

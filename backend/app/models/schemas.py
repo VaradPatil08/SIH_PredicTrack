@@ -69,3 +69,21 @@ class ModelMetrics(BaseModel):
     mae_minutes: float
     trained_on_records: int
     last_trained: str
+
+
+class StationPickerItem(BaseModel):
+    code: str
+    name: str
+
+
+class StationArrivalItem(BaseModel):
+    train_number: str
+    train_name: str
+    platform: int
+    scheduled_arrival_offset_min: int
+    predicted_delay_min: int
+    predicted_arrival_offset_min: int
+    halt_min: int
+    status: str
+    direction: str
+

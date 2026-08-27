@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Search, ArrowRight, CornerDownLeft, Star, Ticket, AlertCircle, RefreshCw } from 'lucide-react';
+import { Search, ArrowRight, CornerDownLeft, Star, Ticket, AlertCircle, RefreshCw, ChevronDown } from 'lucide-react';
 import { getTrains, lookupPNR } from '../services/api';
 import { TrainRowSkeleton } from '../components/SkeletonLoader';
 import { useAuth } from '../context/AuthContext';
@@ -19,6 +19,9 @@ export default function LandingPage() {
   const [activeDirectoryTab, setActiveDirectoryTab] = useState('all'); // 'all' | 'saved'
   const [loading, setLoading] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
+  // Homepage shows only the 5 featured trains by default.
+  // The full 16-train network is one click away via "SHOW FULL NETWORK".
+  const [showAllTrains, setShowAllTrains] = useState(false);
 
   useEffect(() => {
     async function loadTrains() {
@@ -35,9 +38,17 @@ export default function LandingPage() {
     loadTrains();
   }, []);
 
+  // Featured trains are the curated homepage set (marked featured:true in mock_trains.json).
+  // All other trains are still searchable and reachable via search or direct number entry.
+  const featuredTrainNumbers = new Set(['12951', '22436', '12009', '12301', '20608']);
+  const isSearchActive = searchQuery.trim().length > 0;
+
   const filteredTrains = trains.filter((t) => {
-    if (activeDirectoryTab === 'saved' && !favorites.includes(t.train_number)) {
-      return false;
+    if (activeDirectoryTab === 'saved' && !favorites.includes(t.train_number)) return false;
+    // When not showing all and no search is active, restrict to featured trains on homepage.
+    // A search query automatically reveals the full network so users can find any train.
+    if (!showAllTrains && !isSearchActive && activeDirectoryTab !== 'saved') {
+      if (!featuredTrainNumbers.has(t.train_number)) return false;
     }
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
@@ -213,6 +224,8 @@ export default function LandingPage() {
                     { number: '22436', label: '22436 VANDE BHARAT' },
                     { number: '12009', label: '12009 SHATABDI' },
                     { number: '12301', label: '12301 HOWRAH EXP' },
+                    { number: '20608', label: '20608 MYSURU VB' },
+                    { number: '12269', label: '12269 DURONTO' },
                   ].map((chip) => (
                     <button
                       key={chip.number}
@@ -222,6 +235,7 @@ export default function LandingPage() {
                       {chip.label}
                     </button>
                   ))}
+                  <span className="text-white/30 text-[10px]">+ 10 more via search</span>
                 </div>
               </div>
             )}
@@ -314,12 +328,28 @@ export default function LandingPage() {
         
         {/* Table Title & Filter Tabs */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-3 border-b border-white/20 text-xs font-sora uppercase tracking-[0.1em] text-white/70">
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-3">
             <span className="w-2 h-2 bg-[#FFB300] inline-block" />
             <span className="text-white font-bold">DEPARTURE_BOARD // DIRECTORY</span>
+            {!showAllTrains && !searchQuery.trim() && activeDirectoryTab !== 'saved' && (
+              <span className="text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5">
+                FEATURED · {featuredTrainNumbers.size}/{trains.length} SERVICES
+              </span>
+            )}
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Show Full Network / Show Featured toggle — only when on "all" tab without active search */}
+            {activeDirectoryTab !== 'saved' && !searchQuery.trim() && (
+              <button
+                onClick={() => setShowAllTrains(v => !v)}
+                className="flex items-center gap-1.5 px-2.5 py-0.5 border border-white/20 text-[11px] hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white/70 transition-colors"
+              >
+                <ChevronDown className={`w-3 h-3 transition-transform ${showAllTrains ? 'rotate-180' : ''}`} />
+                {showAllTrains ? `SHOW FEATURED [${featuredTrainNumbers.size}]` : `SHOW FULL NETWORK [${trains.length}]`}
+              </button>
+            )}
+
             {/* Directory Filter Tabs: All vs Saved Favorites */}
             <div className="flex border border-white/20 p-0.5 bg-[#111111] text-[11px]">
               <button
@@ -328,7 +358,7 @@ export default function LandingPage() {
                   activeDirectoryTab === 'all' ? 'bg-[#FFB300] text-black font-bold' : 'text-white/60 hover:text-white'
                 }`}
               >
-                ALL_TRAINS [{trains.length}]
+                {showAllTrains || searchQuery.trim() ? `ALL [${filteredTrains.length}]` : `FEATURED [${filteredTrains.length}]`}
               </button>
               <button
                 onClick={() => {
@@ -346,12 +376,9 @@ export default function LandingPage() {
                 <span>MY_TRAINS [{favorites.length}]</span>
               </button>
             </div>
-
-            <span className="text-white/40 hidden md:inline">
-              ENTRIES: <strong className="text-white font-sans">{filteredTrains.length}</strong>
-            </span>
           </div>
         </div>
+
 
         {/* Departure Board Table Headers (Desktop) */}
         <div className="hidden md:grid grid-cols-12 gap-4 py-2.5 px-4 bg-[#111111] border-b border-white/10 text-[11px] text-white/50 font-sora tracking-widest uppercase">

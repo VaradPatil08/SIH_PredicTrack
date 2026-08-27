@@ -1,14 +1,17 @@
 import json
+import math
+import time
 from pathlib import Path
+from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Query
 
 from app.models.schemas import (
-    TrainETAResponse, 
-    TrainRouteResponse, 
-    TrainSummary, 
+    TrainETAResponse,
+    TrainRouteResponse,
+    TrainSummary,
     Station,
-    StationETA, 
+    StationETA,
     CurrentPosition,
     DelayReasonsResponse,
     ModelMetrics
@@ -21,10 +24,16 @@ _DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "mock_trains.json
 with open(_DATA_PATH, encoding="utf-8") as f:
     _MOCK_TRAINS = json.load(f)
 
+# Module-level sim start so delay random-walk is stable per server restart
+_DELAY_SIM_START = time.time()
+
 
 @router.get("/trains", response_model=list[TrainSummary])
-def list_trains():
-    """All demo-able trains for the control directory / search page."""
+def list_trains(featured: Optional[bool] = Query(None, description="If true, return only featured homepage trains")):
+    """
+    Returns train list. Pass ?featured=true for the curated homepage set (5 trains).
+    Omit the param (or pass ?featured=false) to get all 16 trains for search/lookup.
+    """
     return [
         TrainSummary(
             train_number=t["train_number"],
@@ -38,6 +47,7 @@ def list_trains():
             train_name=t["name"],
         )
         for t in _MOCK_TRAINS.values()
+        if featured is None or bool(t.get("featured", False)) == featured
     ]
 
 
@@ -66,6 +76,69 @@ def get_train_route(train_number: str):
     )
 
 
+def _compute_base_delay(
+    train_number: str,
+    stations: list[dict],
+    elapsed_min: float,
+) -> int:
+    """
+    Computes a smoothly-evolving delay estimate for the whole journey — NOT
+    per-segment, so it never resets to zero when current_station_index advances.
+
+    FIX for the sawtooth problem:
+        The old code used `sim_delay = elapsed_min - scheduled_offset_at_current_station`.
+        This collapsed to ~0 every time the station index advanced, because the new
+        station's own scheduled_offset becomes the denominator. The result was a
+        sawtooth wave instead of a continuous signal.
+
+    NEW APPROACH — smooth bounded random-walk keyed by (train_number, journey fraction):
+        1. Seed a historical base from the ML lookup table (per-train chronic delay)
+        2. Add a slow sinusoidal perturbation (period = total journey), so delay rises and
+           falls naturally across the route — not per-station resets
+        3. Add a very slow random-walk component driven by a hash of
+           (train_number, coarse_time_bucket) so each train has its own independent
+           delay trajectory, and adjacent polls produce adjacent values (no jumps)
+
+    The result is a signal that:
+        • Is different per train (seeded by hist_lag per train)
+        • Varies continuously across the journey (sinusoidal wave)
+        • Drifts slowly over real time (random-walk bucket)
+        • Never resets to 0 on station-crossing
+        • Is bounded to [hist_base * 0.3, hist_base * 2.2] so it stays realistic
+    """
+    hist = eta._hist_averages or {}
+    global_avg = float(hist.get("global_avg", 20.0))
+    tid = str(train_number).zfill(5)
+
+    # 1. Historical base: this train's chronic delay profile
+    train_avg = float(hist.get("train", {}).get(tid, global_avg))
+    # Clamp to a realistic range (some trains have 0.0 from sparse data)
+    hist_base = max(8.0, min(train_avg, 60.0))
+
+    # 2. Journey-progress sinusoidal component.
+    #    One full sine cycle over the whole journey duration — delay rises in the
+    #    middle of a long run and recovers near the destination. Amplitude = 30% of base.
+    total_min = float(stations[-1].get("scheduled_offset_min", 1000) or 1000)
+    phase = (elapsed_min / total_min) * 2.0 * math.pi  # 0 → 2π across the journey
+    sine_component = hist_base * 0.30 * math.sin(phase)  # ±30% of base
+
+    # 3. Slow random-walk: bucket size = 4 real minutes (40 simulated minutes at 10×).
+    #    Each bucket gets a stable offset derived from a deterministic hash, so
+    #    consecutive polls in the same bucket see the same value (no inter-poll jumps).
+    #    The hash uses train_number as a seed so different trains drift independently.
+    real_elapsed = time.time() - _DELAY_SIM_START
+    bucket = int(real_elapsed // 240)  # changes every 4 real minutes
+    # Deterministic pseudo-random from (train_id, bucket) — no import of random needed
+    hash_val = hash(f"{train_number}:{bucket}") % 1000  # 0..999
+    walk_component = hist_base * 0.25 * (hash_val / 500.0 - 1.0)  # ±25% of base
+
+    raw = hist_base + sine_component + walk_component
+
+    # Clamp to a realistic delay range
+    result = max(int(hist_base * 0.3), min(round(raw), int(hist_base * 2.2)))
+    return result
+
+
 @router.get("/trains/{train_number}/eta", response_model=TrainETAResponse)
 @router.get("/train/{train_number}/eta", response_model=TrainETAResponse)
 def get_train_eta(train_number: str):
@@ -78,18 +151,34 @@ def get_train_eta(train_number: str):
         raise HTTPException(status_code=404, detail=f"Unknown train {train_number}")
 
     stations = train["stations"]
-    position, elapsed_min, current_station_index = live_feed.get_live_position_and_state(stations)
 
-    base_delay = 18
+    # Pass per-train sim_start_offset_min so trains on shared corridors
+    # (e.g. MMCT→BVI is on both 12951 and 12009) appear at different positions.
+    sim_offset = train.get("sim_start_offset_min", 0)
+    position, elapsed_min, current_station_index = live_feed.get_live_position_and_state(
+        stations,
+        train_number=train_number,
+        start_offset_min=sim_offset,
+    )
+
+    # Ensure the ETA model's historical averages are loaded
+    eta._try_load_model()
+
+    # Continuously-evolving delay estimate — no per-station sawtooth resets
+    base_delay = _compute_base_delay(train_number, stations, float(elapsed_min))
+
     station_etas = []
     for idx, st in enumerate(stations):
         if idx < current_station_index:
+            # Already-passed stations: reconstruct a plausible decaying historic delay
             status = "reached"
-            delay = 0 if idx == 0 else max(0, base_delay - (len(stations) - idx) * 2)
+            delay = 0 if idx == 0 else max(0, base_delay - (current_station_index - idx) * 2)
         elif idx == current_station_index:
-            status = "delayed"
+            # Current station: use the evolved delay
+            status = "delayed" if base_delay > 2 else "on_time"
             delay = base_delay
         else:
+            # Future stations: ML model predicts given current incoming delay
             delay, _ = eta.predict_delay_minutes(
                 train_number=train_number,
                 station_code=st["code"],

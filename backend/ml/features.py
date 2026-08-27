@@ -6,13 +6,13 @@ build_features() from THIS file, and nothing else. If training and
 inference compute features differently even slightly, the model's
 predictions become meaningless. Never duplicate this logic anywhere else.
 
-FEATURE SET (v2 — real railway features):
+FEATURE SET (v3 — 15 real railway features):
   distance_km                  static/route, cumulative distance along route (km)
   remaining_distance_km        static/route, distance left to destination (km)
   pct_journey_completed        static/route, journey progress ratio [0.0 - 1.0]
   train_priority               static/heuristic, 3=Top (Vande Bharat/Rajdhani), 2=Superfast, 1=Express, 0=Passenger
   scheduled_halt_duration_min  static/schedule, scheduled halt duration at station (mins)
-  current_delay_min            dynamic/live, current delay of the train (mins)
+  current_delay_min            dynamic/live, current delay of the train (mins) — highest-importance feature
   station_hist_avg_delay       historical, mean historical delay for this station (mins)
   train_hist_avg_delay         historical, mean historical delay for this train (mins)
   hist_delay_lag1              historical/dynamic, delay at previous station along route (mins)
@@ -22,10 +22,15 @@ FEATURE SET (v2 — real railway features):
   delay_vs_historical          interaction, (current_delay_min - station_hist_avg_delay)
   hour_sin                     temporal, cyclical sin encoding of departure hour
   hour_cos                     temporal, cyclical cos encoding of departure hour
-  dow_sin                      temporal, cyclical sin encoding of day of week
-  dow_cos                      temporal, cyclical cos encoding of day of week
-  is_foggy                     weather, binary flag (default 0, wired for live sensor stream)
-  is_red_signal                signalling, binary flag (default 0, wired for live aspect feed)
+
+REMOVED FEATURES (v2 → v3):
+  dow_sin / dow_cos    — always constant (day_of_week=2 hardcoded in training) → 0.0 feature
+                         importance. Removed rather than faked. Re-add when per-run
+                         weekday-labelled data is available.
+  is_foggy             — no live weather feed; always 0 in both training and inference → 0.0
+                         importance. Placeholder kept in build_features() signature for
+                         future live integration. See TODO below.
+  is_red_signal        — no live signal-aspect feed; always 0 → 0.0 importance. Same treatment.
 """
 
 import json
@@ -33,6 +38,7 @@ import math
 import os
 import datetime
 
+# 15 features — must match the order returned by build_features() exactly.
 FEATURE_NAMES = [
     "distance_km",
     "remaining_distance_km",
@@ -49,10 +55,6 @@ FEATURE_NAMES = [
     "delay_vs_historical",
     "hour_sin",
     "hour_cos",
-    "dow_sin",
-    "dow_cos",
-    "is_foggy",
-    "is_red_signal",
 ]
 
 _HIST_AVERAGES_PATH = os.path.join(os.path.dirname(__file__), "model", "historical_averages.json")
@@ -99,15 +101,21 @@ def build_features(
     total_distance_km: float,
     current_delay_min: float,
     scheduled_departure_hour: int,
-    day_of_week: int,
+    day_of_week: int,        # Kept in signature for caller backward-compat; not used in vector (see module docstring)
     hist_averages: dict,
-    is_foggy: int = 0,
-    is_red_signal: int = 0,
+    is_foggy: int = 0,       # TODO: wire to live weather API when available — kept out of vector until then
+    is_red_signal: int = 0,  # TODO: wire to live signal-aspect feed when available — kept out of vector until then
 ) -> list[float]:
     """
-    Builds the feature vector in the exact order of FEATURE_NAMES.
+    Builds the 15-element feature vector in the exact order of FEATURE_NAMES.
+
     Both train_model.py (for historical records) and eta.py (for live inference)
     call this function to guarantee training-serving consistency.
+
+    NOTE: day_of_week, is_foggy, is_red_signal are accepted but NOT placed in the
+    returned vector. They had 0.0 feature importance in v2 because day_of_week was
+    always hardcoded to 2 and the weather/signal flags were always 0. Keeping them
+    in the signature allows callers to remain unchanged when live feeds are wired.
     """
     tid = str(train_number).zfill(5)
     stn = str(station_code).upper()
@@ -146,46 +154,37 @@ def build_features(
         )
     )
 
+    # Key interaction feature: how does current delay compare to the historical norm at this station?
     delay_vs_hist = cur_delay - stn_avg
 
-    # Cyclical temporal features
+    # Cyclical hour encoding — captures time-of-day pattern (peak/off-peak hours)
     hour = float(scheduled_departure_hour)
-    dow = float(day_of_week)
     hour_sin = math.sin(2.0 * math.pi * hour / 24.0)
     hour_cos = math.cos(2.0 * math.pi * hour / 24.0)
-    dow_sin = math.sin(2.0 * math.pi * dow / 7.0)
-    dow_cos = math.cos(2.0 * math.pi * dow / 7.0)
 
-    # TODO: Live weather and signal aspect feed integration.
-    # Currently default to 0.0 (normal visibility, clear aspect) until live telemetry stream is wired.
-    fog_flag = float(is_foggy)
-    red_signal_flag = float(is_red_signal)
+    # NOTE: dow_sin/dow_cos removed (v3). is_foggy/is_red_signal removed (v3).
+    # See module docstring for rationale and re-addition path.
 
     return [
-        dist,
-        remaining_dist,
-        pct_completed,
-        priority,
-        halt_duration,
-        cur_delay,
-        stn_avg,
-        trn_avg,
-        lag1,
-        lag2,
-        sec_gradient,
-        congestion,
-        delay_vs_hist,
-        hour_sin,
-        hour_cos,
-        dow_sin,
-        dow_cos,
-        fog_flag,
-        red_signal_flag,
+        dist,           # distance_km
+        remaining_dist, # remaining_distance_km
+        pct_completed,  # pct_journey_completed
+        priority,       # train_priority
+        halt_duration,  # scheduled_halt_duration_min
+        cur_delay,      # current_delay_min  ← highest-importance feature, must be live not hardcoded
+        stn_avg,        # station_hist_avg_delay
+        trn_avg,        # train_hist_avg_delay
+        lag1,           # hist_delay_lag1
+        lag2,           # hist_delay_lag2
+        sec_gradient,   # section_delay_gradient
+        congestion,     # station_congestion_index
+        delay_vs_hist,  # delay_vs_historical
+        hour_sin,       # hour_sin
+        hour_cos,       # hour_cos
     ]
 
 
 def current_time_features() -> tuple[int, int]:
-    """Convenience for live inference: (hour_of_day, day_of_week) from current UTC time."""
-    now = datetime.datetime.now(datetime.timezone.utc)
+    """Convenience for live inference: (hour_of_day, day_of_week) from current local time."""
+    now = datetime.datetime.now()
     return now.hour, now.weekday()
-

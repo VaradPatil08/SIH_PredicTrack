@@ -33,6 +33,7 @@ class TrainSummary(BaseModel):
     scheduled_departure: Optional[str] = None
     total_distance_km: Optional[int] = None
     train_name: Optional[str] = None
+    featured: Optional[bool] = False
 
 
 class CurrentPosition(BaseModel):

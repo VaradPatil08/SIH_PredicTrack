@@ -17,6 +17,7 @@ const MOCK_TRAINS = [
     zone: 'WR / Northern Railway',
     scheduled_departure: '17:00',
     total_distance_km: 1386,
+    featured: true,
   },
   {
     train_number: '22436',
@@ -27,6 +28,7 @@ const MOCK_TRAINS = [
     zone: 'NR / North Central',
     scheduled_departure: '06:00',
     total_distance_km: 759,
+    featured: true,
   },
   {
     train_number: '12009',
@@ -37,6 +39,7 @@ const MOCK_TRAINS = [
     zone: 'Western Railway',
     scheduled_departure: '06:20',
     total_distance_km: 493,
+    featured: true,
   },
   {
     train_number: '12301',
@@ -47,16 +50,7 @@ const MOCK_TRAINS = [
     zone: 'Eastern Railway',
     scheduled_departure: '16:50',
     total_distance_km: 1451,
-  },
-  {
-    train_number: '12626',
-    name: 'New Delhi - Thiruvananthapuram Kerala Express',
-    origin: 'New Delhi (NDLS)',
-    destination: 'Thiruvananthapuram Central (TVC)',
-    type: 'Superfast Express',
-    zone: 'Southern Railway',
-    scheduled_departure: '20:10',
-    total_distance_km: 3036,
+    featured: true,
   },
   {
     train_number: '20608',
@@ -67,8 +61,65 @@ const MOCK_TRAINS = [
     zone: 'Southern Railway',
     scheduled_departure: '13:05',
     total_distance_km: 496,
+    featured: true,
+  },
+  {
+    train_number: '12626',
+    name: 'New Delhi - Thiruvananthapuram Kerala Express',
+    origin: 'New Delhi (NDLS)',
+    destination: 'Thiruvananthapuram Central (TVC)',
+    type: 'Superfast Express',
+    zone: 'Southern Railway',
+    scheduled_departure: '20:10',
+    total_distance_km: 3036,
+    featured: true,
+  },
+  {
+    train_number: '12621',
+    name: 'MGR Chennai Central - New Delhi Tamil Nadu Express',
+    origin: 'MGR Chennai Central (MAS)',
+    destination: 'New Delhi (NDLS)',
+    type: 'Superfast Express',
+    zone: 'Southern Railway',
+    scheduled_departure: '22:00',
+    total_distance_km: 2163,
+    featured: true,
+  },
+  {
+    train_number: '12841',
+    name: 'Howrah - MGR Chennai Central Coromandel Express',
+    origin: 'Howrah Junction (HWH)',
+    destination: 'MGR Chennai Central (MAS)',
+    type: 'Superfast Express',
+    zone: 'South Eastern Railway',
+    scheduled_departure: '14:50',
+    total_distance_km: 1664,
+    featured: true,
+  },
+  {
+    train_number: '12019',
+    name: 'Howrah - Ranchi Shatabdi Express',
+    origin: 'Howrah Junction (HWH)',
+    destination: 'Ranchi Junction (RNC)',
+    type: 'Shatabdi Express',
+    zone: 'Eastern Railway',
+    scheduled_departure: '06:05',
+    total_distance_km: 436,
+    featured: true,
+  },
+  {
+    train_number: '12673',
+    name: 'MGR Chennai Central - Coimbatore Cheran Superfast Express',
+    origin: 'MGR Chennai Central (MAS)',
+    destination: 'Coimbatore Junction (CBE)',
+    type: 'Superfast Express',
+    zone: 'Southern Railway',
+    scheduled_departure: '22:10',
+    total_distance_km: 491,
+    featured: true,
   }
 ];
+
 
 const MOCK_ROUTES = {
   '12951': {
@@ -257,19 +308,29 @@ function generateSyntheticETA(routeData) {
 }
 
 /**
- * 1. GET /trains → list of trains
+ * 1. GET /trains → list of trains (supports optional ?featured=true query)
  */
-export async function getTrains() {
+export async function getTrains(params = {}) {
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/trains`);
+    const query = new URLSearchParams();
+    if (params.featured !== undefined) {
+      query.set('featured', params.featured);
+    }
+    const queryString = query.toString();
+    const url = queryString ? `${BASE_URL}/trains?${queryString}` : `${BASE_URL}/trains`;
+    const res = await fetchWithTimeout(url);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     return Array.isArray(data) ? data : (data.trains || MOCK_TRAINS);
   } catch (err) {
     console.warn(`[RailPulse API] Live backend unreachable at ${BASE_URL}/trains. Using fallback mock dataset.`, err.message);
+    if (params.featured !== undefined) {
+      return MOCK_TRAINS.filter(t => Boolean(t.featured) === Boolean(params.featured));
+    }
     return MOCK_TRAINS;
   }
 }
+
 
 /**
  * 2. GET /trains/{train_number}/route

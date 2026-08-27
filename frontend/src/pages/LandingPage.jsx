@@ -19,8 +19,8 @@ export default function LandingPage() {
   const [activeDirectoryTab, setActiveDirectoryTab] = useState('all'); // 'all' | 'saved'
   const [loading, setLoading] = useState(true);
   const [isSearchFocused, setIsSearchFocused] = useState(false);
-  // Homepage shows only the 5 featured trains by default.
-  // The full 16-train network is one click away via "SHOW FULL NETWORK".
+  // Homepage shows only featured trains by default.
+  // The full network is one click away via "SHOW FULL NETWORK".
   const [showAllTrains, setShowAllTrains] = useState(false);
 
   useEffect(() => {
@@ -38,9 +38,9 @@ export default function LandingPage() {
     loadTrains();
   }, []);
 
-  // Featured trains are the curated homepage set (marked featured:true in mock_trains.json).
-  // All other trains are still searchable and reachable via search or direct number entry.
-  const featuredTrainNumbers = new Set(['12951', '22436', '12009', '12301', '20608']);
+
+  // Derive featured count dynamically from API data — no hardcoded train numbers
+  const featuredCount = trains.filter(t => Boolean(t.featured)).length;
   const isSearchActive = searchQuery.trim().length > 0;
 
   const filteredTrains = trains.filter((t) => {
@@ -48,7 +48,7 @@ export default function LandingPage() {
     // When not showing all and no search is active, restrict to featured trains on homepage.
     // A search query automatically reveals the full network so users can find any train.
     if (!showAllTrains && !isSearchActive && activeDirectoryTab !== 'saved') {
-      if (!featuredTrainNumbers.has(t.train_number)) return false;
+      if (!t.featured) return false;
     }
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
@@ -59,6 +59,7 @@ export default function LandingPage() {
       (t.destination && t.destination.toLowerCase().includes(q))
     );
   });
+
 
   const savedTrainsList = trains.filter(t => favorites.includes(t.train_number));
 
@@ -224,8 +225,10 @@ export default function LandingPage() {
                     { number: '22436', label: '22436 VANDE BHARAT' },
                     { number: '12009', label: '12009 SHATABDI' },
                     { number: '12301', label: '12301 HOWRAH EXP' },
+                    { number: '12841', label: '12841 COROMANDEL' },
+                    { number: '12621', label: '12621 TAMIL NADU' },
                     { number: '20608', label: '20608 MYSURU VB' },
-                    { number: '12269', label: '12269 DURONTO' },
+                    { number: '17057', label: '17057 DEVAGIRI' },
                   ].map((chip) => (
                     <button
                       key={chip.number}
@@ -235,8 +238,9 @@ export default function LandingPage() {
                       {chip.label}
                     </button>
                   ))}
-                  <span className="text-white/30 text-[10px]">+ 10 more via search</span>
+                  <span className="text-white/30 text-[10px]">+ {Math.max(0, trains.length - 8)} more via search</span>
                 </div>
+
               </div>
             )}
 
@@ -333,7 +337,7 @@ export default function LandingPage() {
             <span className="text-white font-bold">DEPARTURE_BOARD // DIRECTORY</span>
             {!showAllTrains && !searchQuery.trim() && activeDirectoryTab !== 'saved' && (
               <span className="text-[10px] text-white/40 border border-white/10 px-1.5 py-0.5">
-                FEATURED · {featuredTrainNumbers.size}/{trains.length} SERVICES
+                FEATURED · {featuredCount}/{trains.length} SERVICES
               </span>
             )}
           </div>
@@ -346,9 +350,10 @@ export default function LandingPage() {
                 className="flex items-center gap-1.5 px-2.5 py-0.5 border border-white/20 text-[11px] hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white/70 transition-colors"
               >
                 <ChevronDown className={`w-3 h-3 transition-transform ${showAllTrains ? 'rotate-180' : ''}`} />
-                {showAllTrains ? `SHOW FEATURED [${featuredTrainNumbers.size}]` : `SHOW FULL NETWORK [${trains.length}]`}
+                {showAllTrains ? `SHOW FEATURED [${featuredCount}]` : `SHOW FULL NETWORK [${trains.length}]`}
               </button>
             )}
+
 
             {/* Directory Filter Tabs: All vs Saved Favorites */}
             <div className="flex border border-white/20 p-0.5 bg-[#111111] text-[11px]">

@@ -12,7 +12,7 @@ FEATURE SET (v3 — 15 real railway features):
   pct_journey_completed        static/route, journey progress ratio [0.0 - 1.0]
   train_priority               static/heuristic, 3=Top (Vande Bharat/Rajdhani), 2=Superfast, 1=Express, 0=Passenger
   scheduled_halt_duration_min  static/schedule, scheduled halt duration at station (mins)
-  current_delay_min            dynamic/live, current delay of the train (mins) — highest-importance feature
+  current_delay_min            dynamic/live, current delay of the train (mins) — key live dynamic input
   station_hist_avg_delay       historical, mean historical delay for this station (mins)
   train_hist_avg_delay         historical, mean historical delay for this train (mins)
   hist_delay_lag1              historical/dynamic, delay at previous station along route (mins)
@@ -171,7 +171,7 @@ def build_features(
         pct_completed,  # pct_journey_completed
         priority,       # train_priority
         halt_duration,  # scheduled_halt_duration_min
-        cur_delay,      # current_delay_min  ← highest-importance feature, must be live not hardcoded
+        cur_delay,      # current_delay_min  ← key live dynamic input, must be dynamic not hardcoded
         stn_avg,        # station_hist_avg_delay
         trn_avg,        # train_hist_avg_delay
         lag1,           # hist_delay_lag1

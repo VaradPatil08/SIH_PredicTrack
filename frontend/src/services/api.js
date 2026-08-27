@@ -108,7 +108,7 @@ export const MOCK_TRAINS = [
     zone: 'Southern Railway',
     scheduled_departure: '22:00',
     total_distance_km: 2163,
-    featured: true,
+    featured: false,
   },
   {
     train_number: '12841',
@@ -119,7 +119,7 @@ export const MOCK_TRAINS = [
     zone: 'South Eastern Railway',
     scheduled_departure: '14:50',
     total_distance_km: 1664,
-    featured: true,
+    featured: false,
   },
   {
     train_number: '12019',
@@ -130,7 +130,7 @@ export const MOCK_TRAINS = [
     zone: 'Eastern Railway',
     scheduled_departure: '06:05',
     total_distance_km: 436,
-    featured: true,
+    featured: false,
   },
   {
     train_number: '12673',
@@ -141,9 +141,10 @@ export const MOCK_TRAINS = [
     zone: 'Southern Railway',
     scheduled_departure: '22:10',
     total_distance_km: 491,
-    featured: true,
+    featured: false,
   }
 ];
+
 
 export const MOCK_ROUTES = {
 
@@ -668,29 +669,23 @@ export async function removeUserPreference(token, trainNumber) {
 /**
  * 11. REPORTS: POST /trains/{train_number}/reports
  */
-export async function submitDisruptionReport(trainNumber, { station_code, description, phone_number }) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ station_code, description, phone_number })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.detail || `HTTP ${res.status}`);
-    }
-    return await res.json();
-  } catch (err) {
-    console.warn(`[RailPulse API] submitDisruptionReport error:`, err.message);
-    return {
-      id: 'mock-rep-' + Date.now(),
-      train_number: trainNumber,
-      station_code,
-      description,
-      created_at: new Date().toISOString()
-    };
+export async function submitDisruptionReport(trainNumber, { station_code, description }, token) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
   }
+  const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports`, {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({ station_code, description })
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
 }
+
 
 /**
  * 12. REPORTS: GET /trains/{train_number}/reports/summary

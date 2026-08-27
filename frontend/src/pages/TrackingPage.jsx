@@ -9,29 +9,36 @@ import {
   Clock, 
   Train, 
   Gauge, 
-  AlertTriangle 
+  AlertTriangle,
+  Radio
 } from 'lucide-react';
-import { getTrainETA } from '../services/api';
+import { getTrainETA, getDisruptionReportSummary } from '../services/api';
 import TrainMap from '../components/TrainMap';
 import StationTimeline from '../components/StationTimeline';
 import DelaySparkline from '../components/DelaySparkline';
+import ReportModal from '../components/ReportModal';
 import { TrackingHeaderSkeleton, MapSkeleton, TimelineSkeleton } from '../components/SkeletonLoader';
 import AnimatedNumber from '../components/AnimatedNumber';
 import { formatDuration } from '../utils/time';
 import { useSettings } from '../context/SettingsContext';
+import { useAuth } from '../context/AuthContext';
 
 const POLL_INTERVAL_SECONDS = 6;
 
 export default function TrackingPage() {
   const { trainNumber } = useParams();
   const { t } = useSettings();
+  const { isAuthenticated, openLoginModal } = useAuth();
   const [etaData, setEtaData] = useState(null);
+  const [reportSummary, setReportSummary] = useState(null);
+  const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
   const [countdown, setCountdown] = useState(POLL_INTERVAL_SECONDS);
   const [activeTab, setActiveTab] = useState('all'); // 'all' | 'map' | 'timeline'
   const [flashHighlight, setFlashHighlight] = useState(false);
+
 
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
@@ -41,8 +48,12 @@ export default function TrackingPage() {
       setRefreshing(true);
     }
     try {
-      const data = await getTrainETA(trainNumber);
+      const [data, summary] = await Promise.all([
+        getTrainETA(trainNumber),
+        getDisruptionReportSummary(trainNumber).catch(() => null)
+      ]);
       setEtaData(data);
+      if (summary) setReportSummary(summary);
       setError(null);
       
       if (isBackground) {
@@ -58,6 +69,14 @@ export default function TrackingPage() {
       setLoading(false);
       setRefreshing(false);
       setCountdown(POLL_INTERVAL_SECONDS);
+    }
+  };
+
+  const handleOpenReportModal = () => {
+    if (!isAuthenticated) {
+      openLoginModal();
+    } else {
+      setIsReportModalOpen(true);
     }
   };
 
@@ -100,8 +119,19 @@ export default function TrackingPage() {
           <span>{t('backToDirectory')}</span>
         </Link>
 
-        {/* Polling Heartbeat Badge & Refresh Button */}
-        <div className="flex items-center justify-between sm:justify-end gap-2.5 text-xs w-full sm:w-auto">
+        {/* Polling Heartbeat Badge, Report Button & Refresh Button */}
+        <div className="flex items-center justify-between sm:justify-end gap-2.5 text-xs w-full sm:w-auto flex-wrap">
+          
+          {/* Report Disruption Button */}
+          <button
+            onClick={handleOpenReportModal}
+            className="flex items-center gap-1.5 px-3 py-2 min-h-[40px] rounded-lg bg-red-500/10 hover:bg-red-500/20 text-transit-red dark:text-red-400 border border-transit-red/30 font-semibold text-xs transition-all duration-200 shadow-2xs hover:shadow-xs active:scale-95"
+            title="Report track delay or disruption"
+          >
+            <Radio className="w-3.5 h-3.5 animate-pulse text-transit-red" />
+            <span>REPORT DISRUPTION</span>
+          </button>
+
           <div className="flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-full bg-white dark:bg-slate-800 border border-border dark:border-slate-700 text-muted dark:text-slate-300 shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-transit-green inline-block animate-pulse" />
             <span className="text-[11px] font-medium">
@@ -122,6 +152,7 @@ export default function TrackingPage() {
         </div>
 
       </div>
+
 
       {/* Loading Skeletons */}
       {loading && (
@@ -298,6 +329,37 @@ export default function TrackingPage() {
           </div>
 
 
+          {/* Crowdsourced Disruption Alert Banner */}
+          {reportSummary && reportSummary.report_count > 0 && (
+            <motion.div
+              initial={{ opacity: 0, y: -6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className={`p-3.5 sm:p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans ${
+                reportSummary.flagged
+                  ? 'bg-red-500/10 border-transit-red text-transit-red dark:text-red-300'
+                  : 'bg-amber-500/10 border-amber-500/40 text-amber-800 dark:text-amber-300'
+              }`}
+            >
+              <div className="flex items-start sm:items-center gap-2.5">
+                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0 text-transit-red" />
+                <div>
+                  <span className="font-sora font-bold tracking-wide">
+                    {reportSummary.flagged ? '[ SECTION_ALERT // FLAGGED DISRUPTION ] ' : '[ CROWDSOURCED_REPORTS ] '}
+                  </span>
+                  <span>
+                    {reportSummary.report_count} verified passenger {reportSummary.report_count === 1 ? 'report' : 'reports'} received in the last {reportSummary.window_hours}h.
+                  </span>
+                </div>
+              </div>
+              <button
+                onClick={handleOpenReportModal}
+                className="px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 font-sora font-bold text-[11px] uppercase tracking-wider self-start sm:self-auto transition-colors border border-current"
+              >
+                + ADD REPORT
+              </button>
+            </motion.div>
+          )}
+
           {/* Telemetry Main Grid: Left Map + Right Station Timeline */}
           <div className="grid grid-cols-1 lg:grid-cols-[1fr_390px] gap-6 items-start">
             
@@ -332,9 +394,22 @@ export default function TrackingPage() {
         </>
       )}
 
+      {/* Crowdsourced Disruption Report Modal */}
+      <ReportModal
+        isOpen={isReportModalOpen}
+        onClose={() => setIsReportModalOpen(false)}
+        trainNumber={etaData?.train_number || trainNumber}
+        trainName={etaData?.name || ''}
+        stations={stations}
+        onReportSubmitted={() => {
+          fetchTelemetry(true);
+        }}
+      />
+
     </div>
   );
 }
+
 
 
 

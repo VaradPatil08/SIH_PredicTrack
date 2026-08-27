@@ -1,7 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import trains
+from app.routers import trains, auth, preferences, reports, pnr
+from app.db import engine, Base
+import app.models_db  # noqa: F401
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
     title="RailPulse API",
@@ -19,8 +24,13 @@ app.add_middleware(
 )
 
 app.include_router(trains.router)
+app.include_router(auth.router)
+app.include_router(preferences.router)
+app.include_router(reports.router)
+app.include_router(pnr.router)
 
 
 @app.get("/")
 def health_check():
     return {"status": "ok", "service": "RailPulse API"}
+

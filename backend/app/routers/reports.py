@@ -5,7 +5,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db
 from app.models.auth_schemas import ReportIn, ReportOut, ReportSummaryOut
-from app.models_db import Report
+from app.models_db import Report, User
+from app.services.auth_service import get_current_user
 
 router = APIRouter(prefix="/trains", tags=["reports"])
 
@@ -17,22 +18,21 @@ FLAG_WINDOW_HOURS = 3
 
 
 @router.post("/{train_number}/reports", response_model=ReportOut)
-def submit_report(train_number: str, payload: ReportIn, db: Session = Depends(get_db)):
+def submit_report(
+    train_number: str,
+    payload: ReportIn,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
     """
     Submit a crowdsourced disruption report for a train.
-
-    NOTE on phone_number: if provided, the frontend should have already
-    completed OTP verification via /auth/otp/verify before calling this
-    endpoint. This endpoint does not itself re-check OTP state — it's
-    the frontend's job to gate the report form behind a verified OTP
-    step. The phone number here is spam/bot deterrence only, not a
-    claim that the report's content is accurate.
+    Requires authentication via JWT token (must be OTP-verified).
     """
     report = Report(
         train_number=train_number,
         station_code=payload.station_code,
         description=payload.description,
-        phone_number=payload.phone_number,
+        phone_number=current_user.phone_number,
     )
     db.add(report)
     db.commit()

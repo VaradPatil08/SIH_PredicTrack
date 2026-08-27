@@ -59,7 +59,6 @@ class PreferenceOut(BaseModel):
 class ReportIn(BaseModel):
     station_code: Optional[str] = None
     description: str = Field(..., min_length=3, max_length=500)
-    phone_number: Optional[str] = None  # if provided, must be OTP-verified first
 
 
 class ReportOut(BaseModel):

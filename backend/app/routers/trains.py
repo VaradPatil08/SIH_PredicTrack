@@ -29,11 +29,12 @@ _DELAY_SIM_START = time.time()
 
 
 @router.get("/trains", response_model=list[TrainSummary])
-def list_trains(featured: Optional[bool] = Query(None, description="If true, return only featured homepage trains")):
+def list_trains(featured: Optional[bool] = Query(None, description="If true, return only featured flagship homepage trains (6 trains)")):
     """
-    Returns train list. Pass ?featured=true for the curated homepage set (10 trains).
-    Omit the param (or pass ?featured=false) to get all 24 trains for search/lookup.
+    Returns train list. Pass ?featured=true for the curated homepage flagship set (6 trains).
+    Omit the param (or pass ?featured=false) to get the full network train set for search and lookup.
     """
+
     return [
         TrainSummary(
             train_number=t["train_number"],

@@ -33,10 +33,10 @@ REMOVED FEATURES (v2 → v3):
   is_red_signal        — no live signal-aspect feed; always 0 → 0.0 importance. Same treatment.
 """
 
+import datetime
 import json
 import math
 import os
-import datetime
 
 # 15 features — must match the order returned by build_features() exactly.
 FEATURE_NAMES = [
@@ -186,5 +186,5 @@ def build_features(
 
 def current_time_features() -> tuple[int, int]:
     """Convenience for live inference: (hour_of_day, day_of_week) from current local time."""
-    now = datetime.datetime.now()
+    now = datetime.datetime.now(datetime.timezone.utc)
     return now.hour, now.weekday()

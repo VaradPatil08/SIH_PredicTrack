@@ -2,19 +2,18 @@ import json
 import math
 import time
 from pathlib import Path
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
 from app.models.schemas import (
+    CurrentPosition,
+    DelayReasonsResponse,
+    ModelMetrics,
+    Station,
+    StationETA,
     TrainETAResponse,
     TrainRouteResponse,
     TrainSummary,
-    Station,
-    StationETA,
-    CurrentPosition,
-    DelayReasonsResponse,
-    ModelMetrics
 )
 from app.services import eta, live_feed
 
@@ -29,7 +28,7 @@ _DELAY_SIM_START = time.time()
 
 
 @router.get("/trains", response_model=list[TrainSummary])
-def list_trains(featured: Optional[bool] = Query(None, description="If true, return only featured flagship homepage trains (6 trains)")):
+def list_trains(featured: bool | None = Query(None, description="If true, return only featured flagship homepage trains (6 trains)")):
     """
     Returns train list. Pass ?featured=true for the curated homepage flagship set (6 trains).
     Omit the param (or pass ?featured=false) to get the full network train set for search and lookup.

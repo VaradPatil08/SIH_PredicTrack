@@ -1,13 +1,27 @@
 """
 ETA prediction and delay diagnostic attribution service.
 
-Provides dynamic delay predictions and root cause reasons.
-ML leads can connect a trained model into `predict_delay_minutes()`.
+Loads the trained model from ml/model/delay_model.pkl if it exists.
+If it doesn't exist yet (ML leads haven't trained it), falls back to
+the original placeholder formula automatically — the app never
+crashes or breaks the demo because a model file is missing, it just
+runs on synthetic predictions until a real one is dropped in.
+
+To go live: run ml/train_model.py once against the Kaggle dataset,
+restart the server. Nothing else needs to change.
 """
 
+import json
+import os
 import random
+import sys
 
-# Station-level diagnostic reasons matching frontend repository
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "ml"))
+
+_ML_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "ml")
+_MODEL_PATH = os.path.join(_ML_DIR, "model", "delay_model.pkl")
+_METRICS_PATH = os.path.join(_ML_DIR, "model", "metrics.json")
+
 STATION_REASONS = {
     'BVI': ['Speed restriction of 30 km/h due to track renewal near Dahisar', 'Heavy suburban commuter peak section headway'],
     'ST': ['Section clearance delay following freight rake precedence at Sachin yard', 'Overhead Equipment (OHE) voltage fluctuation'],
@@ -32,20 +46,70 @@ STATION_REASONS = {
     'DDU': ['Major freight corridor interchange clearance at Mughalsarai yards', 'Double-headed container rake precedence'],
 }
 
+_model = None
+_model_load_attempted = False
+_hist_averages = None
+
+
+def _try_load_model():
+    """Loads the trained model once, on first use. Safe if the file is missing."""
+    global _model, _model_load_attempted, _hist_averages
+    if _model_load_attempted:
+        return
+    _model_load_attempted = True
+
+    if os.path.exists(_MODEL_PATH):
+        try:
+            import joblib
+            from features import load_historical_averages
+            _model = joblib.load(_MODEL_PATH)
+            _hist_averages = load_historical_averages()
+            print(f"[eta.py] Loaded trained model from {_MODEL_PATH}")
+        except Exception as e:
+            print(f"[eta.py] Found model file but failed to load it ({e}). Falling back to placeholder.")
+            _model = None
+    else:
+        print(f"[eta.py] No trained model found at {_MODEL_PATH}. Using placeholder formula until ML leads train one.")
+
 
 def predict_delay_minutes(
     train_number: str,
     station_code: str,
     distance_km: float,
     current_delay_min: int = 18,
+    total_distance_km: float = None,
 ) -> tuple[int, list[str]]:
     """
     Returns (predicted_delay_minutes, top_delay_factors).
+
+    Uses the real trained model if ml/model/delay_model.pkl exists,
+    otherwise falls back to the original placeholder formula. The
+    function signature is backward compatible — total_distance_km is
+    optional so existing call sites don't break; when omitted, the
+    real-model path falls back to the placeholder for that call since
+    it needs total_distance_km to compute route_progress correctly.
     """
-    base = current_delay_min * 0.85
-    distance_factor = distance_km / 450
-    noise = random.uniform(-1, 3)
-    predicted = max(0, round(base + distance_factor + noise))
+    _try_load_model()
+
+    if _model is not None and total_distance_km:
+        from features import build_features, current_time_features
+        hour, dow = current_time_features()
+        features = build_features(
+            train_number=train_number,
+            station_code=station_code,
+            distance_km=distance_km,
+            total_distance_km=total_distance_km,
+            current_delay_min=current_delay_min,
+            scheduled_departure_hour=hour,
+            day_of_week=dow,
+            hist_averages=_hist_averages,
+        )
+        predicted = max(0, round(float(_model.predict([features])[0])))
+    else:
+        base = current_delay_min * 0.85
+        distance_factor = distance_km / 450
+        noise = random.uniform(-1, 3)
+        predicted = max(0, round(base + distance_factor + noise))
 
     factors = get_delay_reasons(station_code)
     return predicted, factors
@@ -67,9 +131,21 @@ def status_from_delay(delay_min: int) -> str:
 
 
 def model_metrics() -> dict:
-    """Returns placeholder metrics for system architecture disclosure."""
+    """
+    Returns real training metrics if the model has been trained,
+    otherwise clearly-labeled placeholder metrics so the About page
+    doesn't silently show fake numbers as if they were real.
+    """
+    if os.path.exists(_METRICS_PATH):
+        with open(_METRICS_PATH) as f:
+            saved = json.load(f)
+        return {
+            "mae_minutes": saved["mae_minutes"],
+            "trained_on_records": saved["trained_on_records"],
+            "last_trained": f"Gradient Boosted Tree (trained {saved['last_trained']})",
+        }
     return {
-        "mae_minutes": 6.4,
-        "trained_on_records": 128450,
-        "last_trained": "Gradient Boosted Tree v2.4 (2026-02)",
+        "mae_minutes": 0.0,
+        "trained_on_records": 0,
+        "last_trained": "Not yet trained — placeholder predictions in use",
     }

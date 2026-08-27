@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { Routes, Route, useLocation, Navigate } from 'react-router-dom';
 import { AnimatePresence, motion } from 'framer-motion';
 import { SettingsProvider } from './context/SettingsContext';
+import { AuthProvider } from './context/AuthContext';
 import SettingsModal from './components/SettingsModal';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
@@ -78,9 +79,11 @@ function MainApp() {
 
 export default function App() {
   return (
-    <SettingsProvider>
-      <MainApp />
-    </SettingsProvider>
+    <AuthProvider>
+      <SettingsProvider>
+        <MainApp />
+      </SettingsProvider>
+    </AuthProvider>
   );
 }
 

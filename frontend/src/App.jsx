@@ -4,10 +4,12 @@ import { AnimatePresence, motion } from 'framer-motion';
 import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
 import SettingsModal from './components/SettingsModal';
+import AuthModal from './components/AuthModal';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
 import TrackingPage from './pages/TrackingPage';
+import AboutPage from './pages/AboutPage';
 
 // Scroll to top helper on route navigation
 function ScrollToTop() {
@@ -61,6 +63,20 @@ function MainApp() {
               } 
             />
 
+            <Route 
+              path="/about" 
+              element={
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  transition={{ duration: 0.15 }}
+                >
+                  <AboutPage />
+                </motion.div>
+              } 
+            />
+
             {/* Fallback to Home */}
             <Route path="*" element={<Navigate to="/" replace />} />
 
@@ -68,8 +84,9 @@ function MainApp() {
         </AnimatePresence>
       </main>
 
-      {/* Global Settings Modal */}
+      {/* Global Modals */}
       <SettingsModal />
+      <AuthModal />
 
       {/* Global Footer */}
       <Footer />
@@ -86,6 +103,7 @@ export default function App() {
     </AuthProvider>
   );
 }
+
 
 
 

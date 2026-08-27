@@ -1,0 +1,123 @@
+{
+  "12951": {
+    "train_number": "12951",
+    "name": "Mumbai Central - New Delhi Tejas Rajdhani Express",
+    "origin": "Mumbai Central (MMCT)",
+    "destination": "New Delhi (NDLS)",
+    "type": "Rajdhani Express",
+    "zone": "WR / Northern Railway",
+    "scheduled_departure": "17:00",
+    "total_distance_km": 1386,
+    "stations": [
+      { "code": "MMCT", "name": "Mumbai Central", "lat": 18.9696, "lng": 72.8193, "scheduled_offset_min": 0, "distance_km": 0 },
+      { "code": "BVI", "name": "Borivali", "lat": 19.2288, "lng": 72.8569, "scheduled_offset_min": 35, "distance_km": 30 },
+      { "code": "ST", "name": "Surat", "lat": 21.2052, "lng": 72.8407, "scheduled_offset_min": 175, "distance_km": 263 },
+      { "code": "BRC", "name": "Vadodara Junction", "lat": 22.3107, "lng": 73.1812, "scheduled_offset_min": 270, "distance_km": 392 },
+      { "code": "RTM", "name": "Ratlam Junction", "lat": 23.3421, "lng": 75.0396, "scheduled_offset_min": 475, "distance_km": 653 },
+      { "code": "KOTA", "name": "Kota Junction", "lat": 25.2185, "lng": 75.8648, "scheduled_offset_min": 685, "distance_km": 920 },
+      { "code": "SWM", "name": "Sawai Madhopur", "lat": 25.9928, "lng": 76.3687, "scheduled_offset_min": 765, "distance_km": 1028 },
+      { "code": "MTJ", "name": "Mathura Junction", "lat": 27.4924, "lng": 77.6737, "scheduled_offset_min": 910, "distance_km": 1245 },
+      { "code": "NDLS", "name": "New Delhi", "lat": 28.6415, "lng": 77.2209, "scheduled_offset_min": 1040, "distance_km": 1386 }
+    ]
+  },
+  "22436": {
+    "train_number": "22436",
+    "name": "New Delhi - Varanasi Vande Bharat Express",
+    "origin": "New Delhi (NDLS)",
+    "destination": "Varanasi Junction (BSB)",
+    "type": "Vande Bharat",
+    "zone": "NR / North Central",
+    "scheduled_departure": "06:00",
+    "total_distance_km": 759,
+    "stations": [
+      { "code": "NDLS", "name": "New Delhi", "lat": 28.6415, "lng": 77.2209, "scheduled_offset_min": 0, "distance_km": 0 },
+      { "code": "CNB", "name": "Kanpur Central", "lat": 26.4547, "lng": 80.3507, "scheduled_offset_min": 245, "distance_km": 440 },
+      { "code": "PRYJ", "name": "Prayagraj Junction", "lat": 25.4484, "lng": 81.8340, "scheduled_offset_min": 360, "distance_km": 635 },
+      { "code": "BSB", "name": "Varanasi Junction", "lat": 25.3283, "lng": 82.9863, "scheduled_offset_min": 480, "distance_km": 759 }
+    ]
+  },
+  "12009": {
+    "train_number": "12009",
+    "name": "Mumbai Central - Ahmedabad Shatabdi Express",
+    "origin": "Mumbai Central (MMCT)",
+    "destination": "Ahmedabad Junction (ADI)",
+    "type": "Shatabdi Express",
+    "zone": "Western Railway",
+    "scheduled_departure": "06:20",
+    "total_distance_km": 493,
+    "stations": [
+      { "code": "MMCT", "name": "Mumbai Central", "lat": 18.9696, "lng": 72.8193, "scheduled_offset_min": 0, "distance_km": 0 },
+      { "code": "BVI", "name": "Borivali", "lat": 19.2288, "lng": 72.8569, "scheduled_offset_min": 30, "distance_km": 30 },
+      { "code": "VAPI", "name": "Vapi", "lat": 20.3713, "lng": 72.9042, "scheduled_offset_min": 110, "distance_km": 168 },
+      { "code": "ST", "name": "Surat", "lat": 21.2052, "lng": 72.8407, "scheduled_offset_min": 170, "distance_km": 263 },
+      { "code": "BH", "name": "Bharuch Junction", "lat": 21.7051, "lng": 72.9959, "scheduled_offset_min": 215, "distance_km": 322 },
+      { "code": "BRC", "name": "Vadodara Junction", "lat": 22.3107, "lng": 73.1812, "scheduled_offset_min": 260, "distance_km": 392 },
+      { "code": "ANND", "name": "Anand Junction", "lat": 22.5645, "lng": 72.9289, "scheduled_offset_min": 295, "distance_km": 427 },
+      { "code": "ND", "name": "Nadiad Junction", "lat": 22.6916, "lng": 72.8634, "scheduled_offset_min": 312, "distance_km": 446 },
+      { "code": "ADI", "name": "Ahmedabad Junction", "lat": 23.0225, "lng": 72.5714, "scheduled_offset_min": 375, "distance_km": 493 }
+    ]
+  },
+  "12301": {
+    "train_number": "12301",
+    "name": "Howrah - New Delhi Rajdhani Express (via Gaya)",
+    "origin": "Howrah Junction (HWH)",
+    "destination": "New Delhi (NDLS)",
+    "type": "Rajdhani Express",
+    "zone": "Eastern Railway",
+    "scheduled_departure": "16:50",
+    "total_distance_km": 1451,
+    "stations": [
+      { "code": "HWH", "name": "Howrah Junction", "lat": 22.5839, "lng": 88.3426, "scheduled_offset_min": 0, "distance_km": 0 },
+      { "code": "ASN", "name": "Asansol Junction", "lat": 23.6889, "lng": 86.9661, "scheduled_offset_min": 130, "distance_km": 200 },
+      { "code": "DHN", "name": "Dhanbad Junction", "lat": 23.7957, "lng": 86.4304, "scheduled_offset_min": 185, "distance_km": 259 },
+      { "code": "PNME", "name": "Parasnath", "lat": 23.9742, "lng": 86.0821, "scheduled_offset_min": 220, "distance_km": 307 },
+      { "code": "GAYA", "name": "Gaya Junction", "lat": 24.8027, "lng": 84.9994, "scheduled_offset_min": 335, "distance_km": 458 },
+      { "code": "DDU", "name": "Pt. Deen Dayal Upadhyaya", "lat": 25.2783, "lng": 83.1189, "scheduled_offset_min": 490, "distance_km": 663 },
+      { "code": "PRYJ", "name": "Prayagraj Junction", "lat": 25.4484, "lng": 81.8340, "scheduled_offset_min": 610, "distance_km": 816 },
+      { "code": "CNB", "name": "Kanpur Central", "lat": 26.4547, "lng": 80.3507, "scheduled_offset_min": 755, "distance_km": 1010 },
+      { "code": "NDLS", "name": "New Delhi", "lat": 28.6415, "lng": 77.2209, "scheduled_offset_min": 1025, "distance_km": 1451 }
+    ]
+  },
+  "12626": {
+    "train_number": "12626",
+    "name": "New Delhi - Thiruvananthapuram Kerala Express",
+    "origin": "New Delhi (NDLS)",
+    "destination": "Thiruvananthapuram Central (TVC)",
+    "type": "Superfast Express",
+    "zone": "Southern Railway",
+    "scheduled_departure": "20:10",
+    "total_distance_km": 3036,
+    "stations": [
+      { "code": "NDLS", "name": "New Delhi", "lat": 28.6415, "lng": 77.2209, "scheduled_offset_min": 0, "distance_km": 0 },
+      { "code": "MTJ", "name": "Mathura Junction", "lat": 27.4924, "lng": 77.6737, "scheduled_offset_min": 110, "distance_km": 141 },
+      { "code": "AGC", "name": "Agra Cantt", "lat": 27.1591, "lng": 78.0186, "scheduled_offset_min": 160, "distance_km": 195 },
+      { "code": "GWL", "name": "Gwalior Junction", "lat": 26.2183, "lng": 78.1828, "scheduled_offset_min": 275, "distance_km": 313 },
+      { "code": "BPL", "name": "Bhopal Junction", "lat": 23.2599, "lng": 77.4126, "scheduled_offset_min": 620, "distance_km": 704 },
+      { "code": "NGP", "name": "Nagpur Junction", "lat": 21.1466, "lng": 79.0882, "scheduled_offset_min": 1030, "distance_km": 1092 },
+      { "code": "BZA", "name": "Vijayawada Junction", "lat": 16.5062, "lng": 80.6480, "scheduled_offset_min": 1715, "distance_km": 1754 },
+      { "code": "KPD", "name": "Katpadi Junction", "lat": 12.9734, "lng": 79.1384, "scheduled_offset_min": 2280, "distance_km": 2269 },
+      { "code": "CBE", "name": "Coimbatore Junction", "lat": 11.0016, "lng": 76.9628, "scheduled_offset_min": 2715, "distance_km": 2684 },
+      { "code": "ERS", "name": "Ernakulam Junction", "lat": 9.9723, "lng": 76.2783, "scheduled_offset_min": 2980, "distance_km": 2893 },
+      { "code": "TVC", "name": "Thiruvananthapuram Central", "lat": 8.4875, "lng": 76.9525, "scheduled_offset_min": 3260, "distance_km": 3036 }
+    ]
+  },
+  "20608": {
+    "train_number": "20608",
+    "name": "Mysuru - MGR Chennai Central Vande Bharat Express",
+    "origin": "Mysuru Junction (MYS)",
+    "destination": "MGR Chennai Central (MAS)",
+    "type": "Vande Bharat",
+    "zone": "Southern Railway",
+    "scheduled_departure": "13:05",
+    "total_distance_km": 496,
+    "stations": [
+      { "code": "MYS", "name": "Mysuru Junction", "lat": 12.3164, "lng": 76.6496, "scheduled_offset_min": 0, "distance_km": 0 },
+      { "code": "MYA", "name": "Mandya", "lat": 12.5242, "lng": 76.8958, "scheduled_offset_min": 35, "distance_km": 45 },
+      { "code": "SBC", "name": "KSR Bengaluru City", "lat": 12.9784, "lng": 77.5684, "scheduled_offset_min": 115, "distance_km": 138 },
+      { "code": "BNC", "name": "Bengaluru Cantt", "lat": 12.9936, "lng": 77.5982, "scheduled_offset_min": 130, "distance_km": 142 },
+      { "code": "KJM", "name": "Krishnarajapuram", "lat": 13.0012, "lng": 77.6766, "scheduled_offset_min": 145, "distance_km": 152 },
+      { "code": "KPD", "name": "Katpadi Junction", "lat": 12.9734, "lng": 79.1384, "scheduled_offset_min": 285, "distance_km": 366 },
+      { "code": "MAS", "name": "MGR Chennai Central", "lat": 13.0827, "lng": 80.2707, "scheduled_offset_min": 390, "distance_km": 496 }
+    ]
+  }
+}

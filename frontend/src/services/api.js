@@ -108,7 +108,7 @@ export const MOCK_TRAINS = [
     zone: 'Southern Railway',
     scheduled_departure: '22:00',
     total_distance_km: 2163,
-    featured: false,
+    featured: true,
   },
   {
     train_number: '12841',
@@ -119,7 +119,7 @@ export const MOCK_TRAINS = [
     zone: 'South Eastern Railway',
     scheduled_departure: '14:50',
     total_distance_km: 1664,
-    featured: false,
+    featured: true,
   },
   {
     train_number: '12019',
@@ -130,7 +130,7 @@ export const MOCK_TRAINS = [
     zone: 'Eastern Railway',
     scheduled_departure: '06:05',
     total_distance_km: 436,
-    featured: false,
+    featured: true,
   },
   {
     train_number: '12673',
@@ -141,9 +141,10 @@ export const MOCK_TRAINS = [
     zone: 'Southern Railway',
     scheduled_departure: '22:10',
     total_distance_km: 491,
-    featured: false,
+    featured: true,
   }
 ];
+
 
 
 export const MOCK_ROUTES = {

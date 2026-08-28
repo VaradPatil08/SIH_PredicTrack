@@ -479,7 +479,7 @@
     "zone": "Southern Railway",
     "scheduled_departure": "22:00",
     "total_distance_km": 2163,
-    "featured": false,
+    "featured": true,
     "sim_start_offset_min": 340,
     "stations": [
       {
@@ -581,7 +581,7 @@
     "zone": "South Eastern Railway",
     "scheduled_departure": "14:50",
     "total_distance_km": 1664,
-    "featured": false,
+    "featured": true,
     "sim_start_offset_min": 180,
     "stations": [
       {
@@ -699,7 +699,7 @@
     "zone": "Eastern Railway",
     "scheduled_departure": "06:05",
     "total_distance_km": 436,
-    "featured": false,
+    "featured": true,
     "sim_start_offset_min": 90,
     "stations": [
       {
@@ -769,7 +769,7 @@
     "zone": "Southern Railway",
     "scheduled_departure": "22:10",
     "total_distance_km": 491,
-    "featured": false,
+    "featured": true,
     "sim_start_offset_min": 150,
     "stations": [
       {

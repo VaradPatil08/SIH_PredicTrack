@@ -784,3 +784,293 @@ export async function getAdminStationArrivals(stationCode) {
     return [];
   }
 }
+
+// Fallback curated stations for offline/demo resilience
+export const MOCK_STATIONS = [
+  {
+    code: 'NDLS',
+    name: 'New Delhi Railway Station',
+    lat: 28.6429,
+    lng: 77.2195,
+    zone: 'Northern Railway / NR',
+    category: 'A1 Category',
+    platforms: 16,
+    trains_today: 48,
+    featured: true,
+    next_arrival_time: '14:32',
+    avg_delay_min: 6,
+  },
+  {
+    code: 'MMCT',
+    name: 'Mumbai Central Railway Station',
+    lat: 18.9696,
+    lng: 72.8193,
+    zone: 'Western Railway / WR',
+    category: 'A1 Category',
+    platforms: 8,
+    trains_today: 34,
+    featured: true,
+    next_arrival_time: '14:45',
+    avg_delay_min: 4,
+  },
+  {
+    code: 'HWH',
+    name: 'Howrah Junction',
+    lat: 22.5839,
+    lng: 88.3426,
+    zone: 'Eastern Railway / ER',
+    category: 'A1 Category',
+    platforms: 23,
+    trains_today: 62,
+    featured: true,
+    next_arrival_time: '14:50',
+    avg_delay_min: 8,
+  },
+  {
+    code: 'MAS',
+    name: 'MGR Chennai Central',
+    lat: 13.0827,
+    lng: 80.2754,
+    zone: 'Southern Railway / SR',
+    category: 'A1 Category',
+    platforms: 17,
+    trains_today: 42,
+    featured: true,
+    next_arrival_time: '15:10',
+    avg_delay_min: 5,
+  },
+  {
+    code: 'BSB',
+    name: 'Varanasi Junction',
+    lat: 25.3283,
+    lng: 82.9863,
+    zone: 'North Eastern Railway / NER',
+    category: 'A1 Category',
+    platforms: 9,
+    trains_today: 38,
+    featured: true,
+    next_arrival_time: '15:15',
+    avg_delay_min: 12,
+  },
+  {
+    code: 'ADI',
+    name: 'Ahmedabad Junction',
+    lat: 23.0225,
+    lng: 72.5714,
+    zone: 'Western Railway / WR',
+    category: 'A1 Category',
+    platforms: 12,
+    trains_today: 40,
+    featured: true,
+    next_arrival_time: '15:25',
+    avg_delay_min: 7,
+  },
+  {
+    code: 'PUNE',
+    name: 'Pune Junction',
+    lat: 18.5284,
+    lng: 73.8744,
+    zone: 'Central Railway / CR',
+    category: 'A1 Category',
+    platforms: 6,
+    trains_today: 32,
+    featured: true,
+    next_arrival_time: '15:30',
+    avg_delay_min: 5,
+  },
+  {
+    code: 'BPL',
+    name: 'Bhopal Junction',
+    lat: 23.2599,
+    lng: 77.4126,
+    zone: 'West Central Railway / WCR',
+    category: 'A1 Category',
+    platforms: 6,
+    trains_today: 36,
+    featured: true,
+    next_arrival_time: '15:40',
+    avg_delay_min: 9,
+  },
+  {
+    code: 'SBC',
+    name: 'KSR Bengaluru City',
+    lat: 12.9784,
+    lng: 77.5684,
+    zone: 'South Western Railway / SWR',
+    category: 'A1 Category',
+    platforms: 10,
+    trains_today: 35,
+    featured: true,
+    next_arrival_time: '15:45',
+    avg_delay_min: 4,
+  },
+  {
+    code: 'SC',
+    name: 'Secunderabad Junction',
+    lat: 17.4344,
+    lng: 78.5015,
+    zone: 'South Central Railway / SCR',
+    category: 'A1 Category',
+    platforms: 10,
+    trains_today: 44,
+    featured: true,
+    next_arrival_time: '15:55',
+    avg_delay_min: 6,
+  },
+  {
+    code: 'GHY',
+    name: 'Guwahati Railway Station',
+    lat: 26.1824,
+    lng: 91.7519,
+    zone: 'Northeast Frontier Railway / NFR',
+    category: 'A1 Category',
+    platforms: 7,
+    trains_today: 28,
+    featured: true,
+    next_arrival_time: '16:05',
+    avg_delay_min: 14,
+  },
+  {
+    code: 'TVC',
+    name: 'Thiruvananthapuram Central',
+    lat: 8.4875,
+    lng: 76.9530,
+    zone: 'Southern Railway / SR',
+    category: 'A1 Category',
+    platforms: 5,
+    trains_today: 26,
+    featured: true,
+    next_arrival_time: '16:15',
+    avg_delay_min: 8,
+  }
+];
+
+/**
+ * 16. STATIONS: GET /stations?featured=true&q=...
+ */
+export async function getStations(params = {}) {
+  try {
+    const query = new URLSearchParams();
+    if (params.featured !== undefined) query.set('featured', params.featured);
+    if (params.q) query.set('q', params.q);
+    if (params.limit) query.set('limit', params.limit);
+
+    const url = `${BASE_URL}/stations${query.toString() ? '?' + query.toString() : ''}`;
+    const res = await fetchWithTimeout(url);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[RailPulse API] getStations error:`, err.message);
+    if (params.featured) {
+      return MOCK_STATIONS;
+    }
+    if (params.q) {
+      const ql = params.q.toLowerCase();
+      return MOCK_STATIONS.filter(
+        (s) => s.code.toLowerCase().includes(ql) || s.name.toLowerCase().includes(ql)
+      );
+    }
+    return MOCK_STATIONS;
+  }
+}
+
+/**
+ * 17. STATIONS: GET /stations/search?q=...
+ */
+export async function searchStations(q, limit = 20) {
+  try {
+    const query = new URLSearchParams({ q: q.trim(), limit: String(limit) });
+    const res = await fetchWithTimeout(`${BASE_URL}/stations/search?${query.toString()}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[RailPulse API] searchStations error:`, err.message);
+    const ql = (q || '').toLowerCase();
+    return MOCK_STATIONS.filter(
+      (s) => s.code.toLowerCase().includes(ql) || s.name.toLowerCase().includes(ql)
+    );
+  }
+}
+
+/**
+ * 18. STATIONS: GET /stations/{stationCode} — Live Arrivals / Departures Board
+ */
+export async function getStationLiveBoard(stationCode) {
+  try {
+    const code = (stationCode || '').trim().toUpperCase();
+    const res = await fetchWithTimeout(`${BASE_URL}/stations/${code}`);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return await res.json();
+  } catch (err) {
+    console.warn(`[RailPulse API] getStationLiveBoard error:`, err.message);
+    const code = (stationCode || 'NDLS').toUpperCase();
+    const fallbackMeta = MOCK_STATIONS.find((s) => s.code === code) || MOCK_STATIONS[0];
+    
+    return {
+      code: fallbackMeta.code,
+      name: fallbackMeta.name,
+      zone: fallbackMeta.zone,
+      category: fallbackMeta.category,
+      platforms: fallbackMeta.platforms,
+      trains_today: fallbackMeta.trains_today,
+      lat: fallbackMeta.lat,
+      lng: fallbackMeta.lng,
+      avg_delay_min: fallbackMeta.avg_delay_min,
+      arrivals: [
+        {
+          train_number: '12951',
+          train_name: 'Mumbai Central - New Delhi Tejas Rajdhani Express',
+          origin: 'Mumbai Central (MMCT)',
+          destination: 'New Delhi (NDLS)',
+          scheduled_time: '08:32',
+          predicted_time: '08:38',
+          delay_min: 6,
+          status: 'on_time',
+          platform: 1,
+          zone: 'WR / Northern Railway',
+          top_delay_factors: ['Section speed restriction due to track maintenance work ahead']
+        },
+        {
+          train_number: '22436',
+          train_name: 'New Delhi - Varanasi Vande Bharat Express',
+          origin: 'New Delhi (NDLS)',
+          destination: 'Varanasi Junction (BSB)',
+          scheduled_time: '06:00',
+          predicted_time: '06:00',
+          delay_min: 0,
+          status: 'on_time',
+          platform: 16,
+          zone: 'NR / North Central',
+          top_delay_factors: []
+        },
+        {
+          train_number: '12301',
+          train_name: 'Howrah - New Delhi Rajdhani Express (via Gaya)',
+          origin: 'Howrah Junction (HWH)',
+          destination: 'New Delhi (NDLS)',
+          scheduled_time: '10:05',
+          predicted_time: '10:24',
+          delay_min: 19,
+          status: 'delayed',
+          platform: 3,
+          zone: 'Eastern Railway',
+          top_delay_factors: ['Preceding express train clearance delay at junction signals', 'Automatic block signalling clearance hold']
+        },
+        {
+          train_number: '12626',
+          train_name: 'New Delhi - Thiruvananthapuram Kerala Express',
+          origin: 'New Delhi (NDLS)',
+          destination: 'Thiruvananthapuram Central (TVC)',
+          scheduled_time: '20:10',
+          predicted_time: '20:42',
+          delay_min: 32,
+          status: 'critical',
+          platform: 5,
+          zone: 'Southern Railway',
+          top_delay_factors: ['Freight train precedence at crossing loop', 'Platform occupancy — outgoing train yet to depart']
+        }
+      ]
+    };
+  }
+}
+

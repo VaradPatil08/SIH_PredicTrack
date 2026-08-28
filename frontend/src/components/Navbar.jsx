@@ -10,8 +10,9 @@ export default function Navbar() {
   const { openSettings, t } = useSettings();
 
   const navItems = [
-    { label: t('liveTrains'), path: '/' },
-    { label: t('trackTrain'), path: '/train/12951' },
+    { label: t('liveTrains') || 'Train Services', path: '/' },
+    { label: 'Station Directory', path: '/stations' },
+    { label: t('trackTrain') || 'Live Train', path: '/train/12951' },
   ];
 
   return (

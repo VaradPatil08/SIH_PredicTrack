@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.routers import trains, auth, preferences, reports, pnr, admin
+from app.routers import trains, auth, preferences, reports, pnr, admin, stations
 from app.db import engine, Base
 import app.models_db  # noqa: F401
 
@@ -29,6 +29,7 @@ app.include_router(preferences.router)
 app.include_router(reports.router)
 app.include_router(pnr.router)
 app.include_router(admin.router)
+app.include_router(stations.router)
 
 
 @app.get("/")

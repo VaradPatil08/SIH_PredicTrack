@@ -11,8 +11,6 @@ import LandingPage from './pages/LandingPage';
 import TrackingPage from './pages/TrackingPage';
 import AboutPage from './pages/AboutPage';
 import AdminPage from './pages/AdminPage';
-import StationsDirectoryPage from './pages/StationsDirectoryPage';
-import StationDetailPage from './pages/StationDetailPage';
 
 // Scroll to top helper on route navigation
 function ScrollToTop() {
@@ -66,35 +64,6 @@ function MainApp() {
               } 
             />
 
-            {/* Station Domain Routes */}
-            <Route 
-              path="/stations" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <StationsDirectoryPage />
-                </motion.div>
-              } 
-            />
-
-            <Route 
-              path="/station/:stationCode" 
-              element={
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <StationDetailPage />
-                </motion.div>
-              } 
-            />
-
             <Route 
               path="/about" 
               element={
@@ -108,6 +77,9 @@ function MainApp() {
                 </motion.div>
               } 
             />
+
+            {/* Fallback to Home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
 
             {/* Station Admin View */}
             <Route
@@ -136,9 +108,6 @@ function MainApp() {
                 </motion.div>
               }
             />
-
-            {/* Fallback to Home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
 
           </Routes>
         </AnimatePresence>

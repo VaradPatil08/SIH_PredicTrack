@@ -16,6 +16,7 @@ export function AuthProvider({ children }) {
   });
   const [favorites, setFavorites] = useState([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
+  const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
 
   // Sync token changes to localStorage
@@ -62,6 +63,13 @@ export function AuthProvider({ children }) {
     }
   };
 
+  const loginAsAdmin = (newToken, userData) => {
+    const adminData = userData ? { ...userData, role: 'station_admin' } : { role: 'station_admin' };
+    setToken(newToken);
+    setUser(adminData);
+    localStorage.setItem('railpulse_user', JSON.stringify(adminData));
+  };
+
   const logout = () => {
     setToken(null);
     setUser(null);
@@ -72,6 +80,12 @@ export function AuthProvider({ children }) {
 
   const openLoginModal = () => setIsLoginModalOpen(true);
   const closeLoginModal = () => setIsLoginModalOpen(false);
+
+  const openAdminLoginModal = () => setIsAdminLoginModalOpen(true);
+  const closeAdminLoginModal = () => setIsAdminLoginModalOpen(false);
+
+  const role = user?.role || 'passenger';
+  const isStationAdmin = role === 'station_admin';
 
   const toggleFavorite = async (trainNumber) => {
     if (!token) {
@@ -108,14 +122,20 @@ export function AuthProvider({ children }) {
       value={{
         token,
         user,
+        role,
+        isStationAdmin,
         isAuthenticated: !!token,
         favorites,
         loadingFavorites,
         login,
+        loginAsAdmin,
         logout,
         isLoginModalOpen,
         openLoginModal,
         closeLoginModal,
+        isAdminLoginModalOpen,
+        openAdminLoginModal,
+        closeAdminLoginModal,
         toggleFavorite,
         isFavorite,
         refreshPreferences: () => token && fetchProfileAndPreferences(token)
@@ -132,4 +152,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+}

@@ -15,8 +15,10 @@ class User(Base):
     __tablename__ = "users"
 
     id = Column(String, primary_key=True, default=_uuid)
-    phone_number = Column(String, unique=True, nullable=False, index=True)
+    phone_number = Column(String, unique=True, nullable=True, index=True)
     name = Column(String, nullable=True)
+    role = Column(String, nullable=False, default="passenger")
+    password_hash = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     preferences = relationship("Preference", back_populates="user", cascade="all, delete-orphan")

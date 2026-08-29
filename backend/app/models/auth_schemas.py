@@ -23,6 +23,11 @@ class OTPVerifyIn(BaseModel):
     name: Optional[str] = None  # optional display name on first verify
 
 
+class AdminLoginIn(BaseModel):
+    username: str = Field(..., description="Admin username, phone number, or employee ID")
+    password: str = Field(..., min_length=1, description="Admin account password")
+
+
 class TokenOut(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -31,8 +36,9 @@ class TokenOut(BaseModel):
 
 class UserOut(BaseModel):
     id: str
-    phone_number: str
-    name: Optional[str]
+    phone_number: Optional[str] = None
+    name: Optional[str] = None
+    role: str = "passenger"
     created_at: datetime
 
     class Config:

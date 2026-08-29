@@ -5,11 +5,12 @@ import logging
 from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from app.models.schemas import StationPickerItem, StationArrivalItem
+from app.models_db import User
 from app.routers.trains import _MOCK_TRAINS, _compute_base_delay
-from app.services import eta, live_feed
+from app.services import eta, live_feed, auth_service
 
 logger = logging.getLogger(__name__)
 
@@ -88,12 +89,17 @@ def _compute_platform(train_number: str, station_code: str) -> int:
 
 
 @router.get("/stations", response_model=list[StationPickerItem])
-def get_admin_stations():
+def get_admin_stations(
+    current_admin: User = Depends(auth_service.get_current_station_admin),
+):
     return _STATIONS_LIST
 
 
 @router.get("/station/{code}/arrivals", response_model=list[StationArrivalItem])
-def get_station_arrivals(code: str):
+def get_station_arrivals(
+    code: str,
+    current_admin: User = Depends(auth_service.get_current_station_admin),
+):
     """
     Returns upcoming/live arrivals for the given station code, sorted soonest first,
     capped at the top 30 arrivals. Reuses live delay telemetry from ETA service.

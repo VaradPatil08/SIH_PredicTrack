@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, ShieldCheck, Phone, KeyRound, User, ArrowRight, RefreshCw, CheckCircle2 } from 'lucide-react';
+import { X, ShieldCheck, Phone, KeyRound, User, ArrowRight, RefreshCw, CheckCircle2, AlertCircle, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { requestOTP, verifyOTP, getUserProfile } from '../services/api';
 
@@ -66,7 +66,7 @@ export default function AuthModal() {
       }
 
       login(res.access_token, profile);
-      setSuccessMsg('AUTHENTICATION_SUCCESSFUL // TOKEN_STORED');
+      setSuccessMsg('Authentication successful. Welcome back!');
       
       setTimeout(() => {
         closeLoginModal();
@@ -95,13 +95,13 @@ export default function AuthModal() {
     <AnimatePresence>
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
         
-        {/* Dark Backdrop */}
+        {/* Soft Dim Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={handleClose}
-          className="fixed inset-0 bg-black/80 backdrop-blur-none"
+          className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity"
         />
 
         {/* Modal Container */}
@@ -109,26 +109,30 @@ export default function AuthModal() {
           initial={{ opacity: 0, scale: 0.96, y: 8 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
-          transition={{ duration: 0.25, ease: [0.76, 0, 0.24, 1] }}
-          className="relative w-full max-w-md bg-[#111111] border border-white/20 border-t-2 border-t-[#FFB300] p-6 shadow-2xl z-10 font-sans text-white space-y-5"
+          transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+          className="relative w-full max-w-md bg-white rounded-xl border border-border shadow-2xl p-6 z-10 font-sans text-foreground space-y-5"
           role="dialog"
           aria-modal="true"
         >
-          {/* Header Title Bar */}
-          <div className="flex items-start justify-between border-b border-white/10 pb-3">
-            <div className="space-y-1">
-              <div className="flex items-center gap-2 text-xs font-sora uppercase tracking-[0.1em] text-[#FFB300]">
-                <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-                <span>[ AUTHENTICATION_GATEWAY ]</span>
+          {/* Header */}
+          <div className="flex items-start justify-between pb-3 border-b border-border">
+            <div className="flex items-center gap-3">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-navy text-white shadow-xs">
+                <LogIn className="w-5 h-5" />
               </div>
-              <h2 className="font-sora font-bold text-lg text-white tracking-tight">
-                RAILPULSE // USER LOGIN
-              </h2>
+              <div>
+                <h2 className="font-bold text-base text-navy tracking-tight">
+                  User Login & Preferences
+                </h2>
+                <p className="text-xs text-muted">
+                  Sign in to access your saved trains and custom alerts
+                </p>
+              </div>
             </div>
 
             <button
               onClick={handleClose}
-              className="p-1 text-white/50 hover:text-white border border-white/10 hover:border-white/30 focus-visible:ring-1 focus-visible:ring-[#FFB300] transition-colors"
+              className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition-colors"
               aria-label="Close dialog"
             >
               <X className="w-4 h-4" />
@@ -140,43 +144,50 @@ export default function AuthModal() {
             <motion.div 
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-[#FFB300]/10 border border-[#FFB300] text-xs flex items-center gap-2 text-[#FFB300] font-sora font-semibold"
+              className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs flex items-center gap-2 text-emerald-800 font-semibold"
             >
-              <CheckCircle2 className="w-4 h-4 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
               <span>{successMsg}</span>
             </motion.div>
           )}
 
           {/* Error Banner */}
           {error && (
-            <div className="p-3 bg-[#B22222]/15 border border-[#B22222] text-xs text-[#B22222] font-sora space-y-1">
-              <div className="font-bold uppercase tracking-wider">[ ERROR // VALIDATION_FAILED ]</div>
-              <p className="font-sans text-white/80">{error}</p>
-            </div>
+            <motion.div 
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 flex items-start gap-2"
+            >
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+              <div>
+                <div className="font-semibold">Validation Error</div>
+                <div className="text-red-700">{error}</div>
+              </div>
+            </motion.div>
           )}
 
           {/* Step 1: Phone Number Input */}
           {step === 1 && (
             <form onSubmit={handleRequestOTP} className="space-y-4">
-              <div className="space-y-2">
-                <label className="block text-[11px] font-sora font-medium uppercase tracking-wider text-white/70">
-                  MOBILE_PHONE_NUMBER [E.164]
+              <div className="space-y-1.5">
+                <label className="block text-xs font-semibold text-foreground">
+                  Mobile Phone Number
                 </label>
-                <div className="relative border border-white/20 bg-black focus-within:border-[#FFB300] focus-within:ring-1 focus-within:ring-[#FFB300] transition-colors">
-                  <div className="flex items-center px-3 py-2 gap-2.5">
-                    <Phone className="w-4 h-4 text-white/40 shrink-0" />
-                    <input
-                      type="tel"
-                      value={phoneNumber}
-                      onChange={(e) => setPhoneNumber(e.target.value)}
-                      placeholder="+919876543210"
-                      className="w-full bg-transparent text-white font-sans text-xs sm:text-sm tracking-wider focus:outline-none"
-                      required
-                      autoFocus
-                    />
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                    <Phone className="w-4 h-4" />
                   </div>
+                  <input
+                    type="tel"
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder="+919876543210"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-slate-50 text-foreground placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white transition-all font-mono tracking-wide"
+                    required
+                    autoFocus
+                  />
                 </div>
-                <p className="text-[10px] text-white/40 font-sans">
+                <p className="text-[11px] text-muted leading-normal">
                   Enter your mobile number with country code. Used for login & saved train preferences.
                 </p>
               </div>
@@ -184,16 +195,16 @@ export default function AuthModal() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 bg-black border border-white/20 hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white font-sora font-bold text-xs uppercase tracking-[0.1em] transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                className="w-full py-2.5 rounded-lg bg-navy hover:bg-navy-light text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
               >
                 {loading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>TRANSMITTING_OTP...</span>
+                    <span>Sending OTP...</span>
                   </>
                 ) : (
                   <>
-                    <span>REQUEST_OTP_CODE</span>
+                    <span>Send OTP</span>
                     <ArrowRight className="w-3.5 h-3.5" />
                   </>
                 )}
@@ -205,66 +216,65 @@ export default function AuthModal() {
           {step === 2 && (
             <form onSubmit={handleVerifyOTP} className="space-y-4">
               
-              {/* TODO: In production deployment, remove dev_otp display; SMS delivery will be handled by provider */}
               {devOtp && (
-                <div className="p-3 bg-black border border-[#FFB300] text-xs space-y-1">
-                  <div className="font-sora font-bold text-[#FFB300] text-[11px] uppercase tracking-wider flex items-center gap-1.5">
-                    <span className="w-2 h-2 bg-[#FFB300] inline-block" />
-                    <span>[ DEV_MODE: OTP_GENERATED ]</span>
+                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-navy space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5 text-navy">
+                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
+                    <span>Demo OTP</span>
                   </div>
-                  <p className="text-white/80 font-sans text-xs">
-                    DEV: your verification code is <strong className="text-[#FFB300] font-mono tracking-widest text-sm">{devOtp}</strong>
+                  <p className="text-muted text-[11px]">
+                    Your OTP is <strong className="text-navy font-mono font-bold tracking-wider text-sm">{devOtp}</strong>
                   </p>
                 </div>
               )}
 
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="block text-[11px] font-sora font-medium uppercase tracking-wider text-white/70">
-                    6-DIGIT_OTP_CODE
+                  <label className="block text-xs font-semibold text-foreground">
+                    Enter 6-Digit OTP
                   </label>
                   <button
                     type="button"
                     onClick={() => { setStep(1); setError(null); }}
-                    className="text-[10px] text-[#FFB300] font-sora uppercase hover:underline"
+                    className="text-xs text-navy hover:text-navy-light font-semibold hover:underline"
                   >
-                    CHANGE_PHONE
+                    Change Number
                   </button>
                 </div>
 
-                <div className="relative border border-white/20 bg-black focus-within:border-[#FFB300] focus-within:ring-1 focus-within:ring-[#FFB300] transition-colors">
-                  <div className="flex items-center px-3 py-2 gap-2.5">
-                    <KeyRound className="w-4 h-4 text-white/40 shrink-0" />
-                    <input
-                      type="text"
-                      maxLength={6}
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value)}
-                      placeholder="000000"
-                      className="w-full bg-transparent text-white font-mono font-bold text-sm tracking-widest focus:outline-none"
-                      required
-                      autoFocus
-                    />
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                    <KeyRound className="w-4 h-4" />
                   </div>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={otpCode}
+                    onChange={(e) => setOtpCode(e.target.value)}
+                    placeholder="000000"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-slate-50 text-foreground text-center font-mono font-bold text-base tracking-widest focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white transition-all"
+                    required
+                    autoFocus
+                  />
                 </div>
               </div>
 
               {/* Optional Display Name */}
               <div className="space-y-1.5">
-                <label className="block text-[11px] font-sora font-medium uppercase tracking-wider text-white/70">
-                  DISPLAY_NAME (OPTIONAL)
+                <label className="block text-xs font-semibold text-foreground">
+                  Your Name (Optional)
                 </label>
-                <div className="relative border border-white/20 bg-black focus-within:border-[#FFB300] focus-within:ring-1 focus-within:ring-[#FFB300] transition-colors">
-                  <div className="flex items-center px-3 py-2 gap-2.5">
-                    <User className="w-4 h-4 text-white/40 shrink-0" />
-                    <input
-                      type="text"
-                      value={displayName}
-                      onChange={(e) => setDisplayName(e.target.value)}
-                      placeholder="E.G. VARAD PATIL"
-                      className="w-full bg-transparent text-white font-sans text-xs sm:text-sm tracking-wide focus:outline-none"
-                    />
+                <div className="relative">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                    <User className="w-4 h-4" />
                   </div>
+                  <input
+                    type="text"
+                    value={displayName}
+                    onChange={(e) => setDisplayName(e.target.value)}
+                    placeholder="e.g. Rahul Sharma"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-slate-50 text-foreground placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white transition-all"
+                  />
                 </div>
               </div>
 
@@ -272,25 +282,25 @@ export default function AuthModal() {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2.5 bg-black border border-white/20 hover:border-white/40 text-white font-sora text-xs uppercase tracking-wider transition-colors"
+                  className="px-4 py-2.5 rounded-lg border border-border hover:bg-slate-100 text-foreground font-semibold text-xs transition-colors active:scale-98"
                 >
-                  BACK
+                  Back
                 </button>
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 py-2.5 bg-black border border-white/20 hover:bg-[#FFB300] hover:text-black hover:border-[#FFB300] text-white font-sora font-bold text-xs uppercase tracking-[0.1em] transition-colors flex items-center justify-center gap-2 disabled:opacity-40"
+                  className="flex-1 py-2.5 rounded-lg bg-navy hover:bg-navy-light text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
                 >
                   {loading ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>VERIFYING_CODE...</span>
+                      <span>Verifying...</span>
                     </>
                   ) : (
                     <>
                       <ShieldCheck className="w-3.5 h-3.5" />
-                      <span>VERIFY & AUTHENTICATE</span>
+                      <span>Verify OTP & Sign In</span>
                     </>
                   )}
                 </button>
@@ -299,10 +309,10 @@ export default function AuthModal() {
             </form>
           )}
 
-          {/* Footer Transparency Disclaimer */}
-          <div className="pt-3 border-t border-white/10 flex items-center justify-between text-[10px] text-white/40 font-sora">
-            <span>SECURE_JWT // HS256</span>
-            <span>SIH_2026_AUTH</span>
+          {/* Footer Transparency Info */}
+          <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted">
+            <span>Secure Login</span>
+            <span>Indian Railways Train Enquiry</span>
           </div>
 
         </motion.div>

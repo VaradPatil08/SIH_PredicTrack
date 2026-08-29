@@ -103,9 +103,9 @@ export default function WhatIfSimulator({ onSimulationChange }) {
             <div className="flex items-center justify-between pb-2 border-b border-border dark:border-slate-800 text-xs text-muted dark:text-slate-400">
               <span className="flex items-center gap-1.5 text-navy dark:text-blue-400 font-semibold">
                 <Activity className="w-3.5 h-3.5 text-navy dark:text-blue-400" />
-                <span>Simulate Section Disruption Factors</span>
+                <span>Test Journey Scenarios</span>
               </span>
-              <span className="text-muted dark:text-slate-400 text-[11px]">{t('sihEvaluationPanel')}</span>
+              <span className="text-muted dark:text-slate-400 text-[11px]">Interactive Simulator</span>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3.5">
@@ -206,7 +206,7 @@ export default function WhatIfSimulator({ onSimulationChange }) {
             <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 border-t border-border dark:border-slate-800">
               <div className="text-xs text-muted dark:text-slate-400 flex items-center gap-2">
                 <ShieldAlert className="w-4 h-4 text-navy dark:text-blue-400 shrink-0" />
-                <span>Simulated Injected Delay Impact: <strong className="text-navy dark:text-blue-400 font-bold">+{totalInjected} MINS</strong></span>
+                <span>Total Estimated Delay: <strong className="text-navy dark:text-blue-400 font-bold">+{totalInjected} mins</strong></span>
               </div>
 
               <div className="flex items-center gap-2 w-full sm:w-auto">

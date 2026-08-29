@@ -17,18 +17,21 @@ export default function Footer() {
             </div>
             <div>
               <span className="font-bold text-sm tracking-tight text-navy dark:text-blue-400">
-                {t('brandTitle')} <span className="text-railway-red">•</span> PREDICTRACK
+                {t('brandTitle')} <span className="text-railway-red">•</span> LIVE ENQUIRY
               </span>
               <p className="text-[11px] text-muted dark:text-slate-400">{t('footerTagline')}</p>
             </div>
           </div>
 
           <div className="flex flex-wrap items-center gap-4 sm:gap-6 text-xs font-medium">
-            <Link to="/" className="min-h-[40px] flex items-center text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white transition-colors">
+            <Link to="/" className="min-h-[40px] flex items-center text-muted hover:text-navy transition-colors">
               {t('liveTrains')}
             </Link>
-            <Link to="/train/12951" className="min-h-[40px] flex items-center text-muted dark:text-slate-400 hover:text-navy dark:hover:text-white transition-colors">
+            <Link to="/train/12951" className="min-h-[40px] flex items-center text-muted hover:text-navy transition-colors">
               {t('trackTrain')}
+            </Link>
+            <Link to="/admin" className="min-h-[40px] flex items-center text-muted hover:text-navy transition-colors">
+              Station Admin
             </Link>
           </div>
 

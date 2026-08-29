@@ -337,9 +337,9 @@ export default function TrainMap({
                 </div>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-muted dark:text-slate-400 pt-0.5">
                   <div>{t('distance')} <span className="text-foreground dark:text-slate-200 font-semibold">{stn.distance_km || 0} {t('km')}</span></div>
-                  <div>{t('action')} <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'text-navy dark:text-blue-400 font-medium'}>{stn.status.toUpperCase()}</span></div>
+                  <div>Status: <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'text-navy dark:text-blue-400 font-medium'}>{stn.status === 'reached' ? 'Departed' : stn.status === 'delayed' ? 'Delayed' : 'Upcoming'}</span></div>
                   <div>{t('scheduled')} <span className="text-foreground dark:text-slate-200 font-medium">+{stn.scheduled_offset_min}m</span></div>
-                  <div>{t('peakDelay')} <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
+                  <div>Delay: <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
                 </div>
               </div>
             </Popup>

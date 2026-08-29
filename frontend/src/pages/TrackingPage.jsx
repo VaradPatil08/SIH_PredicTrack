@@ -129,7 +129,7 @@ export default function TrackingPage() {
             title="Report track delay or disruption"
           >
             <Radio className="w-3.5 h-3.5 animate-pulse text-transit-red" />
-            <span>REPORT DISRUPTION</span>
+            <span>Report Disruption</span>
           </button>
 
           <div className="flex items-center gap-2 px-3 py-2 min-h-[40px] rounded-full bg-white dark:bg-slate-800 border border-border dark:border-slate-700 text-muted dark:text-slate-300 shadow-2xs">
@@ -267,7 +267,7 @@ export default function TrackingPage() {
                     />
                   </div>
                   <div className="text-[10px] text-muted dark:text-slate-400 mt-0.5">
-                    {isDelayedOverall ? 'Cascade Propagation' : 'Nominal Transit'}
+                    {isDelayedOverall ? 'Delay Expected' : 'Running on Schedule'}
                   </div>
                 </div>
 
@@ -334,17 +334,17 @@ export default function TrackingPage() {
             <motion.div
               initial={{ opacity: 0, y: -6 }}
               animate={{ opacity: 1, y: 0 }}
-              className={`p-3.5 sm:p-4 rounded-lg border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans ${
+              className={`p-3.5 sm:p-4 rounded-xl border flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs font-sans shadow-xs ${
                 reportSummary.flagged
-                  ? 'bg-red-500/10 border-transit-red text-transit-red dark:text-red-300'
-                  : 'bg-amber-500/10 border-amber-500/40 text-amber-800 dark:text-amber-300'
+                  ? 'bg-red-50 border-red-200 text-red-800'
+                  : 'bg-amber-50 border-amber-200 text-amber-800'
               }`}
             >
               <div className="flex items-start sm:items-center gap-2.5">
-                <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5 sm:mt-0 text-transit-red" />
+                <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 sm:mt-0 ${reportSummary.flagged ? 'text-red-600' : 'text-amber-600'}`} />
                 <div>
-                  <span className="font-sora font-bold tracking-wide">
-                    {reportSummary.flagged ? '[ SECTION_ALERT // FLAGGED DISRUPTION ] ' : '[ CROWDSOURCED_REPORTS ] '}
+                  <span className="font-bold">
+                    {reportSummary.flagged ? 'Active Section Alert: ' : 'Passenger Disruption Reports: '}
                   </span>
                   <span>
                     {reportSummary.report_count} verified passenger {reportSummary.report_count === 1 ? 'report' : 'reports'} received in the last {reportSummary.window_hours}h.
@@ -353,9 +353,9 @@ export default function TrackingPage() {
               </div>
               <button
                 onClick={handleOpenReportModal}
-                className="px-3 py-1.5 rounded bg-black/20 hover:bg-black/40 font-sora font-bold text-[11px] uppercase tracking-wider self-start sm:self-auto transition-colors border border-current"
+                className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 font-semibold text-xs transition-colors border border-current shadow-2xs self-start sm:self-auto active:scale-95"
               >
-                + ADD REPORT
+                + Add Report
               </button>
             </motion.div>
           )}

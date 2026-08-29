@@ -94,9 +94,9 @@ export default function DelaySparkline({ stations = [] }) {
       </div>
 
       <div className="flex justify-between text-[10px] text-muted dark:text-slate-400 font-medium">
-        <span>{stations[0]?.code || 'ORIGIN'} ({stations[0]?.name?.split(' ')[0]})</span>
-        <span className="text-muted/80 dark:text-slate-500">{t('sectionDelayVsSlack')}</span>
-        <span>{stations[stations.length - 1]?.code || 'DEST'} ({stations[stations.length - 1]?.name?.split(' ')[0]})</span>
+        <span>{stations[0]?.code || 'Origin'} ({stations[0]?.name?.split(' ')[0]})</span>
+        <span className="text-muted/80 dark:text-slate-500">Route Progress</span>
+        <span>{stations[stations.length - 1]?.code || 'Destination'} ({stations[stations.length - 1]?.name?.split(' ')[0]})</span>
       </div>
     </div>
   );

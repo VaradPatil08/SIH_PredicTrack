@@ -72,7 +72,7 @@ export function MapSkeleton() {
     <div className="w-full h-[450px] lg:h-[620px] rounded-lg border border-border dark:border-slate-800 bg-slate-100 dark:bg-slate-900 animate-pulse flex flex-col items-center justify-center p-6 text-muted font-sans text-xs space-y-3">
       <div className="w-10 h-10 rounded-full border-2 border-navy dark:border-blue-400 border-t-transparent animate-spin"></div>
       <p className="font-semibold text-navy dark:text-blue-400 tracking-wide text-sm">Loading Live Route Map...</p>
-      <span className="text-muted dark:text-slate-400 text-xs">Fetching GIS station coordinates and route geometry</span>
+      <span className="text-muted dark:text-slate-400 text-xs">Loading station coordinates and route...</span>
     </div>
   );
 }

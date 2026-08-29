@@ -58,21 +58,21 @@ function computeTrainStatus(scheduledOffsetMin, delayMin, haltMin = 2) {
 function StatusBadge({ status }) {
   if (status === 'APPROACHING') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border border-[#85B7EB] dark:border-blue-700/80 text-[#185FA5] dark:text-blue-300 bg-white/90 dark:bg-slate-900/90 shadow-2xs tracking-wide">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border border-blue-200 text-navy bg-blue-50 shadow-2xs tracking-wide">
         APPROACHING
       </span>
     );
   }
   if (status === 'AT_PLATFORM') {
     return (
-      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-[#0C447C] dark:bg-blue-600 text-white shadow-xs tracking-wide">
+      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-navy text-white shadow-xs tracking-wide">
         AT PLATFORM
       </span>
     );
   }
   // DEPARTED (faded/quiet visual state)
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-300 dark:border-slate-700 text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800/60 tracking-wide">
+    <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200 text-muted bg-slate-100 tracking-wide">
       DEPARTED
     </span>
   );
@@ -90,29 +90,29 @@ function getDelaySeverity(delayMinutes = 0) {
   if (d <= 5) {
     return {
       severity: 'on_time',
-      textClass: 'text-[#3B6D11] dark:text-emerald-300',
-      badgeClass: 'bg-emerald-50 dark:bg-emerald-950/50 border border-emerald-200 dark:border-emerald-800 text-[#3B6D11] dark:text-emerald-300',
-      borderLeftClass: 'border-l-[#639922]',
-      dotColor: '#639922',
+      textClass: 'text-transit-green',
+      badgeClass: 'bg-emerald-50 border border-emerald-200 text-transit-green',
+      borderLeftClass: 'border-l-transit-green',
+      dotColor: '#2E7D32',
       label: d === 0 ? 'ON TIME' : `+${d}m`,
     };
   }
   if (d <= 15) {
     return {
       severity: 'moderate',
-      textClass: 'text-[#854F0B] dark:text-amber-300',
-      badgeClass: 'bg-amber-50 dark:bg-amber-950/50 border border-amber-200 dark:border-amber-800 text-[#854F0B] dark:text-amber-300',
-      borderLeftClass: 'border-l-[#BA7517]',
-      dotColor: '#BA7517',
+      textClass: 'text-transit-orange',
+      badgeClass: 'bg-amber-50 border border-amber-200 text-transit-orange',
+      borderLeftClass: 'border-l-transit-orange',
+      dotColor: '#ED8B00',
       label: `+${d}m LATE`,
     };
   }
   return {
     severity: 'severe',
-    textClass: 'text-[#791F1F] dark:text-red-300',
-    badgeClass: 'bg-red-50 dark:bg-red-950/50 border border-red-200 dark:border-red-800 text-[#791F1F] dark:text-red-300',
-    borderLeftClass: 'border-l-[#A32D2D]',
-    dotColor: '#A32D2D',
+    textClass: 'text-railway-red',
+    badgeClass: 'bg-red-50 border border-red-200 text-railway-red',
+    borderLeftClass: 'border-l-railway-red',
+    dotColor: '#D32F2F',
     label: `+${d}m LATE`,
   };
 }
@@ -171,16 +171,16 @@ function StationPickerView() {
             <span className="w-2 h-2 rounded-full bg-[#17324D] dark:bg-blue-400 inline-block" />
             <span>Station Admin Portal</span>
             <span className="text-slate-300 dark:text-slate-600">|</span>
-            <span className="font-normal text-muted dark:text-slate-400">Arrivals Control Board</span>
+            <span className="font-normal text-muted dark:text-slate-400">Live Arrivals Board</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-bold text-[#17324D] dark:text-[#93C5FD] tracking-tight">
             Select Station & Live Arrivals Board
           </h1>
           <p className="text-xs sm:text-sm text-[#667085] dark:text-[#94A3B8] max-w-2xl">
-            Pick a station from the directory below to view real-time arrivals, predicted delays, platform assignments, and halt durations.
+            Pick a station from the directory below to view real-time arrivals, delay updates, platform assignments, and halt durations.
             {!loading && stations.length > 0 && (
-              <span className="ml-1 font-semibold text-[#17324D] dark:text-blue-300">({stations.length.toLocaleString()} stations indexed)</span>
+              <span className="ml-1 font-semibold text-[#17324D] dark:text-blue-300">({stations.length.toLocaleString()} stations available)</span>
             )}
           </p>
         </div>
@@ -355,7 +355,7 @@ function ArrivalsBoard({ stationCode }) {
             className="inline-flex items-center gap-1.5 min-h-[36px] text-xs sm:text-sm font-semibold text-[#667085] dark:text-slate-400 hover:text-[#17324D] dark:hover:text-blue-400 transition-colors rounded p-1 group active:scale-95"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Back to Station Picker</span>
+            <span>Back to All Stations</span>
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -372,7 +372,7 @@ function ArrivalsBoard({ stationCode }) {
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2E7D32] opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2E7D32]"></span>
                   </span>
-                  <span>Yard Feed Connected</span>
+                  <span>Live Feed Active</span>
                 </span>
               </div>
 
@@ -419,7 +419,7 @@ function ArrivalsBoard({ stationCode }) {
               {/* Auto-Refresh Badge */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-[#D9DEE5] dark:border-slate-700 text-[#667085] dark:text-slate-300 shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-[#2E7D32] inline-block animate-pulse" />
-                <span className="text-[11px] font-medium">Auto-sync 12s</span>
+                <span className="text-[11px] font-medium">Auto-refresh: 12s</span>
               </div>
 
               {lastUpdated && (

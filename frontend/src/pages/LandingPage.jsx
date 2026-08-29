@@ -65,7 +65,7 @@ export default function LandingPage() {
   const [featuredTrains, setFeaturedTrains] = useState([]);
   const [searchResults, setSearchResults] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [viewMode, setViewMode] = useState('grid'); // 'grid' | 'table'
+  const [viewMode, setViewMode] = useState('table'); // 'table' | 'grid'
   const [searchMode, setSearchMode] = useState('train'); // 'train' | 'pnr'
   const [activeDirectoryTab, setActiveDirectoryTab] = useState('all'); // 'all' | 'saved'
   const [initialLoading, setInitialLoading] = useState(true);
@@ -226,7 +226,7 @@ export default function LandingPage() {
           <motion.div variants={heroItem} className="pt-2 flex flex-wrap items-center gap-2 text-xs">
             <span className="text-muted dark:text-slate-400 font-semibold flex items-center gap-1">
               <Sparkles className="w-3.5 h-3.5 text-navy dark:text-blue-400" />
-              <span>Flagship Services:</span>
+              <span>Popular Trains:</span>
             </span>
             {[
               { id: '12951', label: '12951 Tejas Rajdhani' },
@@ -273,12 +273,12 @@ export default function LandingPage() {
                 }`}
               >
                 <FileText className="w-3.5 h-3.5" />
-                <span>PNR Tracking</span>
+                <span>PNR Status</span>
               </button>
             </div>
 
             <div className="text-xs text-muted dark:text-slate-400 hidden sm:block font-medium">
-              9,525+ total services indexed
+              9,525+ trains covered
             </div>
           </div>
 
@@ -421,7 +421,7 @@ export default function LandingPage() {
               >
                 {isSearchActive 
                   ? `Search Results (${displayedTrains.length})` 
-                  : `Featured Services (${featuredTrains.length})`}
+                  : `Popular Trains (${featuredTrains.length})`}
               </button>
 
               <button
@@ -439,34 +439,21 @@ export default function LandingPage() {
                 }`}
               >
                 <Star className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-                <span>My Saved ({favorites.length})</span>
+                <span>Saved Trains ({favorites.length})</span>
               </button>
             </div>
 
             {/* Scope Badge */}
             {!isSearchActive && activeDirectoryTab !== 'saved' && (
               <span className="text-xs px-2.5 py-1 rounded-md bg-blue-50 dark:bg-blue-950/60 text-navy dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold hidden md:inline-block">
-                Flagship Services ({featuredTrains.length})
+                Popular Trains ({featuredTrains.length})
               </span>
             )}
           </div>
 
-          {/* Right Controls: Grid/Table Toggle */}
+          {/* Right Controls: Table/Grid Toggle */}
           <div className="flex items-center gap-2">
             <div className="p-1 rounded-lg bg-slate-100 dark:bg-slate-800 flex items-center gap-1">
-              <button
-                onClick={() => setViewMode('grid')}
-                className={`p-1.5 rounded-md transition-colors ${
-                  viewMode === 'grid' 
-                    ? 'bg-white dark:bg-slate-900 text-navy dark:text-blue-400 shadow-2xs' 
-                    : 'text-muted dark:text-slate-400 hover:text-foreground'
-                }`}
-                title="Grid Card View"
-                aria-label="Grid View"
-              >
-                <LayoutGrid className="w-4 h-4" />
-              </button>
-
               <button
                 onClick={() => setViewMode('table')}
                 className={`p-1.5 rounded-md transition-colors ${
@@ -478,6 +465,19 @@ export default function LandingPage() {
                 aria-label="Table View"
               >
                 <Table className="w-4 h-4" />
+              </button>
+
+              <button
+                onClick={() => setViewMode('grid')}
+                className={`p-1.5 rounded-md transition-colors ${
+                  viewMode === 'grid' 
+                    ? 'bg-white dark:bg-slate-900 text-navy dark:text-blue-400 shadow-2xs' 
+                    : 'text-muted dark:text-slate-400 hover:text-foreground'
+                }`}
+                title="Grid Card View"
+                aria-label="Grid View"
+              >
+                <LayoutGrid className="w-4 h-4" />
               </button>
             </div>
           </div>
@@ -515,7 +515,7 @@ export default function LandingPage() {
                 onClick={() => setActiveDirectoryTab('all')}
                 className="px-4 py-2 rounded-lg bg-navy dark:bg-blue-600 text-white text-xs font-semibold hover:bg-navy-light transition-all"
               >
-                Browse Featured Trains
+                Browse Popular Trains
               </button>
             ) : (
               <button

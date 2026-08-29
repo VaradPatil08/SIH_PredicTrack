@@ -43,7 +43,7 @@ export default function StationTimeline({
           [stationCode]: [
             {
               category: 'TRACK_OCCUPANCY',
-              reason: 'Automatic block signalling clearance hold ahead of station yard.',
+              reason: 'Waiting for signal clearance ahead of station.',
               impact_min: 8,
               confidence: 0.85
             }
@@ -237,13 +237,21 @@ export default function StationTimeline({
                       {loadingReasons[station.code] ? (
                         <div className="py-2 text-muted dark:text-slate-400 flex items-center gap-2 text-xs">
                           <div className="w-3 h-3 rounded-full border border-navy dark:border-blue-400 border-t-transparent animate-spin" />
-                          <span>Querying section delay reasons...</span>
+                          <span>Fetching delay reasons...</span>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {reasonsList.map((reason, rIdx) => {
                             const reasonText = typeof reason === 'string' ? reason : (reason.reason || 'Speed caution');
-                            const reasonCategory = typeof reason === 'object' ? (reason.category || 'TRACK_OCCUPANCY') : 'TRACK_OCCUPANCY';
+                            const rawCat = typeof reason === 'object' ? (reason.category || 'TRACK_OCCUPANCY') : 'TRACK_OCCUPANCY';
+                            const categoryNames = {
+                              'TRACK_OCCUPANCY': 'Track Congestion',
+                              'PLATFORM_HOLD': 'Waiting for Platform',
+                              'INTERLOCKING_HOLD': 'Signal Clearance',
+                              'SPEED_RESTRICTION': 'Track Work Caution',
+                              'WEATHER_CAUTION': 'Weather Caution'
+                            };
+                            const reasonCategory = categoryNames[rawCat] || rawCat.replace(/_/g, ' ');
                             const reasonImpact = typeof reason === 'object' ? (reason.impact_min || station.predicted_delay_min) : station.predicted_delay_min;
                             const reasonConf = typeof reason === 'object' ? reason.confidence : null;
 
@@ -251,7 +259,7 @@ export default function StationTimeline({
                               <div key={rIdx} className="p-2.5 rounded bg-white dark:bg-slate-900 border border-border dark:border-slate-700 space-y-1">
                                 <div className="flex items-center justify-between text-xs">
                                   <span className="font-semibold text-navy dark:text-blue-300">
-                                    {reasonCategory.replace('_', ' ')}
+                                    {reasonCategory}
                                   </span>
                                   <span className="text-transit-orange dark:text-amber-400 font-bold">
                                     +{reasonImpact} min

@@ -5,6 +5,7 @@ import {
   Sun, 
   Moon, 
   Languages, 
+  Globe,
   Check, 
   Settings as SettingsIcon
 } from 'lucide-react';
@@ -115,7 +116,7 @@ export default function SettingsModal() {
                       <div className={`font-bold text-xs ${theme === 'light' ? 'text-navy dark:text-blue-400' : 'text-foreground dark:text-slate-200'}`}>
                         {t('lightMode')}
                       </div>
-                      <div className="text-[10px] text-muted dark:text-slate-400">IR Daylight</div>
+                      <div className="text-[10px] text-muted dark:text-slate-400">Day Mode</div>
                     </div>
                   </button>
 
@@ -136,7 +137,7 @@ export default function SettingsModal() {
                       <div className={`font-bold text-xs ${theme === 'dark' ? 'text-navy dark:text-blue-400' : 'text-foreground dark:text-slate-200'}`}>
                         {t('darkMode')}
                       </div>
-                      <div className="text-[10px] text-muted dark:text-slate-400">Night Operations</div>
+                      <div className="text-[10px] text-muted dark:text-slate-400">Night Mode</div>
                     </div>
                   </button>
                 </div>

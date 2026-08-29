@@ -120,7 +120,6 @@ export const translations = {
     // Footer
     footerTitle: 'RAILPULSE',
     footerSub: 'LIVE ENQUIRY',
-    footerTagline: 'Indian Railways Live Train Status & Arrival Times',
     liveTrainsFooter: 'Live Trains',
     liveRouteTracking: 'Live Route Tracking',
     fastApiMicroservice: 'Live Service',
@@ -250,7 +249,6 @@ export const translations = {
     // Footer
     footerTitle: 'रेलपल्स',
     footerSub: 'लाइव पूछताछ',
-    footerTagline: 'भारतीय रेल लाइव ट्रेन स्थिति एवं आगमन समय',
     liveTrainsFooter: 'लाइव ट्रेनें',
     liveRouteTracking: 'लाइव रूट ट्रैकिंग',
     fastApiMicroservice: 'लाइव सेवा',

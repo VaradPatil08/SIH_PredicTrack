@@ -117,8 +117,8 @@ function MainApp() {
       <SettingsModal />
       <AuthModal />
 
-      {/* Global Footer */}
-      <Footer />
+      {/* Global Footer (hidden on Live Trains page) */}
+      {location.pathname !== '/' && <Footer />}
     </div>
   );
 }

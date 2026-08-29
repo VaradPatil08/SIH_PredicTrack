@@ -1,7 +1,7 @@
 export const translations = {
   en: {
     // Brand & Header
-    brandTitle: 'RAILPULSE',
+    brandTitle: 'PredicTrack',
     brandBadge: 'LIVE STATUS',
     brandTagline: 'Ministry of Railways • Live Train Enquiry',
     liveTrains: 'Live Trains',
@@ -118,7 +118,7 @@ export const translations = {
     resetAll: 'Reset All',
 
     // Footer
-    footerTitle: 'RAILPULSE',
+    footerTitle: 'PredicTrack',
     footerSub: 'LIVE ENQUIRY',
     liveTrainsFooter: 'Live Trains',
     liveRouteTracking: 'Live Route Tracking',
@@ -130,7 +130,7 @@ export const translations = {
 
   hi: {
     // Brand & Header
-    brandTitle: 'रेलपल्स',
+    brandTitle: 'PredicTrack',
     brandBadge: 'लाइव स्टेटस',
     brandTagline: 'रेल मंत्रालय • लाइव ट्रेन पूछताछ',
     liveTrains: 'लाइव ट्रेनें',
@@ -247,7 +247,7 @@ export const translations = {
     resetAll: 'सभी रीसेट करें',
 
     // Footer
-    footerTitle: 'रेलपल्स',
+    footerTitle: 'PredicTrack',
     footerSub: 'लाइव पूछताछ',
     liveTrainsFooter: 'लाइव ट्रेनें',
     liveRouteTracking: 'लाइव रूट ट्रैकिंग',

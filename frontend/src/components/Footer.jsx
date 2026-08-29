@@ -23,7 +23,7 @@ export default function Footer() {
             </div>
             <div>
               <span className="font-bold text-sm tracking-tight text-navy dark:text-blue-400">
-                {t('brandTitle')} <span className="text-railway-red">•</span> PREDICTRACK
+                {t('brandTitle')}
               </span>
             </div>
           </div>

@@ -5,13 +5,24 @@ import { useAuth } from '../context/AuthContext';
 import { adminLogin, getUserProfile } from '../services/api';
 
 export default function AdminLoginModal() {
-  const { isAdminLoginModalOpen, closeAdminLoginModal, loginAsAdmin } = useAuth();
+  const { 
+    isAdminLoginModalOpen, 
+    closeAdminLoginModal, 
+    loginAsAdmin,
+    adminLoginInitialError 
+  } = useAuth();
 
   const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+
+  React.useEffect(() => {
+    if (isAdminLoginModalOpen && adminLoginInitialError) {
+      setError(adminLoginInitialError);
+    }
+  }, [isAdminLoginModalOpen, adminLoginInitialError]);
 
   if (!isAdminLoginModalOpen) return null;
 

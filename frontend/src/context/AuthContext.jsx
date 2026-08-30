@@ -17,6 +17,7 @@ export function AuthProvider({ children }) {
   const [favorites, setFavorites] = useState([]);
   const [isLoginModalOpen, setIsLoginModalOpen] = useState(false);
   const [isAdminLoginModalOpen, setIsAdminLoginModalOpen] = useState(false);
+  const [adminLoginInitialError, setAdminLoginInitialError] = useState(null);
   const [loadingFavorites, setLoadingFavorites] = useState(false);
 
   // Sync token changes to localStorage
@@ -43,6 +44,8 @@ export function AuthProvider({ children }) {
       if (profileData) {
         setUser(profileData);
         localStorage.setItem('railpulse_user', JSON.stringify(profileData));
+      } else if (authToken && authToken.startsWith('mock-')) {
+        logout();
       }
 
       if (Array.isArray(prefsData)) {
@@ -81,8 +84,14 @@ export function AuthProvider({ children }) {
   const openLoginModal = () => setIsLoginModalOpen(true);
   const closeLoginModal = () => setIsLoginModalOpen(false);
 
-  const openAdminLoginModal = () => setIsAdminLoginModalOpen(true);
-  const closeAdminLoginModal = () => setIsAdminLoginModalOpen(false);
+  const openAdminLoginModal = (errorMsg = null) => {
+    setAdminLoginInitialError(typeof errorMsg === 'string' ? errorMsg : null);
+    setIsAdminLoginModalOpen(true);
+  };
+  const closeAdminLoginModal = () => {
+    setIsAdminLoginModalOpen(false);
+    setAdminLoginInitialError(null);
+  };
 
   const role = user?.role || 'passenger';
   const isStationAdmin = role === 'station_admin';
@@ -134,6 +143,7 @@ export function AuthProvider({ children }) {
         openLoginModal,
         closeLoginModal,
         isAdminLoginModalOpen,
+        adminLoginInitialError,
         openAdminLoginModal,
         closeAdminLoginModal,
         toggleFavorite,

@@ -623,28 +623,16 @@ export async function verifyOTP(phoneNumber, code, name = null) {
  * 6b. AUTH: POST /auth/admin/login
  */
 export async function adminLogin(username, password) {
-  try {
-    const res = await fetchWithTimeout(`${BASE_URL}/auth/admin/login`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username: (username || '').trim(), password: password || '' })
-    });
-    if (!res.ok) {
-      const errData = await res.json().catch(() => ({}));
-      throw new Error(errData.detail || `HTTP ${res.status}`);
-    }
-    return await res.json();
-  } catch (err) {
-    console.warn(`[RailPulse API] adminLogin error:`, err.message);
-    if (username && (password === 'railpulse@admin2026' || password === 'adminpassword123')) {
-      return {
-        access_token: 'mock-admin-jwt-' + Date.now(),
-        token_type: 'bearer',
-        user_id: 'mock-admin-' + username
-      };
-    }
-    throw err;
+  const res = await fetchWithTimeout(`${BASE_URL}/auth/admin/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ username: (username || '').trim(), password: password || '' })
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
   }
+  return await res.json();
 }
 
 /**
@@ -655,10 +643,18 @@ export async function getUserProfile(token) {
     const res = await fetchWithTimeout(`${BASE_URL}/users/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
     });
+    if (res.status === 401) {
+      console.error(`[RailPulse API] getUserProfile 401 Unauthorized: token is invalid or expired.`);
+      return null;
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] getUserProfile error:`, err.message);
+    if (err.message && err.message.includes('401')) {
+      console.error(`[RailPulse API] getUserProfile 401 Unauthorized:`, err.message);
+    } else {
+      console.warn(`[RailPulse API] getUserProfile error:`, err.message);
+    }
     return null;
   }
 }
@@ -794,10 +790,18 @@ export async function getAdminStations(authToken) {
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const res = await fetchWithTimeout(`${BASE_URL}/admin/stations`, { headers });
+    if (res.status === 401) {
+      console.error(`[RailPulse API] getAdminStations 401 Unauthorized: admin token is invalid or expired.`);
+      return [];
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] getAdminStations error:`, err.message);
+    if (err.message && err.message.includes('401')) {
+      console.error(`[RailPulse API] getAdminStations 401 Unauthorized:`, err.message);
+    } else {
+      console.warn(`[RailPulse API] getAdminStations error:`, err.message);
+    }
     return [];
   }
 }
@@ -813,10 +817,18 @@ export async function getAdminStationArrivals(stationCode, authToken) {
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
     const res = await fetchWithTimeout(`${BASE_URL}/admin/station/${code}/arrivals`, { headers });
+    if (res.status === 401) {
+      console.error(`[RailPulse API] getAdminStationArrivals 401 Unauthorized for station ${code}: admin token is invalid or expired.`);
+      return [];
+    }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] getAdminStationArrivals error:`, err.message);
+    if (err.message && err.message.includes('401')) {
+      console.error(`[RailPulse API] getAdminStationArrivals 401 Unauthorized for station ${code}:`, err.message);
+    } else {
+      console.warn(`[RailPulse API] getAdminStationArrivals error:`, err.message);
+    }
     return [];
   }
 }

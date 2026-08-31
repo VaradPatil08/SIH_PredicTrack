@@ -1,5 +1,7 @@
+import csv
 import datetime
 import json
+import logging
 import math
 import time
 from pathlib import Path
@@ -29,6 +31,8 @@ from app.services import (
     railradar_interpolation,
 )
 
+logger = logging.getLogger(__name__)
+
 router = APIRouter(tags=["trains"])
 
 _DATA_PATH = Path(__file__).resolve().parent.parent / "data" / "mock_trains.json"
@@ -37,6 +41,125 @@ with open(_DATA_PATH, encoding="utf-8") as f:
 
 # Module-level sim start so delay random-walk is stable per server restart
 _DELAY_SIM_START = time.time()
+
+# Real schedule lookup from train_schedule_clean.csv
+_SCHEDULE_DATA_DIR = Path(__file__).resolve().parent.parent.parent.parent / "data" / "processed"
+_SCHEDULE_CSV_PATH = _SCHEDULE_DATA_DIR / "train_schedule_clean.csv"
+
+_TRAIN_FIRST_DEP: dict[str, str] = {}
+_TRAIN_SCHEDULE_LOOKUP: dict[str, dict[str, dict]] = {}
+
+
+def _parse_time_str(time_str: str | None) -> str:
+    if not time_str:
+        return ""
+    parts = str(time_str).strip().split(":")
+    if len(parts) >= 2:
+        try:
+            return f"{int(parts[0]):02d}:{int(parts[1]):02d}"
+        except (ValueError, TypeError):
+            return ""
+    return ""
+
+
+def _parse_time_to_minutes(time_str: str | None) -> int:
+    if not time_str:
+        return 0
+    parts = str(time_str).strip().split(":")
+    if len(parts) >= 2:
+        try:
+            return int(parts[0]) * 60 + int(parts[1])
+        except (ValueError, TypeError):
+            return 0
+    return 0
+
+
+def _build_schedule_indices():
+    global _TRAIN_FIRST_DEP, _TRAIN_SCHEDULE_LOOKUP
+
+    if not _SCHEDULE_CSV_PATH.exists():
+        return
+
+    train_rows: dict[str, list[dict]] = {}
+    try:
+        with open(_SCHEDULE_CSV_PATH, mode="r", encoding="utf-8") as f:
+            reader = csv.DictReader(f)
+            for row in reader:
+                tid = (row.get("train_id") or "").strip()
+                scode = (row.get("station_code") or "").strip().upper()
+                if not tid or not scode:
+                    continue
+                try:
+                    seq = int(row.get("seq_no", 0))
+                except (ValueError, TypeError):
+                    continue
+
+                arr = (row.get("scheduled_arrival") or "").strip()
+                dep = (row.get("scheduled_departure") or "").strip()
+                if not arr and not dep:
+                    continue
+
+                if tid not in train_rows:
+                    train_rows[tid] = []
+                train_rows[tid].append({
+                    "seq_no": seq,
+                    "station_code": scode,
+                    "scheduled_arrival": arr,
+                    "scheduled_departure": dep,
+                    "distance_km": float(row.get("distance_km", 0.0) or 0.0)
+                })
+
+        for tid, rows in train_rows.items():
+            if not rows:
+                continue
+            rows.sort(key=lambda x: x["seq_no"])
+            first_dep_raw = rows[0]["scheduled_departure"] or rows[0]["scheduled_arrival"]
+            first_dep = _parse_time_str(first_dep_raw)
+            if not first_dep:
+                first_dep = "06:00"
+
+            base_min = _parse_time_to_minutes(first_dep)
+            _TRAIN_FIRST_DEP[tid] = first_dep
+
+            station_map = {}
+            cum_day_mins = 0
+            prev_mins = base_min
+
+            for r in rows:
+                arr_str = _parse_time_str(r["scheduled_arrival"]) or first_dep
+                dep_str = _parse_time_str(r["scheduled_departure"]) or arr_str
+                raw_arr_mins = _parse_time_to_minutes(arr_str)
+                raw_dep_mins = _parse_time_to_minutes(dep_str)
+
+                # Day rollover: arrival significantly earlier than previous station
+                if raw_arr_mins < prev_mins - 30:
+                    cum_day_mins += 1440
+                prev_mins = raw_arr_mins
+
+                arr_offset = (cum_day_mins + raw_arr_mins) - base_min
+                if arr_offset < 0:
+                    arr_offset = 0
+
+                # Rollover within same halt
+                if raw_dep_mins < raw_arr_mins:
+                    cum_day_mins += 1440
+                    raw_dep_mins += 1440
+                prev_mins = raw_dep_mins % 1440
+
+                station_map[r["station_code"]] = {
+                    "seq_no": r["seq_no"],
+                    "scheduled_arrival": arr_str,
+                    "scheduled_departure": dep_str,
+                    "scheduled_offset_min": arr_offset,
+                    "distance_km": r["distance_km"]
+                }
+
+            _TRAIN_SCHEDULE_LOOKUP[tid] = station_map
+    except Exception as e:
+        logger.warning(f"Could not parse {_SCHEDULE_CSV_PATH} for train schedules: {e}")
+
+
+_build_schedule_indices()
 
 
 @router.get("/trains/search", response_model=list[TrainSummary])
@@ -110,9 +233,12 @@ def list_trains(
 @router.get("/train/{train_number}/route", response_model=TrainRouteResponse)
 def get_train_route(train_number: str):
     """Returns static station list and GIS coordinates for a train route."""
-    train = _MOCK_TRAINS.get(train_number)
+    clean_num = str(train_number).strip()
+    train = _MOCK_TRAINS.get(clean_num)
     if not train:
-        raise HTTPException(status_code=404, detail=f"Unknown train {train_number}")
+        raise HTTPException(status_code=404, detail=f"Unknown train {clean_num}")
+
+    real_schedule = _TRAIN_SCHEDULE_LOOKUP.get(clean_num)
 
     return TrainRouteResponse(
         train_number=train["train_number"],
@@ -123,7 +249,11 @@ def get_train_route(train_number: str):
                 name=st["name"],
                 lat=st["lat"],
                 lng=st["lng"],
-                scheduled_offset_min=st.get("scheduled_offset_min", 0),
+                scheduled_offset_min=(
+                    real_schedule[st["code"].upper()]["scheduled_offset_min"]
+                    if real_schedule and st["code"].upper() in real_schedule
+                    else st.get("scheduled_offset_min", 0)
+                ),
                 distance_km=st.get("distance_km", 0.0),
             )
             for st in train["stations"]
@@ -157,60 +287,60 @@ def _compute_base_delay(
     return max(int(hist_base * 0.3), min(round(raw), int(hist_base * 2.2)))
 
 
-@router.post("/trains/{train_number}/live/sync", response_model=LiveSyncResponse)
-@router.post("/train/{train_number}/live/sync", response_model=LiveSyncResponse)
-def sync_train_live(train_number: str, db: Session = Depends(get_db)):
+def _perform_live_sync(clean_num: str, train: dict, db: Session) -> TrainLiveCache:
     """
-    Explicit one-time sync endpoint triggered when a user adds a train to tracking.
-    1. Checks shared DB cache for fresh snapshot within TTL window (shared across all users).
-    2. Checks monthly quota guard before calling external RailRadar API.
-    3. Degrades gracefully to the simulator on budget exhaustion, network errors, or route mismatches.
+    Core RailRadar telemetry sync & cache upsert logic.
+    - If cache exists and age < RAILRADAR_CACHE_TTL_SECONDS: returns existing cached record.
+    - If stale (> TTL) or missing:
+      - If quota_guard.has_budget(db): calls RailRadar API, interpolates, and updates cache with source="railradar".
+      - On budget exhaustion, RailRadar failure, or unmapped route: degrades gracefully to simulator (source="simulated").
     """
-    clean_num = str(train_number).strip()
-    train = _MOCK_TRAINS.get(clean_num)
-    if not train:
-        raise HTTPException(status_code=404, detail=f"Unknown train {clean_num}")
-
     now = datetime.datetime.utcnow()
     stations = train["stations"]
 
-    # 1. Check shared DB cache
+    # 1. Check shared DB cache for fresh snapshot within TTL window
     cached = db.query(TrainLiveCache).filter(TrainLiveCache.train_number == clean_num).first()
     if cached:
         age_seconds = (now - cached.synced_at).total_seconds()
         if age_seconds < RAILRADAR_CACHE_TTL_SECONDS:
-            return LiveSyncResponse(
-                train_number=clean_num,
-                lat=cached.lat,
-                lng=cached.lng,
-                speed_kmh=cached.speed_kmh,
-                bearing_degrees=cached.bearing_degrees,
-                next_station_code=cached.next_station_code,
-                next_station_name=cached.next_station_name,
-                distance_to_next_km=cached.distance_to_next_km,
-                source=cached.source,
-                synced_at=cached.synced_at.isoformat(),
-            )
+            return cached
 
     # 2. Check quota budget before outbound call
     if not quota_guard.has_budget(db):
+        logger.warning(f"RailRadar schedule fetch failed for {clean_num}: Quota budget exhausted")
         sim_pos, _, _ = live_feed.get_live_position_and_state(
             stations,
             train_number=clean_num,
             start_offset_min=train.get("sim_start_offset_min", 0),
         )
-        return LiveSyncResponse(
-            train_number=clean_num,
-            lat=sim_pos["lat"],
-            lng=sim_pos["lng"],
-            speed_kmh=sim_pos["speed_kmh"],
-            bearing_degrees=None,
-            next_station_code=sim_pos.get("next_station_code"),
-            next_station_name=sim_pos.get("next_station_name"),
-            distance_to_next_km=sim_pos.get("distance_to_next_km"),
-            source="simulated",
-            synced_at=now.isoformat(),
-        )
+        if cached:
+            cached.source = "simulated"
+            cached.synced_at = now
+            cached.lat = sim_pos["lat"]
+            cached.lng = sim_pos["lng"]
+            cached.speed_kmh = sim_pos["speed_kmh"]
+            cached.bearing_degrees = None
+            cached.next_station_code = sim_pos.get("next_station_code")
+            cached.next_station_name = sim_pos.get("next_station_name")
+            cached.distance_to_next_km = sim_pos.get("distance_to_next_km")
+            cached.raw_response = None
+        else:
+            cached = TrainLiveCache(
+                train_number=clean_num,
+                source="simulated",
+                synced_at=now,
+                lat=sim_pos["lat"],
+                lng=sim_pos["lng"],
+                speed_kmh=sim_pos["speed_kmh"],
+                bearing_degrees=None,
+                next_station_code=sim_pos.get("next_station_code"),
+                next_station_name=sim_pos.get("next_station_name"),
+                distance_to_next_km=sim_pos.get("distance_to_next_km"),
+                raw_response=None,
+            )
+            db.add(cached)
+        db.commit()
+        return cached
 
     # 3. Fetch from RailRadar API
     raw_data = railradar_client.fetch_live(clean_num, db)
@@ -245,19 +375,9 @@ def sync_train_live(train_number: str, db: Session = Depends(get_db)):
                 )
                 db.add(cached)
             db.commit()
-
-            return LiveSyncResponse(
-                train_number=clean_num,
-                lat=interpolated["lat"],
-                lng=interpolated["lng"],
-                speed_kmh=interpolated["speed_kmh"],
-                bearing_degrees=interpolated.get("bearing_degrees"),
-                next_station_code=interpolated.get("next_station_code"),
-                next_station_name=interpolated.get("next_station_name"),
-                distance_to_next_km=interpolated.get("distance_to_next_km"),
-                source="railradar",
-                synced_at=now.isoformat(),
-            )
+            return cached
+        else:
+            logger.warning(f"RailRadar schedule fetch failed for {clean_num}: Route interpolation / station matching failed against train route")
 
     # Fallback to simulated position if RailRadar failed, unmapped route, or offline
     sim_pos, _, _ = live_feed.get_live_position_and_state(
@@ -293,18 +413,35 @@ def sync_train_live(train_number: str, db: Session = Depends(get_db)):
         )
         db.add(cached)
     db.commit()
+    return cached
 
+
+@router.post("/trains/{train_number}/live/sync", response_model=LiveSyncResponse)
+@router.post("/train/{train_number}/live/sync", response_model=LiveSyncResponse)
+def sync_train_live(train_number: str, db: Session = Depends(get_db)):
+    """
+    Explicit sync endpoint triggered on page load / manual refresh button.
+    1. Checks shared DB cache for fresh snapshot within TTL window (shared across all users).
+    2. Checks monthly quota guard before calling external RailRadar API.
+    3. Degrades gracefully to the simulator on budget exhaustion, network errors, or route mismatches.
+    """
+    clean_num = str(train_number).strip()
+    train = _MOCK_TRAINS.get(clean_num)
+    if not train:
+        raise HTTPException(status_code=404, detail=f"Unknown train {clean_num}")
+
+    cached = _perform_live_sync(clean_num, train, db)
     return LiveSyncResponse(
         train_number=clean_num,
-        lat=sim_pos["lat"],
-        lng=sim_pos["lng"],
-        speed_kmh=sim_pos["speed_kmh"],
-        bearing_degrees=None,
-        next_station_code=sim_pos.get("next_station_code"),
-        next_station_name=sim_pos.get("next_station_name"),
-        distance_to_next_km=sim_pos.get("distance_to_next_km"),
-        source="simulated",
-        synced_at=now.isoformat(),
+        lat=cached.lat,
+        lng=cached.lng,
+        speed_kmh=cached.speed_kmh,
+        bearing_degrees=cached.bearing_degrees,
+        next_station_code=cached.next_station_code,
+        next_station_name=cached.next_station_name,
+        distance_to_next_km=cached.distance_to_next_km,
+        source=cached.source,
+        synced_at=cached.synced_at.isoformat(),
     )
 
 
@@ -312,8 +449,9 @@ def sync_train_live(train_number: str, db: Session = Depends(get_db)):
 @router.get("/train/{train_number}/eta", response_model=TrainETAResponse)
 def get_train_eta(train_number: str, db: Session = Depends(get_db)):
     """
-    Main endpoint the live tracking page polls every 6 seconds.
-    MUST NEVER call RailRadar directly — satisfies position from TrainLiveCache or the simulator.
+    Main endpoint the live tracking page polls every 60 seconds.
+    Performs active RailRadar sync check (refreshing if cache > TTL and budget available),
+    satisfying position from fresh TrainLiveCache or the simulator.
     """
     clean_num = str(train_number).strip()
     train = _MOCK_TRAINS.get(clean_num)
@@ -323,17 +461,14 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
     stations = train["stations"]
     sim_offset = train.get("sim_start_offset_min", 0)
 
-    # 1. Check for valid RailRadar live cache
-    now = datetime.datetime.utcnow()
-    cached = db.query(TrainLiveCache).filter(TrainLiveCache.train_number == clean_num).first()
-    
-    use_railradar = False
-    if cached and cached.source == "railradar":
-        age_seconds = (now - cached.synced_at).total_seconds()
-        if age_seconds < RAILRADAR_CACHE_TTL_SECONDS:
-            use_railradar = True
+    # 1. Perform RailRadar sync check (reuses _perform_live_sync)
+    cached = _perform_live_sync(clean_num, train, db)
 
-    if use_railradar and cached:
+    is_railradar = bool(cached and cached.source == "railradar")
+    schedule_source = "railradar" if is_railradar else "local_fallback"
+    schedule_fetched_at = cached.synced_at.isoformat() if (is_railradar and cached.synced_at) else None
+
+    if is_railradar and cached:
         position = {
             "lat": cached.lat,
             "lng": cached.lng,
@@ -372,42 +507,145 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
     base_delay = _compute_base_delay(clean_num, stations, float(elapsed_min))
 
     station_etas = []
-    for idx, st in enumerate(stations):
-        if idx < current_station_index:
-            status = "reached"
-            delay = 0 if idx == 0 else max(0, base_delay - (current_station_index - idx) * 2)
-        elif idx == current_station_index:
-            status = "delayed" if base_delay > 2 else "on_time"
-            delay = base_delay
-        else:
-            delay, _ = eta.predict_delay_minutes(
-                train_number=clean_num,
-                station_code=st["code"],
-                distance_km=st.get("distance_km", 0),
-                current_delay_min=base_delay,
-                total_distance_km=train.get("total_distance_km"),
-            )
-            status = eta.status_from_delay(delay)
+    railradar_schedule_used = False
+    real_first_dep = _TRAIN_FIRST_DEP.get(clean_num) or train.get("scheduled_departure") or "06:00"
 
-        station_etas.append(
-            StationETA(
-                code=st["code"],
-                name=st["name"],
-                lat=st["lat"],
-                lng=st["lng"],
-                scheduled_offset_min=st.get("scheduled_offset_min", 0),
-                distance_km=st.get("distance_km", 0.0),
-                predicted_delay_min=delay,
-                predicted_offset_min=st.get("scheduled_offset_min", 0) + delay,
-                status=status,
-                platform=(idx % 4) + 1,
-                top_delay_factors=eta.get_delay_reasons(st["code"]),
+    # If RailRadar live data is available with route halts, use it directly!
+    if is_railradar and cached and cached.raw_response:
+        try:
+            raw_payload = json.loads(cached.raw_response)
+            route = raw_payload.get("route") or []
+            if route:
+                origin_h = route[0]
+                origin_dt = None
+                origin_dep_raw = origin_h.get("scheduledDeparture") or origin_h.get("scheduledArrival")
+                if origin_dep_raw:
+                    try:
+                        origin_dt = datetime.datetime.fromisoformat(str(origin_dep_raw))
+                        real_first_dep = origin_dt.strftime("%H:%M")
+                    except Exception:
+                        pass
+
+                local_stn_map = {
+                    str(s.get("code", "")).strip().upper(): s for s in stations if "code" in s
+                }
+
+                for idx, h in enumerate(route):
+                    code = str(h.get("stationCode", "")).strip().upper()
+                    name = h.get("stationName") or code
+
+                    arr_dt = None
+                    arr_raw = h.get("scheduledArrival") or h.get("scheduledDeparture")
+                    if arr_raw:
+                        try:
+                            arr_dt = datetime.datetime.fromisoformat(str(arr_raw))
+                        except Exception:
+                            pass
+
+                    if arr_dt and origin_dt:
+                        diff_sec = (arr_dt - origin_dt).total_seconds()
+                        sched_offset = max(0, int(diff_sec // 60))
+                    else:
+                        sched_offset = 0
+
+                    delay = int(h.get("delayArrival") if h.get("delayArrival") is not None else (h.get("delayDeparture") or 0))
+                    raw_st = str(h.get("status", "")).lower()
+                    if raw_st in ("departed", "reached", "arrived"):
+                        st_status = "reached"
+                    elif delay > 2:
+                        st_status = "delayed"
+                    else:
+                        st_status = "on_time"
+
+                    local_s = local_stn_map.get(code)
+                    if local_s:
+                        lat = float(local_s.get("lat") or 0.0)
+                        lng = float(local_s.get("lng") or 0.0)
+                    else:
+                        global_s = railradar_interpolation._GLOBAL_STATION_COORDS.get(code)
+                        lat = float(global_s["lat"]) if global_s else 0.0
+                        lng = float(global_s["lng"]) if global_s else 0.0
+
+                    dist = float(h.get("distance", 0.0) or (local_s.get("distance_km", 0.0) if local_s else 0.0))
+
+                    pf_raw = str(h.get("platform", "")).replace("PF", "").replace("pf", "").strip()
+                    try:
+                        pf_num = int(pf_raw)
+                    except Exception:
+                        pf_num = (idx % 4) + 1
+
+                    station_etas.append(
+                        StationETA(
+                            code=code,
+                            name=name,
+                            lat=lat,
+                            lng=lng,
+                            scheduled_offset_min=sched_offset,
+                            distance_km=dist,
+                            predicted_delay_min=delay,
+                            predicted_offset_min=sched_offset + delay,
+                            status=st_status,
+                            platform=pf_num,
+                            top_delay_factors=eta.get_delay_reasons(code),
+                        )
+                    )
+                railradar_schedule_used = True
+        except Exception as e:
+            logger.warning(f"Failed to parse RailRadar route halts for {clean_num}: {e}")
+
+    # Fallback to local schedule CSV or mock data if RailRadar schedule was not available
+    if not station_etas:
+        real_schedule = _TRAIN_SCHEDULE_LOOKUP.get(clean_num)
+        real_first_dep = _TRAIN_FIRST_DEP.get(clean_num) or train.get("scheduled_departure") or "06:00"
+
+        for idx, st in enumerate(stations):
+            code = (st.get("code") or "").strip().upper()
+            if real_schedule and code in real_schedule:
+                sched_offset = real_schedule[code]["scheduled_offset_min"]
+            else:
+                sched_offset = st.get("scheduled_offset_min", 0)
+
+            if idx < current_station_index:
+                status = "reached"
+                delay = 0 if idx == 0 else max(0, base_delay - (current_station_index - idx) * 2)
+            elif idx == current_station_index:
+                status = "delayed" if base_delay > 2 else "on_time"
+                delay = base_delay
+            else:
+                delay, _ = eta.predict_delay_minutes(
+                    train_number=clean_num,
+                    station_code=st["code"],
+                    distance_km=st.get("distance_km", 0),
+                    current_delay_min=base_delay,
+                    total_distance_km=train.get("total_distance_km"),
+                )
+                status = eta.status_from_delay(delay)
+
+            station_etas.append(
+                StationETA(
+                    code=st["code"],
+                    name=st["name"],
+                    lat=st["lat"],
+                    lng=st["lng"],
+                    scheduled_offset_min=sched_offset,
+                    distance_km=st.get("distance_km", 0.0),
+                    predicted_delay_min=delay,
+                    predicted_offset_min=sched_offset + delay,
+                    status=status,
+                    platform=(idx % 4) + 1,
+                    top_delay_factors=eta.get_delay_reasons(st["code"]),
+                )
             )
-        )
+
+    schedule_source = "railradar" if railradar_schedule_used else "local_fallback"
+    schedule_fetched_at = cached.synced_at.isoformat() if (railradar_schedule_used and cached and cached.synced_at) else None
 
     return TrainETAResponse(
         train_number=train["train_number"],
         name=train["name"],
+        scheduled_departure=real_first_dep,
+        schedule_source=schedule_source,
+        schedule_fetched_at=schedule_fetched_at,
         current_position=CurrentPosition(**position),
         elapsed_min=elapsed_min,
         stations=station_etas,

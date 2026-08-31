@@ -65,6 +65,9 @@ class LiveSyncResponse(BaseModel):
 class TrainETAResponse(BaseModel):
     train_number: str
     name: str
+    scheduled_departure: Optional[str] = None
+    schedule_source: str = "local_fallback"  # "railradar" | "local_fallback"
+    schedule_fetched_at: Optional[str] = None
     current_position: CurrentPosition
     elapsed_min: int
     stations: List[StationETA]

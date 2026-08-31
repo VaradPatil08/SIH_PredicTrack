@@ -55,6 +55,8 @@ export default function StationTimeline({
   const activeStations = activeTrain?.stations || [];
   const activeTrainNumber = activeTrain?.trainNumber || '';
   const activeBaseTime = activeTrain?.scheduled_departure || baseTime || '06:00';
+  const activeScheduleSource = activeTrain?.schedule_source || 'local_fallback';
+  const activeScheduleFetchedAt = activeTrain?.schedule_fetched_at || null;
   const activeColor = activeTrain?.color?.currentHex || (isDark ? '#3B82F6' : '#17324D');
 
   const toggleStation = async (stationCode, isDelayed) => {
@@ -98,8 +100,8 @@ export default function StationTimeline({
     <div className="rounded-lg border border-border dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card p-4 sm:p-5 font-sans text-foreground dark:text-slate-100 transition-colors">
       
       {/* Header Bar */}
-      <div className="flex items-center justify-between pb-3 mb-3 border-b border-border dark:border-slate-800 text-xs">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-border dark:border-slate-800 text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
           <span 
             className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-2xs" 
             style={{ backgroundColor: activeColor }}
@@ -112,7 +114,27 @@ export default function StationTimeline({
               (#{activeTrainNumber})
             </span>
           )}
+
+          {/* Schedule Source Indicator Badge */}
+          {activeScheduleSource === 'railradar' ? (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+              title={activeScheduleFetchedAt ? `Live timetable synced via RailRadar API at ${new Date(activeScheduleFetchedAt).toLocaleTimeString()}` : 'Live timetable synced via RailRadar API'}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Schedule (RailRadar)
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+              title="Using published Indian Railways schedule fallback"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Fallback Schedule
+            </span>
+          )}
         </div>
+
         <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 border border-border dark:border-slate-700">
           {activeStations.length} {t('halt')}
         </span>

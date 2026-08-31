@@ -1,10 +1,37 @@
-"""
-Interpolation service for RailRadar live telemetry data.
-Resolves RailRadar progress fraction against local station coordinates to produce
-accurate, ground-truth GPS positions matching the app's GIS routing.
-"""
-
+import json
+import logging
+from pathlib import Path
 from typing import Optional, List, Dict, Any
+
+logger = logging.getLogger(__name__)
+
+# Global station coordinates cache built from mock_trains.json
+_GLOBAL_STATION_COORDS: Dict[str, Dict[str, Any]] = {}
+try:
+    _MOCK_PATH = Path(__file__).resolve().parent.parent / "data" / "mock_trains.json"
+    if _MOCK_PATH.exists():
+        with open(_MOCK_PATH, encoding="utf-8") as f:
+            _raw_trains = json.load(f)
+            for _t in _raw_trains.values():
+                for _s in _t.get("stations", []):
+                    _code = str(_s.get("code", "")).strip().upper()
+                    if _code and _code not in _GLOBAL_STATION_COORDS and "lat" in _s and "lng" in _s:
+                        _GLOBAL_STATION_COORDS[_code] = {
+                            "code": _code,
+                            "name": _s.get("name") or _code,
+                            "lat": float(_s["lat"]),
+                            "lng": float(_s["lng"]),
+                            "distance_km": float(_s.get("distance_km", 0.0) or 0.0),
+                        }
+except Exception as e:
+    logger.warning(f"Could not load global station coordinates for RailRadar interpolation: {e}")
+
+
+def _lookup_station(code: str, local_map: Dict[str, Dict[str, Any]]) -> Optional[Dict[str, Any]]:
+    if not code:
+        return None
+    clean = code.strip().upper()
+    return local_map.get(clean) or _GLOBAL_STATION_COORDS.get(clean)
 
 
 def interpolate_railradar_position(
@@ -17,7 +44,7 @@ def interpolate_railradar_position(
 
     Returns dict on success or None if stations cannot be resolved against the route.
     """
-    if not data or not stations:
+    if not data:
         return None
 
     # Station lookup map keyed by uppercase station code
@@ -41,43 +68,43 @@ def interpolate_railradar_position(
     # 1. Halted at a station (status == 'arrived', 'halted', 'halt') or terminal halt
     if status in ("arrived", "halted", "halt", "reached"):
         target_code = current_code or next_code or prev_code
-        if target_code not in stn_map:
-            return None
-        stn = stn_map[target_code]
-        return {
-            "lat": round(float(stn["lat"]), 4),
-            "lng": round(float(stn["lng"]), 4),
-            "speed_kmh": 0.0,
-            "bearing_degrees": bearing_degrees,
-            "next_station_code": stn["code"],
-            "next_station_name": stn["name"],
-            "distance_to_next_km": 0.0,
-            "source": "railradar",
-        }
-
-    # 2. Mid-segment / Departed train: requires both prev and next halt codes to match our route
-    if not prev_code or not next_code:
-        # If one is missing but current_code is available and matches
-        if current_code in stn_map:
-            stn = stn_map[current_code]
+        stn = _lookup_station(target_code, stn_map)
+        if stn:
             return {
                 "lat": round(float(stn["lat"]), 4),
                 "lng": round(float(stn["lng"]), 4),
+                "speed_kmh": 0.0,
+                "bearing_degrees": bearing_degrees,
+                "next_station_code": stn.get("code") or target_code,
+                "next_station_name": stn.get("name") or target_code,
+                "distance_to_next_km": 0.0,
+                "source": "railradar",
+            }
+
+    # 2. Mid-segment / Departed train: resolve previous and next halt
+    prev_stn = _lookup_station(prev_code, stn_map)
+    next_stn = _lookup_station(next_code, stn_map)
+
+    # Fallback to current station if both prev and next are not resolvable
+    if not prev_stn and not next_stn:
+        curr_stn = _lookup_station(current_code, stn_map)
+        if curr_stn:
+            return {
+                "lat": round(float(curr_stn["lat"]), 4),
+                "lng": round(float(curr_stn["lng"]), 4),
                 "speed_kmh": speed_kmh,
                 "bearing_degrees": bearing_degrees,
-                "next_station_code": stn["code"],
-                "next_station_name": stn["name"],
+                "next_station_code": curr_stn.get("code") or current_code,
+                "next_station_name": curr_stn.get("name") or current_code,
                 "distance_to_next_km": 0.0,
                 "source": "railradar",
             }
         return None
 
-    if prev_code not in stn_map or next_code not in stn_map:
-        # Station mismatch between RailRadar and local route dataset
-        return None
-
-    prev_stn = stn_map[prev_code]
-    next_stn = stn_map[next_code]
+    if prev_stn and not next_stn:
+        next_stn = prev_stn
+    elif next_stn and not prev_stn:
+        prev_stn = next_stn
 
     # Progress between stations: 0.0 to 1.0 (clamped)
     raw_progress = current_loc.get("segmentProgress")

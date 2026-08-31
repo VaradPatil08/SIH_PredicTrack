@@ -29,7 +29,7 @@ import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { getTrainColor } from '../utils/trainColors';
 
-const POLL_INTERVAL_SECONDS = 6;
+const POLL_INTERVAL_SECONDS = 60;
 const SOFT_CAP_WARNING_THRESHOLD = 8;
 
 export default function TrackingPage() {
@@ -82,21 +82,21 @@ export default function TrackingPage() {
   const [addSearchLoading, setAddSearchLoading] = useState(false);
   const addSearchDebounce = useRef(null);
   const addSearchContainerRef = useRef(null);
-  const activatedTrainsRef = useRef(new Set());
 
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
 
-  // Trigger one-time RailRadar live telemetry sync when trains are activated
+  // Trigger RailRadar live telemetry sync on initial mount and whenever tracked trains change/refresh
+  const trackedTrainsKey = trackedTrainNumbers.join(',');
   useEffect(() => {
+    if (!trackedTrainNumbers || trackedTrainNumbers.length === 0) return;
     trackedTrainNumbers.forEach((num) => {
       const clean = String(num || '').trim();
-      if (clean && !activatedTrainsRef.current.has(clean)) {
-        activatedTrainsRef.current.add(clean);
+      if (clean) {
         activateLiveTracking(clean);
       }
     });
-  }, [trackedTrainNumbers]);
+  }, [trackedTrainsKey]);
 
   // Fetch all tracked trains in parallel
   const fetchAllTelemetry = useCallback(async (isBackground = false) => {
@@ -286,6 +286,8 @@ export default function TrackingPage() {
         stations: eta?.stations || [],
         currentPosition: eta?.current_position || null,
         scheduled_departure: eta?.scheduled_departure || '06:00',
+        schedule_source: eta?.schedule_source || 'local_fallback',
+        schedule_fetched_at: eta?.schedule_fetched_at || null,
         elapsed_min: eta?.elapsed_min,
         color,
         isFocused,
@@ -344,7 +346,13 @@ export default function TrackingPage() {
 
           {/* Manual Refresh Button */}
           <button
-            onClick={() => fetchAllTelemetry(false)}
+            onClick={() => {
+              trackedTrainNumbers.forEach((num) => {
+                const clean = String(num || '').trim();
+                if (clean) activateLiveTracking(clean);
+              });
+              fetchAllTelemetry(false);
+            }}
             disabled={refreshing}
             className="flex items-center gap-1.5 px-3.5 py-2 min-h-[40px] rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-navy dark:text-blue-400 border border-border dark:border-slate-700 font-semibold text-xs transition-all duration-200 disabled:opacity-50 shadow-2xs hover:shadow-xs active:scale-95"
             title={t('syncTelemetry')}

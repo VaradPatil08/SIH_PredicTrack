@@ -13,24 +13,57 @@ L.Icon.Default.mergeOptions({
 });
 
 /**
- * Custom Map Controller for pan and bounds fitting
+ * Custom Map Controller for pan and bounds fitting.
+ * Preserves user's manual zoom and pan settings across background telemetry polling cycles.
  */
-function MapController({ bounds, currentPosition, followTrain }) {
+function MapController({ bounds, currentPosition, followTrain, trainNumber, recenterTrigger, onUserInteracted }) {
   const map = useMap();
+  const hasFittedInitialRef = useRef(false);
+  const prevTrainRef = useRef(trainNumber);
 
+  // Reset fitted state when train number changes
   useEffect(() => {
-    if (bounds && bounds.length > 0 && !followTrain) {
+    if (prevTrainRef.current !== trainNumber) {
+      hasFittedInitialRef.current = false;
+      prevTrainRef.current = trainNumber;
+    }
+  }, [trainNumber]);
+
+  // Turn off auto-follow if user manually drags/pans the map
+  useEffect(() => {
+    const handleDrag = () => {
+      if (onUserInteracted) onUserInteracted();
+    };
+    map.on('dragstart', handleDrag);
+    return () => {
+      map.off('dragstart', handleDrag);
+    };
+  }, [map, onUserInteracted]);
+
+  // Initial bounds fitting only once per train route load
+  useEffect(() => {
+    if (bounds && bounds.length > 0 && !hasFittedInitialRef.current) {
+      map.fitBounds(bounds, { padding: [35, 35], maxZoom: 8 });
+      hasFittedInitialRef.current = true;
+    }
+  }, [bounds, map]);
+
+  // Explicit recenter when user clicks the Recenter button
+  useEffect(() => {
+    if (recenterTrigger > 0 && bounds && bounds.length > 0) {
       map.fitBounds(bounds, { padding: [35, 35], maxZoom: 8 });
     }
-  }, [bounds, map, followTrain]);
+  }, [recenterTrigger, bounds, map]);
 
+  // Follow train movement when followTrain mode is active
   useEffect(() => {
     if (followTrain && currentPosition?.lat && currentPosition?.lng) {
-      map.flyTo([currentPosition.lat, currentPosition.lng], 8.5, {
+      const targetZoom = map.getZoom() < 8 ? 8.5 : map.getZoom();
+      map.flyTo([currentPosition.lat, currentPosition.lng], targetZoom, {
         duration: 1.0,
       });
     }
-  }, [currentPosition, followTrain, map]);
+  }, [currentPosition?.lat, currentPosition?.lng, followTrain, map]);
 
   return null;
 }
@@ -148,6 +181,7 @@ export default function TrainMap({
   const isDark = theme === 'dark';
 
   const [followTrain, setFollowTrain] = useState(false);
+  const [recenterTrigger, setRecenterTrigger] = useState(0);
   const [interpolatedPos, setInterpolatedPos] = useState(
     currentPosition ? [currentPosition.lat, currentPosition.lng] : null
   );
@@ -259,7 +293,10 @@ export default function TrainMap({
         </button>
 
         <button
-          onClick={() => setFollowTrain(false)}
+          onClick={() => {
+            setFollowTrain(false);
+            setRecenterTrigger(prev => prev + 1);
+          }}
           className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md bg-white dark:bg-slate-900 text-muted dark:text-slate-300 hover:text-navy dark:hover:text-white border border-border dark:border-slate-700 shadow-sm transition-all active:scale-95"
           title={t('recenterRoute')}
           aria-label={t('recenterRoute')}
@@ -268,7 +305,7 @@ export default function TrainMap({
         </button>
       </div>
 
-      {/* Leaflet Map with Dynamic CartoDB Tiles (Positron in Light, Dark Matter in Dark) */}
+      {/* Leaflet Map with OpenStreetMap / Esri Tiles (No API key / watermark required) */}
       <MapContainer
         center={defaultCenter}
         zoom={6}
@@ -277,18 +314,22 @@ export default function TrainMap({
       >
         <TileLayer
           key={isDark ? 'dark-tiles' : 'light-tiles'}
-          attribution='&copy; <a href="https://carto.com/">CARTO</a> &copy; OpenStreetMap'
+          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
           url={
             isDark
-              ? 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png'
-              : 'https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png'
+              ? 'https://server.arcgisonline.com/ArcGIS/rest/services/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}'
+              : 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png'
           }
+          maxZoom={18}
         />
 
         <MapController 
           bounds={bounds} 
           currentPosition={currentPosition} 
-          followTrain={followTrain} 
+          followTrain={followTrain}
+          trainNumber={trainNumber}
+          recenterTrigger={recenterTrigger}
+          onUserInteracted={() => setFollowTrain(false)}
         />
 
         {/* Completed Route Segment (Solid Navy/Blue Polyline) */}

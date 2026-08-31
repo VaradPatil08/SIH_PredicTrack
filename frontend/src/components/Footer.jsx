@@ -7,8 +7,11 @@ export default function Footer() {
   const { t } = useSettings();
   const { pathname } = useLocation();
 
-  // True when the current path is the track-train page
-  const isTrackingPage = pathname.startsWith('/train/');
+  // Hide footer on track-train page
+  if (pathname.startsWith('/train')) {
+    return null;
+  }
+
   // True when the current path is the admin page
   const isAdminPage = pathname === '/admin';
 

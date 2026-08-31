@@ -110,21 +110,21 @@ export default function AuthModal() {
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-md bg-white rounded-xl border border-border shadow-2xl p-6 z-10 font-sans text-foreground space-y-5"
+          className="relative w-full max-w-md bg-white dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-2xl p-6 z-10 font-sans text-foreground dark:text-slate-100 space-y-5"
           role="dialog"
           aria-modal="true"
         >
           {/* Header */}
-          <div className="flex items-start justify-between pb-3 border-b border-border">
+          <div className="flex items-start justify-between pb-3 border-b border-border dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-navy text-white shadow-xs">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-navy dark:bg-blue-600 text-white shadow-xs">
                 <LogIn className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="font-bold text-base text-navy tracking-tight">
+                <h2 className="font-bold text-base text-navy dark:text-blue-400 tracking-tight">
                   User Login & Preferences
                 </h2>
-                <p className="text-xs text-muted">
+                <p className="text-xs text-muted dark:text-slate-400">
                   Sign in to access your saved trains and custom alerts
                 </p>
               </div>
@@ -132,7 +132,7 @@ export default function AuthModal() {
 
             <button
               onClick={handleClose}
-              className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-lg text-muted hover:text-navy dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Close dialog"
             >
               <X className="w-4 h-4" />
@@ -144,9 +144,9 @@ export default function AuthModal() {
             <motion.div 
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs flex items-center gap-2 text-emerald-800 font-semibold"
+              className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900/60 rounded-lg text-xs flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold"
             >
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>{successMsg}</span>
             </motion.div>
           )}
@@ -156,12 +156,12 @@ export default function AuthModal() {
             <motion.div 
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 flex items-start gap-2"
+              className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 rounded-lg text-xs text-red-800 dark:text-red-300 flex items-start gap-2"
             >
-              <AlertCircle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+              <AlertCircle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
               <div>
                 <div className="font-semibold">Validation Error</div>
-                <div className="text-red-700">{error}</div>
+                <div className="text-red-700 dark:text-red-400">{error}</div>
               </div>
             </motion.div>
           )}
@@ -170,11 +170,11 @@ export default function AuthModal() {
           {step === 1 && (
             <form onSubmit={handleRequestOTP} className="space-y-4">
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-foreground">
+                <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
                   Mobile Phone Number
                 </label>
                 <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted dark:text-slate-400 pointer-events-none">
                     <Phone className="w-4 h-4" />
                   </div>
                   <input
@@ -182,12 +182,12 @@ export default function AuthModal() {
                     value={phoneNumber}
                     onChange={(e) => setPhoneNumber(e.target.value)}
                     placeholder="+919876543210"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-slate-50 text-foreground placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white transition-all font-mono tracking-wide"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-foreground dark:text-slate-100 placeholder:text-muted dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all font-mono tracking-wide"
                     required
                     autoFocus
                   />
                 </div>
-                <p className="text-[11px] text-muted leading-normal">
+                <p className="text-[11px] text-muted dark:text-slate-400 leading-normal">
                   Enter your mobile number with country code. Used for login & saved train preferences.
                 </p>
               </div>
@@ -195,7 +195,7 @@ export default function AuthModal() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full py-2.5 rounded-lg bg-navy hover:bg-navy-light text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
+                className="w-full py-2.5 rounded-lg bg-navy dark:bg-blue-600 hover:bg-navy-light dark:hover:bg-blue-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
               >
                 {loading ? (
                   <>
@@ -217,33 +217,33 @@ export default function AuthModal() {
             <form onSubmit={handleVerifyOTP} className="space-y-4">
               
               {devOtp && (
-                <div className="p-3 rounded-lg bg-blue-50 border border-blue-200 text-xs text-navy space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5 text-navy">
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs text-navy dark:text-blue-300 space-y-1">
+                  <div className="font-semibold flex items-center gap-1.5 text-navy dark:text-blue-300">
                     <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
                     <span>Demo OTP</span>
                   </div>
-                  <p className="text-muted text-[11px]">
-                    Your OTP is <strong className="text-navy font-mono font-bold tracking-wider text-sm">{devOtp}</strong>
+                  <p className="text-muted dark:text-slate-400 text-[11px]">
+                    Your OTP is <strong className="text-navy dark:text-blue-200 font-mono font-bold tracking-wider text-sm">{devOtp}</strong>
                   </p>
                 </div>
               )}
 
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label className="block text-xs font-semibold text-foreground">
+                  <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
                     Enter 6-Digit OTP
                   </label>
                   <button
                     type="button"
                     onClick={() => { setStep(1); setError(null); }}
-                    className="text-xs text-navy hover:text-navy-light font-semibold hover:underline"
+                    className="text-xs text-navy dark:text-blue-400 hover:text-navy-light dark:hover:text-blue-300 font-semibold hover:underline"
                   >
                     Change Number
                   </button>
                 </div>
 
                 <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted dark:text-slate-400 pointer-events-none">
                     <KeyRound className="w-4 h-4" />
                   </div>
                   <input
@@ -252,7 +252,7 @@ export default function AuthModal() {
                     value={otpCode}
                     onChange={(e) => setOtpCode(e.target.value)}
                     placeholder="000000"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-slate-50 text-foreground text-center font-mono font-bold text-base tracking-widest focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-foreground dark:text-slate-100 text-center font-mono font-bold text-base tracking-widest focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
                     required
                     autoFocus
                   />
@@ -261,11 +261,11 @@ export default function AuthModal() {
 
               {/* Optional Display Name */}
               <div className="space-y-1.5">
-                <label className="block text-xs font-semibold text-foreground">
+                <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
                   Your Name (Optional)
                 </label>
                 <div className="relative">
-                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                  <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted dark:text-slate-400 pointer-events-none">
                     <User className="w-4 h-4" />
                   </div>
                   <input
@@ -273,7 +273,7 @@ export default function AuthModal() {
                     value={displayName}
                     onChange={(e) => setDisplayName(e.target.value)}
                     placeholder="e.g. Rahul Sharma"
-                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border bg-slate-50 text-foreground placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white transition-all"
+                    className="w-full pl-10 pr-4 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-foreground dark:text-slate-100 placeholder:text-muted dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 transition-all"
                   />
                 </div>
               </div>
@@ -282,7 +282,7 @@ export default function AuthModal() {
                 <button
                   type="button"
                   onClick={() => setStep(1)}
-                  className="px-4 py-2.5 rounded-lg border border-border hover:bg-slate-100 text-foreground font-semibold text-xs transition-colors active:scale-98"
+                  className="px-4 py-2.5 rounded-lg border border-border dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-foreground dark:text-slate-200 font-semibold text-xs transition-colors active:scale-98"
                 >
                   Back
                 </button>
@@ -290,7 +290,7 @@ export default function AuthModal() {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="flex-1 py-2.5 rounded-lg bg-navy hover:bg-navy-light text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
+                  className="flex-1 py-2.5 rounded-lg bg-navy dark:bg-blue-600 hover:bg-navy-light dark:hover:bg-blue-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
                 >
                   {loading ? (
                     <>
@@ -310,7 +310,7 @@ export default function AuthModal() {
           )}
 
           {/* Footer Transparency Info */}
-          <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted">
+          <div className="pt-2 border-t border-border dark:border-slate-800 flex items-center justify-between text-[11px] text-muted dark:text-slate-400">
             <span>Secure Login</span>
             <span>Indian Railways Train Enquiry</span>
           </div>

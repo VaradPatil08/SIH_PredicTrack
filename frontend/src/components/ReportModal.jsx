@@ -87,21 +87,21 @@ export default function ReportModal({
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.96, y: 8 }}
           transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
-          className="relative w-full max-w-lg bg-white rounded-xl border border-border shadow-2xl p-6 z-10 font-sans text-foreground space-y-5"
+          className="relative w-full max-w-lg bg-white dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-2xl p-6 z-10 font-sans text-foreground dark:text-slate-100 space-y-5"
           role="dialog"
           aria-modal="true"
         >
           {/* Header */}
-          <div className="flex items-start justify-between pb-3 border-b border-border">
+          <div className="flex items-start justify-between pb-3 border-b border-border dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 text-transit-red border border-red-200 shadow-xs">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 dark:bg-red-950/60 text-transit-red dark:text-red-400 border border-red-200 dark:border-red-900/60 shadow-xs">
                 <Radio className="w-5 h-5" />
               </div>
               <div>
-                <h2 className="font-bold text-base text-navy tracking-tight">
+                <h2 className="font-bold text-base text-navy dark:text-blue-400 tracking-tight">
                   Report Delay or Issue
                 </h2>
-                <p className="text-xs text-muted">
+                <p className="text-xs text-muted dark:text-slate-400">
                   Train #{trainNumber} {trainName ? `— ${trainName}` : ''}
                 </p>
               </div>
@@ -109,7 +109,7 @@ export default function ReportModal({
 
             <button
               onClick={onClose}
-              className="p-1.5 rounded-lg text-muted hover:text-navy hover:bg-slate-100 transition-colors"
+              className="p-1.5 rounded-lg text-muted hover:text-navy dark:text-slate-400 dark:hover:text-white hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
               aria-label="Close dialog"
             >
               <X className="w-4 h-4" />
@@ -117,12 +117,12 @@ export default function ReportModal({
           </div>
 
           {/* Verified Reporter Identity */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 border border-border rounded-lg text-xs text-muted">
+          <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/80 border border-border dark:border-slate-700 rounded-lg text-xs text-muted dark:text-slate-400">
             <div className="flex items-center gap-2">
-              <ShieldCheck className="w-4 h-4 text-transit-green" />
-              <span>Verified Passenger: <strong className="text-foreground font-mono">{user?.phone_number || 'OTP Verified'}</strong></span>
+              <ShieldCheck className="w-4 h-4 text-transit-green dark:text-emerald-400" />
+              <span>Verified Passenger: <strong className="text-foreground dark:text-slate-200 font-mono">{user?.phone_number || 'OTP Verified'}</strong></span>
             </div>
-            <span className="text-[11px] font-semibold text-navy bg-blue-50 border border-blue-200 px-2 py-0.5 rounded">
+            <span className="text-[11px] font-semibold text-navy dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded">
               Verified
             </span>
           </div>
@@ -132,9 +132,9 @@ export default function ReportModal({
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-xs flex items-center gap-2 text-emerald-800 font-semibold"
+              className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900/60 rounded-lg text-xs flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold"
             >
-              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600" />
+              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>{successMsg}</span>
             </motion.div>
           )}
@@ -144,12 +144,12 @@ export default function ReportModal({
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-800 flex items-start gap-2"
+              className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 rounded-lg text-xs text-red-800 dark:text-red-300 flex items-start gap-2"
             >
-              <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 mt-0.5" />
+              <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
               <div>
                 <div className="font-semibold">Submission Error</div>
-                <div className="text-red-700">{error}</div>
+                <div className="text-red-700 dark:text-red-400">{error}</div>
               </div>
             </motion.div>
           )}
@@ -158,17 +158,17 @@ export default function ReportModal({
           <form onSubmit={handleSubmit} className="space-y-4">
             {/* Station Dropdown */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-semibold text-foreground">
+              <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
                 Affected Station / Section (Optional)
               </label>
               <div className="relative">
-                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted pointer-events-none">
+                <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted dark:text-slate-400 pointer-events-none">
                   <MapPin className="w-4 h-4" />
                 </div>
                 <select
                   value={stationCode}
                   onChange={(e) => setStationCode(e.target.value)}
-                  className="w-full pl-10 pr-8 py-2.5 rounded-lg border border-border bg-slate-50 text-foreground text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white cursor-pointer transition-all appearance-none"
+                  className="w-full pl-10 pr-8 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-foreground dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 cursor-pointer transition-all appearance-none"
                 >
                   <option value="">En-route / General Section</option>
                   {stations.map((stn) => (
@@ -183,10 +183,10 @@ export default function ReportModal({
             {/* Description Textarea */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
-                <label className="block text-xs font-semibold text-foreground">
+                <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
                   Details / Reason *
                 </label>
-                <span className="text-[11px] text-muted font-mono">
+                <span className="text-[11px] text-muted dark:text-slate-400 font-mono">
                   {description.length}/500
                 </span>
               </div>
@@ -197,19 +197,19 @@ export default function ReportModal({
                 rows={4}
                 required
                 placeholder="e.g. Train stopped outside station, signal clearance delay, speed caution, heavy rain..."
-                className="w-full p-3 rounded-lg border border-border bg-slate-50 text-foreground placeholder:text-muted text-sm focus:outline-none focus:ring-2 focus:ring-navy focus:border-navy focus:bg-white resize-none transition-all"
+                className="w-full p-3 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-foreground dark:text-slate-100 placeholder:text-muted dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 resize-none transition-all"
               />
-              <p className="text-[11px] text-muted">
+              <p className="text-[11px] text-muted dark:text-slate-400">
                 Passenger reports help keep arrival times and delay information accurate for everyone.
               </p>
             </div>
 
             {/* Actions */}
-            <div className="flex gap-2 pt-2 border-t border-border">
+            <div className="flex gap-2 pt-2 border-t border-border dark:border-slate-800">
               <button
                 type="button"
                 onClick={onClose}
-                className="px-4 py-2.5 rounded-lg border border-border hover:bg-slate-100 text-foreground font-semibold text-xs transition-colors active:scale-98"
+                className="px-4 py-2.5 rounded-lg border border-border dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-foreground dark:text-slate-200 font-semibold text-xs transition-colors active:scale-98"
               >
                 Cancel
               </button>
@@ -235,10 +235,11 @@ export default function ReportModal({
           </form>
 
           {/* Footer Info */}
-          <div className="pt-2 border-t border-border flex items-center justify-between text-[11px] text-muted">
+          <div className="pt-2 border-t border-border dark:border-slate-800 flex items-center justify-between text-[11px] text-muted dark:text-slate-400">
             <span>Passenger Updates</span>
             <span>Indian Railways Train Enquiry</span>
           </div>
+
         </motion.div>
       </div>
     </AnimatePresence>

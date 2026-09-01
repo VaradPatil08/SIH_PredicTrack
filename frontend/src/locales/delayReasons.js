@@ -9,6 +9,14 @@
  */
 
 export const DELAY_CATEGORIES = {
+  NOMINAL_OPERATIONS: {
+    en: 'On-Time / Nominal Run',
+    hi: 'समय पर / सामान्य परिचालन',
+  },
+  SCHEDULE_HEADROOM: {
+    en: 'Kinematic Schedule Margin',
+    hi: 'गति एवं समय सारिणी मार्जिन',
+  },
   TRACK_OCCUPANCY: {
     en: 'Track Congestion',
     hi: 'ट्रैक भीड़ / संकुलन',

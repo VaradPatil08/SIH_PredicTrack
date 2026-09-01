@@ -111,16 +111,179 @@ def predict_delay_minutes(
         noise = random.uniform(-1, 3)
         predicted = max(0, round(base + distance_factor + noise))
 
-    factors = get_delay_reasons(station_code)
+    factors = get_delay_reasons(
+        station_code=station_code,
+        predicted_delay=predicted,
+        current_delay=current_delay_min,
+        train_number=train_number,
+    )
     return predicted, factors
 
 
-def get_delay_reasons(station_code: str) -> list[str]:
-    """Returns root-cause reasons for a given station."""
-    return STATION_REASONS.get(station_code, [
-        "Section speed restriction due to track maintenance work ahead",
-        "Preceding express train clearance delay at junction signals"
-    ])
+STATION_INFRA_CONTEXT = {
+    'BVI': ('HEADWAY_PRESSURE', 'Heavy suburban commuter peak section headway and approach platform occupancy'),
+    'ST': ('FREIGHT_PRECEDENCE', 'Section clearance delay following container rake precedence at Sachin yard'),
+    'BRC': ('SIGNAL_INTERLOCKING', 'Yard junction signal interlocking route conflict and platform line occupation at Makarpura'),
+    'RTM': ('CREW_CHANGEOVER', 'Crew changeover & brake continuity test extended by operational requirements'),
+    'KOTA': ('BRIDGE_OVERHAUL', 'Speed restriction in Chambal bridge section for structural safety overhaul'),
+    'SWM': ('WILDLIFE_CORRIDOR', 'Wildlife alert speed reduction (45 km/h) along Ranthambore sanctuary corridor'),
+    'MTJ': ('FOG_VISIBILITY', 'Dense fog visibility restriction (< 150m) in NCR approach segment'),
+    'NDLS': ('TERMINAL_CONGESTION', 'Terminal platform occupancy queue and Shivaji Bridge outer signal interlocking hold'),
+    'CNB': ('BRIDGE_MAINTENANCE', 'Ganga Bridge maintenance block speed restriction and heavy freight crossover at Juhi yard'),
+    'PRYJ': ('YARD_INTERLOCKING', 'Yard remodeling block at Naini junction and Vande Bharat overtaking slot clearance'),
+    'BSB': ('PLATFORM_HOLD', 'Outer signal wait due to Varanasi Cantt platform renovation and speed caution near Shivpur'),
+    'VAPI': ('SPEED_RESTRICTION', 'Monsoon caution speed restriction in coastal section and level crossing gate maintenance'),
+    'BH': ('BRIDGE_MAINTENANCE', 'Narmada river bridge structural maintenance inspection caution'),
+    'ANND': ('SIGNAL_INTERLOCKING', 'Dairy siding shunting movement crossing mainline automated signaling'),
+    'ND': ('HEADWAY_PRESSURE', 'Suburban MEMU crossover delay and parcel loading dwell'),
+    'ADI': ('TERMINAL_CONGESTION', 'Terminal approach track maintenance and platform 1 signal clearance queue'),
+    'ASN': ('FREIGHT_PRECEDENCE', 'Coal freight rake clearance at Sitarampur yard and ballast maintenance caution'),
+    'DHN': ('SIGNAL_INTERLOCKING', 'Coalfield junction priority conflict and OHE maintenance speed limit'),
+    'PNME': ('SPEED_RESTRICTION', 'Ghat section gradient descent regulated speed ceiling'),
+    'GAYA': ('CREW_CHANGEOVER', 'Crew change, loco inspection duration, and Grand Chord crossover wait'),
+    'DDU': ('FREIGHT_PRECEDENCE', 'Major freight corridor interchange clearance at Mughalsarai yards'),
+}
+
+
+def get_delay_reasons(
+    station_code: str,
+    predicted_delay: int = 15,
+    current_delay: int = 0,
+    train_number: str = "",
+    return_structured: bool = False,
+) -> list:
+    """
+    Dynamically attributes root causes for predicted station delay based on the
+    underlying ML feature state and physics:
+      1. On-Time Check: If predicted_delay <= 2, returns nominal operations & timetable slack.
+      2. Kinematic Timetable Compression (schedule_slack_ratio >= 0.75): Speed headroom margin.
+      3. Station Terminal Bottleneck (station_congestion_index >= 15): Junction interlocking & dwell.
+      4. Sectional Delay Gradient (section_delay_gradient >= 3): Running speed loss over preceding block.
+      5. Upstream Delay Ripple (current_delay >= 8): Delay carried from prior divisions.
+      6. Extended Operational Dwell (scheduled_halt >= 8): Crew changeover & platform dwell.
+
+    Calculates impact minutes deterministically so they match predicted_delay.
+    """
+    _try_load_model()
+    stn = str(station_code).upper().strip()
+    tid = str(train_number).zfill(5) if train_number else ""
+
+    # 1. On-time / nominal operations
+    if predicted_delay <= 2:
+        factors = [
+            {
+                "category": "NOMINAL_OPERATIONS",
+                "reason": f"Nominal line headway: clear automated block signals and on-schedule transit into {stn}.",
+                "impact_min": 0,
+                "confidence": 0.98,
+            },
+            {
+                "category": "SCHEDULE_HEADROOM",
+                "reason": f"Timetable slack: adequate runtime margin allows on-time platform turnaround at {stn}.",
+                "impact_min": 0,
+                "confidence": 0.95,
+            }
+        ]
+        return factors if return_structured else [f["reason"] for f in factors]
+
+    lookup_key = f"{tid}_{stn}"
+    lookup = _hist_averages.get("lookup", {}).get(lookup_key, {}) if _hist_averages else {}
+    kin_min = float(lookup.get("kinematic_min_segment_time_min", 30.0))
+    sched_time = max(1.0, float(lookup.get("segment_scheduled_time_min", 60.0)))
+    slack_ratio = min(kin_min / sched_time, 2.0)
+    congestion = float(lookup.get("station_congestion_index", _hist_averages.get("global_congestion", 20.0) if _hist_averages else 20.0))
+    sec_gradient = float(lookup.get("section_delay_gradient", 0.0))
+    halt_duration = float(lookup.get("scheduled_halt_duration_min", 2.0))
+    seg_dist = float(lookup.get("segment_distance_km", 50.0))
+
+    candidates = []
+
+    # Check 1: Kinematic timetable compression (trapezoidal velocity profile ceiling)
+    if slack_ratio >= 0.75:
+        candidates.append((
+            50.0 + slack_ratio * 30.0,
+            {
+                "category": "SCHEDULE_HEADROOM",
+                "reason": f"Kinematic timetable compression: tight scheduled time ({int(sched_time)}m) leaves minimal speed margin to recover delay over {int(seg_dist)} km section.",
+            }
+        ))
+
+    # Check 2: Terminal junction interlocking & platform dwell bottleneck
+    if congestion >= 15.0 or stn in STATION_INFRA_CONTEXT:
+        if stn in STATION_INFRA_CONTEXT:
+            cat, desc = STATION_INFRA_CONTEXT[stn]
+            candidates.append((
+                60.0 + congestion,
+                {"category": cat, "reason": desc}
+            ))
+        else:
+            candidates.append((
+                40.0 + congestion,
+                {
+                    "category": "TERMINAL_CONGESTION",
+                    "reason": f"Terminal approach congestion: heavy interlocking junction traffic at {stn} (historical bottleneck index: {round(congestion, 1)}m).",
+                }
+            ))
+
+    # Check 3: Sectional delay accumulation / gradient
+    if sec_gradient >= 3.0:
+        candidates.append((
+            45.0 + sec_gradient * 2.0,
+            {
+                "category": "HEADWAY_PRESSURE",
+                "reason": f"Sectional delay accumulation: train losing clearance interval over preceding block (+{int(sec_gradient)}m delay gradient).",
+            }
+        ))
+
+    # Check 4: Upstream corridor ripple delay carried forward
+    if current_delay >= 8:
+        candidates.append((
+            35.0 + float(current_delay),
+            {
+                "category": "SECTION_CLEARANCE",
+                "reason": f"Upstream corridor ripple delay: carrying {int(current_delay)}m residual delay propagated from earlier section.",
+            }
+        ))
+
+    # Check 5: Extended operational dwell
+    if halt_duration >= 8.0:
+        candidates.append((
+            30.0 + halt_duration,
+            {
+                "category": "PLATFORM_OCCUPANCY",
+                "reason": f"Scheduled operational halt: extended {int(halt_duration)}m crew changeover, loco check, and platform dwell.",
+            }
+        ))
+
+    # Fallback options if fewer than 2 candidates qualify
+    candidates.append((
+        10.0,
+        {
+            "category": "SPEED_RESTRICTION",
+            "reason": f"Sectional speed restriction: automated caution aspects and track maintenance speed limit approaching {stn}.",
+        }
+    ))
+    candidates.append((
+        5.0,
+        {
+            "category": "SIGNAL_INTERLOCKING",
+            "reason": f"Station approach route signaling clearance queue entering {stn} outer signals.",
+        }
+    ))
+
+    candidates.sort(key=lambda x: -x[0])
+    selected = [dict(c[1]) for c in candidates[:2]]
+
+    # Allocate impact minutes deterministically so they sum up to predicted_delay
+    impact_1 = max(1, round(predicted_delay * 0.60))
+    impact_2 = max(1, predicted_delay - impact_1)
+
+    selected[0]["impact_min"] = impact_1
+    selected[0]["confidence"] = round(min(0.96, 0.88 + 0.003 * predicted_delay), 2)
+    selected[1]["impact_min"] = impact_2
+    selected[1]["confidence"] = round(min(0.92, 0.82 + 0.002 * predicted_delay), 2)
+
+    return selected if return_structured else [f["reason"] for f in selected]
 
 
 def status_from_delay(delay_min: int) -> str:

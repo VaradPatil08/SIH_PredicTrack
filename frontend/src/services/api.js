@@ -509,6 +509,42 @@ export async function getTrainETA(trainNumber) {
  */
 export async function getStationDelayReasons(trainNumber, stationCode) {
   const code = (stationCode || '').toUpperCase();
+
+  // Dynamic What-If simulation injection if active
+  const overrideReasons = [];
+  if (simulationOverrides.fogSeverity > 0) {
+    overrideReasons.push({
+      category: 'WEATHER_CAUTION',
+      reason: `Dense fog visibility restriction (< 150m): active fog safety speed ceiling applied.`,
+      impact_min: simulationOverrides.fogSeverity,
+      confidence: 0.96
+    });
+  }
+  if (simulationOverrides.freightPrecedence) {
+    overrideReasons.push({
+      category: 'FREIGHT_PRECEDENCE',
+      reason: 'Freight rake precedence: express train holding for container corridor clearance.',
+      impact_min: 12,
+      confidence: 0.94
+    });
+  }
+  if (simulationOverrides.tsrSpeedLimit) {
+    overrideReasons.push({
+      category: 'SPEED_RESTRICTION',
+      reason: 'Track maintenance caution (30 km/h): engineering speed limit along active section.',
+      impact_min: 8,
+      confidence: 0.92
+    });
+  }
+  if (simulationOverrides.platformHold) {
+    overrideReasons.push({
+      category: 'PLATFORM_HOLD',
+      reason: 'Platform road occupancy hold: waiting outside station for platform line to clear.',
+      impact_min: 6,
+      confidence: 0.89
+    });
+  }
+
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/eta/${code}/reasons`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -516,20 +552,22 @@ export async function getStationDelayReasons(trainNumber, stationCode) {
     
     // Normalize response to array of structured objects
     const rawList = Array.isArray(data) ? data : (data.reasons || []);
-    return rawList.map((item, idx) => {
+    const normalized = rawList.map((item, idx) => {
       if (typeof item === 'string') {
         return {
           category: idx === 0 ? 'TRACK_OCCUPANCY' : 'SIGNAL_INTERLOCKING',
           reason: item,
-          impact_min: Math.floor(6 + Math.random() * 8),
-          confidence: Number((0.85 + Math.random() * 0.1).toFixed(2))
+          impact_min: idx === 0 ? 8 : 5,
+          confidence: idx === 0 ? 0.92 : 0.86
         };
       }
       return item;
     });
+
+    return [...overrideReasons, ...normalized];
   } catch (err) {
     console.warn(`[RailPulse API] Using structured mock reasons for ${code}:`, err.message);
-    return MOCK_REASONS_MAP[code] || [
+    const fallback = MOCK_REASONS_MAP[code] || [
       {
         category: 'SPEED_RESTRICTION',
         reason: 'Temporary speed caution due to sectional maintenance work ahead.',
@@ -543,6 +581,7 @@ export async function getStationDelayReasons(trainNumber, stationCode) {
         confidence: 0.82
       }
     ];
+    return [...overrideReasons, ...fallback];
   }
 }
 

@@ -265,7 +265,7 @@ def get_train_route(train_number: str):
 def _compute_base_delay(
     train_number: str,
     stations: list[dict],
-    elapsed_min: float,
+    elapsed_min: float = 0.0,
 ) -> int:
     """Computes a smoothly-evolving delay estimate for the whole journey."""
     hist = eta._hist_averages or {}
@@ -461,7 +461,12 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
                             predicted_offset_min=sched_offset + delay,
                             status=st_status,
                             platform=pf_num,
-                            top_delay_factors=eta.get_delay_reasons(code),
+                            top_delay_factors=eta.get_delay_reasons(
+                                station_code=code,
+                                predicted_delay=delay,
+                                current_delay=base_delay,
+                                train_number=clean_num,
+                            ),
                         )
                     )
                 railradar_schedule_used = True
@@ -508,7 +513,12 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
                     predicted_offset_min=sched_offset + delay,
                     status=status,
                     platform=(idx % 4) + 1,
-                    top_delay_factors=eta.get_delay_reasons(st["code"]),
+                    top_delay_factors=eta.get_delay_reasons(
+                        station_code=st["code"],
+                        predicted_delay=delay,
+                        current_delay=base_delay,
+                        train_number=clean_num,
+                    ),
                 )
             )
 
@@ -531,8 +541,36 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
 @router.get("/trains/{train_number}/eta/{station_code}/reasons", response_model=DelayReasonsResponse)
 @router.get("/train/{train_number}/eta/{station_code}/reasons", response_model=DelayReasonsResponse)
 def get_station_delay_reasons(train_number: str, station_code: str):
-    """Returns root-cause attribution reasons for a delayed station."""
-    reasons = eta.get_delay_reasons(station_code.upper())
+    """Returns dynamic root-cause attribution reasons for a station."""
+    raw_num = str(train_number).strip()
+    clean_num = raw_num.zfill(5)
+    stn = station_code.strip().upper()
+    train = _MOCK_TRAINS.get(raw_num) or _MOCK_TRAINS.get(clean_num)
+    predicted_delay = 15
+    current_delay = 15
+    if train:
+        stns = train.get("stations", [])
+        _, elapsed_min, _ = live_feed.get_live_position_and_state(stations=stns, train_number=clean_num)
+        current_delay = _compute_base_delay(clean_num, stns, elapsed_min)
+        st_match = next((s for s in stns if (s.get("code") or "").upper() == stn), None)
+        if st_match:
+            predicted_delay, _ = eta.predict_delay_minutes(
+                train_number=clean_num,
+                station_code=stn,
+                distance_km=st_match.get("distance_km", 0),
+                current_delay_min=current_delay,
+                total_distance_km=train.get("total_distance_km"),
+            )
+        else:
+            predicted_delay = current_delay
+
+    reasons = eta.get_delay_reasons(
+        station_code=stn,
+        predicted_delay=predicted_delay,
+        current_delay=current_delay,
+        train_number=clean_num,
+        return_structured=True,
+    )
     return DelayReasonsResponse(reasons=reasons)
 
 

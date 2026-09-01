@@ -80,8 +80,15 @@ class TrainRouteResponse(BaseModel):
     stations: List[Station]
 
 
+class DelayReasonItem(BaseModel):
+    category: str = "TRACK_OCCUPANCY"
+    reason: str
+    impact_min: int = 5
+    confidence: float = 0.90
+
+
 class DelayReasonsResponse(BaseModel):
-    reasons: List[str] = []
+    reasons: List[Union[DelayReasonItem, str]] = []
 
 
 class ModelMetrics(BaseModel):

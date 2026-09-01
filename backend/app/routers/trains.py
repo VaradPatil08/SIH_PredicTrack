@@ -6,10 +6,9 @@ import math
 import time
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from sqlalchemy.orm import Session
 
-from app.config import RAILRADAR_CACHE_TTL_SECONDS
 from app.db import get_db
 from app.models_db import TrainLiveCache
 from app.models.schemas import (
@@ -27,8 +26,6 @@ from app.services import (
     eta,
     live_feed,
     live_sync,
-    quota_guard,
-    railradar_client,
     railradar_interpolation,
 )
 
@@ -304,7 +301,22 @@ def _compute_base_delay(
     return max(int(hist_base * 0.3), min(round(raw), int(hist_base * 2.2)))
 
 
-_perform_live_sync = live_sync.perform_live_sync
+
+def _background_live_sync(clean_num: str):
+    """Refresh RailRadar data after the initial ETA response has been sent."""
+    from app.db import SessionLocal
+
+    train = _MOCK_TRAINS.get(clean_num)
+    if not train:
+        return
+
+    db = SessionLocal()
+    try:
+        live_sync.perform_live_sync(clean_num, train, db, force_sync=True)
+    except Exception as exc:
+        logger.warning(f"Background RailRadar sync failed for {clean_num}: {exc}")
+    finally:
+        db.close()
 
 
 @router.post("/trains/{train_number}/live/sync", response_model=LiveSyncResponse)
@@ -321,7 +333,7 @@ def sync_train_live(train_number: str, db: Session = Depends(get_db)):
     if not train:
         raise HTTPException(status_code=404, detail=f"Unknown train {clean_num}")
 
-    cached = _perform_live_sync(clean_num, train, db)
+    cached = live_sync.perform_live_sync(clean_num, train, db)
     return LiveSyncResponse(
         train_number=clean_num,
         lat=cached.lat,
@@ -345,6 +357,7 @@ def get_train_eta(
     tsr_speed_limit: bool = False,
     platform_hold: bool = False,
     db: Session = Depends(get_db),
+    background_tasks: BackgroundTasks = None,
 ):
     """
     Main endpoint the live tracking page polls every 60 seconds.
@@ -359,8 +372,16 @@ def get_train_eta(
     stations = train["stations"]
     sim_offset = train.get("sim_start_offset_min", 0)
 
-    # 1. Perform RailRadar sync check (reuses _perform_live_sync)
-    cached = _perform_live_sync(clean_num, train, db)
+    # 1. Return immediately with a simulated cache entry on a cache miss.
+    # RailRadar is refreshed in the background so a slow first sync cannot
+    # exceed the frontend request timeout. Subsequent polls read the shared cache.
+    cached = db.query(TrainLiveCache).filter(TrainLiveCache.train_number == clean_num).first()
+    if cached is None:
+        cached = live_sync.get_simulated_cache(clean_num, train, db)
+        if background_tasks is not None:
+            background_tasks.add_task(_background_live_sync, clean_num)
+    else:
+        cached = live_sync.perform_live_sync(clean_num, train, db)
 
     is_railradar = bool(cached and cached.source == "railradar")
     schedule_source = "railradar" if is_railradar else "local_fallback"

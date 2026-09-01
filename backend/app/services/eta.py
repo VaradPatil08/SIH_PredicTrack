@@ -93,7 +93,7 @@ def predict_delay_minutes(
             current_delay_min=scenario_current_delay,
             scheduled_departure_hour=hour,
             day_of_week=dow,
-            hist_averages=_hist_averages,
+            hist_averages=_hist_averages or {},
         )
         predicted = max(0, round(float(_model.predict([features])[0])))
     else:

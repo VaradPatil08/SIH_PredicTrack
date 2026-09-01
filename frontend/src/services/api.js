@@ -456,11 +456,13 @@ export async function getTrainRoute(trainNumber) {
     return await res.json();
   } catch (err) {
     console.warn(`[RailPulse API] Using fallback route for ${trainNumber}:`, err.message);
-    return MOCK_ROUTES[trainNumber] || {
+    if (MOCK_ROUTES[trainNumber]) return MOCK_ROUTES[trainNumber];
+
+    return {
       train_number: trainNumber,
       name: `Express Train ${trainNumber}`,
       scheduled_departure: '06:00',
-      stations: MOCK_ROUTES['12951'].stations
+      stations: MOCK_ROUTES['12951'].stations.map((station) => ({ ...station }))
     };
   }
 }
@@ -482,12 +484,12 @@ export async function getTrainETA(trainNumber) {
     return { ...data, is_mock: false };
   } catch (err) {
     console.warn(`[RailPulse API] Using dynamic synthetic telemetry for ${trainNumber}:`, err.message);
-    const route = MOCK_ROUTES[trainNumber] || {
-      train_number: trainNumber,
-      name: `Express Train ${trainNumber}`,
-      scheduled_departure: '06:00',
-      stations: MOCK_ROUTES['12951'].stations
-    };
+    let route = MOCK_ROUTES[trainNumber];
+    if (!route) {
+      // Prefer the backend's full-network route data so synthetic telemetry still
+      // represents the requested train instead of borrowing another train's route.
+      route = await getTrainRoute(trainNumber);
+    }
     return generateSyntheticETA(route);
   }
 }

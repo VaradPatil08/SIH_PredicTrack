@@ -1,9 +1,9 @@
 import React, { useEffect, useMemo, useState, useRef } from 'react';
 import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { Navigation, Maximize2, Gauge, Layers, Eye } from 'lucide-react';
+import { Navigation, Maximize2, Gauge, Layers } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
-import { translateStationName, translateTrainName } from '../locales/trainNames';
+import { translateStationName } from '../locales/trainNames';
 import { getTrainColor } from '../utils/trainColors';
 import { useDeadReckonedPosition } from '../hooks/useDeadReckonedPosition';
 
@@ -223,7 +223,6 @@ export default function TrainMap({
   currentPosition = null, 
   trainNumber = '', 
   trainName = '',
-  onSelectStation = null,
   // Multi-train support props:
   trains = [],
   focusedTrainNumber = null,

@@ -221,3 +221,18 @@ def test_sync_network_failure_degrades_to_simulator():
         assert "lat" in data
         assert "lng" in data
 
+
+
+def test_eta_cache_miss_returns_requested_train_and_schedules_background_sync():
+    """A first ETA request must use that train's route, never another train's data."""
+    with patch("app.routers.trains._background_live_sync") as background_sync:
+        res = client.get("/trains/12621/eta")
+
+    assert res.status_code == 200
+    data = res.json()
+    assert data["train_number"] == "12621"
+    assert data["stations"][0]["code"] == "MAS"
+    assert data["stations"][-1]["code"] == "NDLS"
+    assert data["current_position"]["source"] == "simulated"
+    assert background_sync.call_count == 1
+    background_sync.assert_called_once_with("12621")

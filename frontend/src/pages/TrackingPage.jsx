@@ -65,6 +65,8 @@ export default function TrackingPage() {
 
   // ETA and Telemetry Data State (keyed by trainNumber)
   const [trainsEta, setTrainsEta] = useState({});
+  const trainsEtaRef = useRef(trainsEta);
+  trainsEtaRef.current = trainsEta;
   const [reportSummary, setReportSummary] = useState(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -87,19 +89,12 @@ export default function TrackingPage() {
 
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
-  const activatedTrainsRef = useRef(new Set());
+  const focusedTrainNumberRef = useRef(focusedTrainNumber);
+  focusedTrainNumberRef.current = focusedTrainNumber;
 
-  // Trigger RailRadar live telemetry sync on initial mount and whenever tracked trains change/refresh
+  // Polling key is stable for the tracked set; initial ETA requests also seed the
+  // shared simulated cache and let the backend refresh RailRadar asynchronously.
   const trackedTrainsKey = trackedTrainNumbers.join(',');
-  useEffect(() => {
-    if (!trackedTrainNumbers || trackedTrainNumbers.length === 0) return;
-    trackedTrainNumbers.forEach((num) => {
-      const clean = String(num || '').trim();
-      if (clean) {
-        activateLiveTracking(clean);
-      }
-    });
-  }, [trackedTrainsKey]);
 
   // Fetch all tracked trains in parallel
   const fetchAllTelemetry = useCallback(async (isBackground = false) => {
@@ -122,7 +117,7 @@ export default function TrackingPage() {
       );
 
       // Check disruption report summary for the currently focused train
-      const targetFocus = focusedTrainNumber || trackedTrainNumbers[0];
+      const targetFocus = focusedTrainNumberRef.current || trackedTrainNumbers[0];
       const summary = await getDisruptionReportSummary(targetFocus).catch(() => null);
       if (summary) setReportSummary(summary);
 
@@ -140,7 +135,7 @@ export default function TrackingPage() {
       });
 
       const successfulCount = results.filter(r => r.data).length;
-      if (successfulCount === 0 && Object.keys(trainsEta).length === 0) {
+      if (successfulCount === 0 && Object.keys(trainsEtaRef.current).length === 0) {
         setError(t('telemetryOffline', { trainNumber: baseTrainNumber }));
       } else {
         setError(null);
@@ -157,7 +152,7 @@ export default function TrackingPage() {
       setRefreshing(false);
       setCountdown(POLL_INTERVAL_SECONDS);
     }
-  }, [trackedTrainNumbers, focusedTrainNumber, baseTrainNumber, t, trainsEta]);
+  }, [trackedTrainNumbers, baseTrainNumber, t]);
 
   // Initial load and polling timer
   useEffect(() => {
@@ -178,7 +173,7 @@ export default function TrackingPage() {
       if (timerRef.current) clearInterval(timerRef.current);
       if (countdownRef.current) clearInterval(countdownRef.current);
     };
-  }, [trackedTrainNumbers.join(',')]);
+  }, [trackedTrainsKey, fetchAllTelemetry]);
 
   // Click outside listener for Add Train search dropdown
   useEffect(() => {
@@ -202,8 +197,6 @@ export default function TrackingPage() {
       setAddSearchQuery('');
       return;
     }
-
-    activateLiveTracking(cleanNum);
 
     const currentCompareList = compareParam
       ? compareParam.split(',').map(s => s.trim()).filter(Boolean)

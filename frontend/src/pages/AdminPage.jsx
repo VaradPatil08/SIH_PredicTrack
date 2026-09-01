@@ -301,7 +301,7 @@ function ArrivalsBoard({ stationCode }) {
     setArrivals([]);
     setError(null);
     fetchArrivals();
-    pollingRef.current = setInterval(fetchArrivals, 12000);
+    pollingRef.current = setInterval(fetchArrivals, 60000);
     return () => clearInterval(pollingRef.current);
   }, [fetchArrivals]);
 
@@ -419,7 +419,7 @@ function ArrivalsBoard({ stationCode }) {
               {/* Auto-Refresh Badge */}
               <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-[#D9DEE5] dark:border-slate-700 text-[#667085] dark:text-slate-300 shadow-2xs">
                 <span className="w-2 h-2 rounded-full bg-[#2E7D32] inline-block animate-pulse" />
-                <span className="text-[11px] font-medium">Auto-refresh: 12s</span>
+                <span className="text-[11px] font-medium">Auto-refresh: 60s</span>
               </div>
 
               {lastUpdated && (
@@ -495,16 +495,27 @@ function ArrivalsBoard({ stationCode }) {
                     >
                       {/* TRAIN: Train Number & Name */}
                       <td className="px-4 py-3.5">
-                        <Link
-                          to={`/train/${arrival.train_number}`}
-                          className={`font-bold font-mono text-sm inline-block transition-colors ${
-                            isDeparted 
-                              ? 'text-[#667085] dark:text-slate-400 hover:text-navy dark:hover:text-blue-300' 
-                              : 'text-[#17324D] dark:text-[#93C5FD] hover:text-blue-600 dark:hover:text-blue-300'
-                          }`}
-                        >
-                          #{arrival.train_number}
-                        </Link>
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <Link
+                            to={`/train/${arrival.train_number}`}
+                            className={`font-bold font-mono text-sm inline-block transition-colors ${
+                              isDeparted 
+                                ? 'text-[#667085] dark:text-slate-400 hover:text-navy dark:hover:text-blue-300' 
+                                : 'text-[#17324D] dark:text-[#93C5FD] hover:text-blue-600 dark:hover:text-blue-300'
+                            }`}
+                          >
+                            #{arrival.train_number}
+                          </Link>
+                          {arrival.live_source === 'railradar' && (
+                            <span
+                              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-bold bg-blue-500/20 text-blue-600 dark:text-blue-400 border border-blue-500/30 shadow-2xs"
+                              title={arrival.live_synced_at ? `RailRadar Live Telemetry (Synced at ${new Date(arrival.live_synced_at).toLocaleTimeString()})` : 'RailRadar Live Telemetry'}
+                            >
+                              <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                              <span>{arrival.speed_kmh != null ? `${Math.round(arrival.speed_kmh)} km/h` : 'RailRadar Live'}</span>
+                            </span>
+                          )}
+                        </div>
                         <div className={`text-[11px] truncate max-w-[220px] ${
                           isDeparted ? 'text-slate-400 dark:text-slate-500' : 'text-[#667085] dark:text-slate-400'
                         }`}>

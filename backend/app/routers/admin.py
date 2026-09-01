@@ -6,11 +6,13 @@ from pathlib import Path
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy.orm import Session
 
+from app.db import get_db
 from app.models.schemas import StationPickerItem, StationArrivalItem
 from app.models_db import User
 from app.routers.trains import _MOCK_TRAINS, _compute_base_delay
-from app.services import eta, live_feed, auth_service
+from app.services import eta, live_feed, live_sync, auth_service
 
 logger = logging.getLogger(__name__)
 
@@ -98,11 +100,12 @@ def get_admin_stations(
 @router.get("/station/{code}/arrivals", response_model=list[StationArrivalItem])
 def get_station_arrivals(
     code: str,
+    db: Session = Depends(get_db),
     current_admin: User = Depends(auth_service.get_current_station_admin),
 ):
     """
     Returns upcoming/live arrivals for the given station code, sorted soonest first,
-    capped at the top 30 arrivals. Reuses live delay telemetry from ETA service.
+    capped at the top 30 arrivals. Reuses live delay telemetry and shared RailRadar sync.
     """
     station_code = code.strip().upper()
     if station_code not in _STATION_TO_TRAINS:
@@ -115,24 +118,52 @@ def get_station_arrivals(
 
     eta._try_load_model()
 
-    arrivals = []
+    # Filter and pre-sort candidate trains by scheduled arrival offset to evaluate the top 30
+    candidates = []
     for train_number, stn_idx in train_entries:
         train = _MOCK_TRAINS.get(train_number)
         if not train:
             continue
-
         stations = train.get("stations", [])
         if stn_idx >= len(stations):
             continue
-
         st = stations[stn_idx]
+        sched_offset = st.get("scheduled_offset_min", 0)
+        candidates.append((train_number, stn_idx, sched_offset, train, stations, st))
+
+    candidates.sort(key=lambda c: c[2])
+    selected_candidates = candidates[:30]
+
+    arrivals = []
+    for train_number, stn_idx, sched_offset, train, stations, st in selected_candidates:
         sim_offset = train.get("sim_start_offset_min", 0)
 
-        position, elapsed_min, current_station_index = live_feed.get_live_position_and_state(
-            stations,
-            train_number=train_number,
-            start_offset_min=sim_offset,
-        )
+        # 1. Perform shared RailRadar / cache sync
+        cached = live_sync.perform_live_sync(train_number, train, db)
+        is_railradar = bool(cached and cached.source == "railradar")
+
+        if is_railradar and cached:
+            lat = cached.lat
+            lng = cached.lng
+            speed_kmh = cached.speed_kmh
+            live_source = "railradar"
+            live_synced_at = cached.synced_at.isoformat() if cached.synced_at else None
+            _, elapsed_min, current_station_index = live_feed.get_live_position_and_state(
+                stations,
+                train_number=train_number,
+                start_offset_min=sim_offset,
+            )
+        else:
+            position, elapsed_min, current_station_index = live_feed.get_live_position_and_state(
+                stations,
+                train_number=train_number,
+                start_offset_min=sim_offset,
+            )
+            lat = position.get("lat")
+            lng = position.get("lng")
+            speed_kmh = position.get("speed_kmh")
+            live_source = "simulated"
+            live_synced_at = None
 
         base_delay = _compute_base_delay(train_number, stations, float(elapsed_min))
 
@@ -152,7 +183,6 @@ def get_station_arrivals(
             )
             status = eta.status_from_delay(delay)
 
-        sched_offset = st.get("scheduled_offset_min", 0)
         pred_offset = sched_offset + delay
         platform = _compute_platform(train_number, station_code)
 
@@ -177,6 +207,11 @@ def get_station_arrivals(
                 halt_min=halt,
                 status=status,
                 direction=direction,
+                lat=lat,
+                lng=lng,
+                speed_kmh=speed_kmh,
+                live_source=live_source,
+                live_synced_at=live_synced_at,
             )
         )
 

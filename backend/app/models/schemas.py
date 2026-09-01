@@ -105,3 +105,8 @@ class StationArrivalItem(BaseModel):
     halt_min: int
     status: str
     direction: str
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    speed_kmh: Optional[float] = None
+    live_source: str = "simulated"  # "railradar" | "simulated"
+    live_synced_at: Optional[str] = None

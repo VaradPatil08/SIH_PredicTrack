@@ -26,6 +26,7 @@ from app.models.schemas import (
 from app.services import (
     eta,
     live_feed,
+    live_sync,
     quota_guard,
     railradar_client,
     railradar_interpolation,
@@ -287,133 +288,7 @@ def _compute_base_delay(
     return max(int(hist_base * 0.3), min(round(raw), int(hist_base * 2.2)))
 
 
-def _perform_live_sync(clean_num: str, train: dict, db: Session) -> TrainLiveCache:
-    """
-    Core RailRadar telemetry sync & cache upsert logic.
-    - If cache exists and age < RAILRADAR_CACHE_TTL_SECONDS: returns existing cached record.
-    - If stale (> TTL) or missing:
-      - If quota_guard.has_budget(db): calls RailRadar API, interpolates, and updates cache with source="railradar".
-      - On budget exhaustion, RailRadar failure, or unmapped route: degrades gracefully to simulator (source="simulated").
-    """
-    now = datetime.datetime.utcnow()
-    stations = train["stations"]
-
-    # 1. Check shared DB cache for fresh snapshot within TTL window
-    cached = db.query(TrainLiveCache).filter(TrainLiveCache.train_number == clean_num).first()
-    if cached:
-        age_seconds = (now - cached.synced_at).total_seconds()
-        if age_seconds < RAILRADAR_CACHE_TTL_SECONDS:
-            return cached
-
-    # 2. Check quota budget before outbound call
-    if not quota_guard.has_budget(db):
-        logger.warning(f"RailRadar schedule fetch failed for {clean_num}: Quota budget exhausted")
-        sim_pos, _, _ = live_feed.get_live_position_and_state(
-            stations,
-            train_number=clean_num,
-            start_offset_min=train.get("sim_start_offset_min", 0),
-        )
-        if cached:
-            cached.source = "simulated"
-            cached.synced_at = now
-            cached.lat = sim_pos["lat"]
-            cached.lng = sim_pos["lng"]
-            cached.speed_kmh = sim_pos["speed_kmh"]
-            cached.bearing_degrees = None
-            cached.next_station_code = sim_pos.get("next_station_code")
-            cached.next_station_name = sim_pos.get("next_station_name")
-            cached.distance_to_next_km = sim_pos.get("distance_to_next_km")
-            cached.raw_response = None
-        else:
-            cached = TrainLiveCache(
-                train_number=clean_num,
-                source="simulated",
-                synced_at=now,
-                lat=sim_pos["lat"],
-                lng=sim_pos["lng"],
-                speed_kmh=sim_pos["speed_kmh"],
-                bearing_degrees=None,
-                next_station_code=sim_pos.get("next_station_code"),
-                next_station_name=sim_pos.get("next_station_name"),
-                distance_to_next_km=sim_pos.get("distance_to_next_km"),
-                raw_response=None,
-            )
-            db.add(cached)
-        db.commit()
-        return cached
-
-    # 3. Fetch from RailRadar API
-    raw_data = railradar_client.fetch_live(clean_num, db)
-    if raw_data:
-        interpolated = railradar_interpolation.interpolate_railradar_position(raw_data, stations)
-        if interpolated:
-            # Upsert cache with real RailRadar telemetry
-            if cached:
-                cached.source = "railradar"
-                cached.synced_at = now
-                cached.lat = interpolated["lat"]
-                cached.lng = interpolated["lng"]
-                cached.speed_kmh = interpolated["speed_kmh"]
-                cached.bearing_degrees = interpolated.get("bearing_degrees")
-                cached.next_station_code = interpolated.get("next_station_code")
-                cached.next_station_name = interpolated.get("next_station_name")
-                cached.distance_to_next_km = interpolated.get("distance_to_next_km")
-                cached.raw_response = json.dumps(raw_data)
-            else:
-                cached = TrainLiveCache(
-                    train_number=clean_num,
-                    source="railradar",
-                    synced_at=now,
-                    lat=interpolated["lat"],
-                    lng=interpolated["lng"],
-                    speed_kmh=interpolated["speed_kmh"],
-                    bearing_degrees=interpolated.get("bearing_degrees"),
-                    next_station_code=interpolated.get("next_station_code"),
-                    next_station_name=interpolated.get("next_station_name"),
-                    distance_to_next_km=interpolated.get("distance_to_next_km"),
-                    raw_response=json.dumps(raw_data),
-                )
-                db.add(cached)
-            db.commit()
-            return cached
-        else:
-            logger.warning(f"RailRadar schedule fetch failed for {clean_num}: Route interpolation / station matching failed against train route")
-
-    # Fallback to simulated position if RailRadar failed, unmapped route, or offline
-    sim_pos, _, _ = live_feed.get_live_position_and_state(
-        stations,
-        train_number=clean_num,
-        start_offset_min=train.get("sim_start_offset_min", 0),
-    )
-
-    if cached:
-        cached.source = "simulated"
-        cached.synced_at = now
-        cached.lat = sim_pos["lat"]
-        cached.lng = sim_pos["lng"]
-        cached.speed_kmh = sim_pos["speed_kmh"]
-        cached.bearing_degrees = None
-        cached.next_station_code = sim_pos.get("next_station_code")
-        cached.next_station_name = sim_pos.get("next_station_name")
-        cached.distance_to_next_km = sim_pos.get("distance_to_next_km")
-        cached.raw_response = None
-    else:
-        cached = TrainLiveCache(
-            train_number=clean_num,
-            source="simulated",
-            synced_at=now,
-            lat=sim_pos["lat"],
-            lng=sim_pos["lng"],
-            speed_kmh=sim_pos["speed_kmh"],
-            bearing_degrees=None,
-            next_station_code=sim_pos.get("next_station_code"),
-            next_station_name=sim_pos.get("next_station_name"),
-            distance_to_next_km=sim_pos.get("distance_to_next_km"),
-            raw_response=None,
-        )
-        db.add(cached)
-    db.commit()
-    return cached
+_perform_live_sync = live_sync.perform_live_sync
 
 
 @router.post("/trains/{train_number}/live/sync", response_model=LiveSyncResponse)

@@ -27,6 +27,7 @@ import AnimatedNumber from '../components/AnimatedNumber';
 import { formatDuration } from '../utils/time';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
+import { translateTrainName, translateStationName } from '../locales/trainNames';
 import { getTrainColor } from '../utils/trainColors';
 
 const POLL_INTERVAL_SECONDS = 60;
@@ -37,7 +38,7 @@ export default function TrackingPage() {
   const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
 
-  const { theme, t } = useSettings();
+  const { theme, t, language } = useSettings();
   const isDark = theme === 'dark';
   const { isAuthenticated, openLoginModal } = useAuth();
 
@@ -625,7 +626,7 @@ export default function TrackingPage() {
 
                 {/* Train Name */}
                 <h1 className="font-bold text-xl sm:text-2xl lg:text-3xl text-navy dark:text-blue-400 tracking-tight leading-tight">
-                  {focusedTrain.trainName}
+                  {translateTrainName(focusedTrain.trainName, language, focusedTrain.trainNumber)}
                 </h1>
 
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-muted dark:text-slate-400 pt-1">
@@ -644,10 +645,56 @@ export default function TrackingPage() {
                   {focusedTrain.currentPosition?.next_station_name && (
                     <span className="flex items-center gap-1.5">
                       <Train className="w-3.5 h-3.5 text-navy dark:text-blue-400 shrink-0" />
-                      <span>{t('nextStation')}: <strong className="text-navy dark:text-blue-300 font-semibold">{focusedTrain.currentPosition.next_station_name}</strong></span>
+                      <span>{t('nextStation')}: <strong className="text-navy dark:text-blue-300 font-semibold">{translateStationName(focusedTrain.currentPosition.next_station_name, language)}</strong></span>
                     </span>
                   )}
                 </div>
+              </div>
+
+              {/* Right Column: Telemetry Summary Boxes */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3 shrink-0 text-xs w-full lg:w-auto">
+                
+                {/* Delay Delta */}
+                <div className={`p-3 rounded-lg border transition-all ${
+                  isDelayedOverall 
+                    ? 'bg-transit-orange-light/50 dark:bg-amber-950/40 border-transit-orange-border dark:border-amber-800' 
+                    : 'bg-slate-50 dark:bg-slate-800/60 border-border dark:border-slate-700'
+                }`}>
+                  <div className="text-[11px] text-muted dark:text-slate-400 font-medium mb-0.5">{t('peakDelay')}</div>
+                  <div className={`text-xl font-bold ${isDelayedOverall ? 'text-transit-orange dark:text-amber-400' : 'text-transit-green dark:text-emerald-400'}`}>
+                    <AnimatedNumber 
+                      value={activeDelay} 
+                      prefix={isDelayedOverall ? '+' : ''} 
+                      suffix="m" 
+                    />
+                  </div>
+                  <div className="text-[10px] text-muted dark:text-slate-400 mt-0.5">
+                    {isDelayedOverall ? t('delayExpected') : t('runningOnSchedule')}
+                  </div>
+                </div>
+
+                {/* Distance to Next Halt */}
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-border dark:border-slate-700">
+                  <div className="text-[11px] text-muted dark:text-slate-400 font-medium mb-0.5">{t('nextHaltDistance')}</div>
+                  <div className="text-xl font-bold text-navy dark:text-blue-400">
+                    <AnimatedNumber value={focusedTrain.currentPosition?.distance_to_next_km || 18} /> <span className="text-xs text-muted dark:text-slate-400 font-normal">{t('km')}</span>
+                  </div>
+                  <div className="text-[10px] text-muted dark:text-slate-400 truncate">
+                    {focusedTrain.currentPosition?.next_station_code || 'NDLS'}
+                  </div>
+                </div>
+
+                {/* Route Progress */}
+                <div className="p-3 rounded-lg bg-slate-50 dark:bg-slate-800/60 border border-border dark:border-slate-700">
+                  <div className="text-[11px] text-muted dark:text-slate-400 font-medium mb-0.5">{t('routeProgress')}</div>
+                  <div className="text-xl font-bold text-navy dark:text-blue-400">
+                    <AnimatedNumber value={Math.round(((focusedStations.filter(s => s.status === 'reached').length) / Math.max(1, focusedStations.length)) * 100)} suffix="%" />
+                  </div>
+                  <div className="text-[10px] text-muted dark:text-slate-400">
+                    {focusedStations.filter(s => s.status === 'reached').length} / {focusedStations.length} {t('halt')}
+                  </div>
+                </div>
+
               </div>
 
             </div>
@@ -698,10 +745,10 @@ export default function TrackingPage() {
                 <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 sm:mt-0 ${reportSummary.flagged ? 'text-red-600' : 'text-amber-600'}`} />
                 <div>
                   <span className="font-bold">
-                    {reportSummary.flagged ? 'Active Section Alert: ' : 'Passenger Disruption Reports: '}
+                    {reportSummary.flagged ? t('activeSectionAlert') : t('passengerDisruptionReports')}
                   </span>
                   <span>
-                    {reportSummary.report_count} verified passenger {reportSummary.report_count === 1 ? 'report' : 'reports'} for #{focusedTrain.trainNumber} in the last {reportSummary.window_hours}h.
+                    {t('verifiedPassengerReports', { count: reportSummary.report_count, countWord: reportSummary.report_count === 1 ? 'report' : 'reports', hours: reportSummary.window_hours })}
                   </span>
                 </div>
               </div>
@@ -709,7 +756,7 @@ export default function TrackingPage() {
                 onClick={handleOpenReportModal}
                 className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 font-semibold text-xs transition-colors border border-current shadow-2xs self-start sm:self-auto active:scale-95"
               >
-                + Add Report
+                {t('addReport')}
               </button>
             </motion.div>
           )}

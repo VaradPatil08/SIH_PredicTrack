@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-
 import L from 'leaflet';
 import { Navigation, Maximize2, Gauge, Layers, Eye } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import { translateStationName, translateTrainName } from '../locales/trainNames';
 import { getTrainColor } from '../utils/trainColors';
 import { useDeadReckonedPosition } from '../hooks/useDeadReckonedPosition';
 
@@ -253,7 +254,7 @@ export default function TrainMap({
   focusedTrainNumber = null,
   onFocusTrain = null
 }) {
-  const { theme, t } = useSettings();
+  const { theme, t, language } = useSettings();
   const isDark = theme === 'dark';
 
   const [followTrain, setFollowTrain] = useState(false);
@@ -509,7 +510,7 @@ export default function TrainMap({
                       <div className="font-sans text-xs space-y-1.5 text-foreground dark:text-slate-100 min-w-[200px]">
                         <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
                           <span className="font-bold text-xs" style={{ color: colorHex }}>
-                            #{train.trainNumber} — {stn.name}
+                            #{train.trainNumber} — {translateStationName(stn.name, language)}
                           </span>
                           <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 font-bold text-[10px]">
                             {stn.code}
@@ -517,9 +518,9 @@ export default function TrainMap({
                         </div>
                         <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-muted dark:text-slate-400 pt-0.5">
                           <div>{t('distance')} <span className="text-foreground dark:text-slate-200 font-semibold">{stn.distance_km || 0} {t('km')}</span></div>
-                          <div>Status: <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'font-medium'}>{stn.status === 'reached' ? 'Departed' : stn.status === 'delayed' ? 'Delayed' : 'Upcoming'}</span></div>
+                          <div>{t('statusLabel')}: <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'font-medium'}>{stn.status === 'reached' ? t('departed') : stn.status === 'delayed' ? t('delayed') : t('upcoming')}</span></div>
                           <div>{t('scheduled')} <span className="text-foreground dark:text-slate-200 font-medium">+{stn.scheduled_offset_min}m</span></div>
-                          <div>Delay: <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
+                          <div>{t('delayLabel')}: <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
                         </div>
                       </div>
                     </Popup>

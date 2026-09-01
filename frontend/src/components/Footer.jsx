@@ -26,7 +26,7 @@ export default function Footer() {
             </div>
             <div>
               <span className="font-bold text-sm tracking-tight text-navy dark:text-blue-400">
-                {t('brandTitle')}
+                {t('brandTitle')} <span className="text-railway-red">•</span> {t('footerSub')}
               </span>
             </div>
           </div>
@@ -40,7 +40,7 @@ export default function Footer() {
             </Link>
             {!isAdminPage && (
               <Link to="/admin" className="min-h-[40px] flex items-center text-muted hover:text-navy transition-colors">
-                Station Admin
+                {t('stationAdmin')}
               </Link>
             )}
           </div>

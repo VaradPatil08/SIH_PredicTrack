@@ -127,45 +127,20 @@ function createRailwayStationIcon(status, code, colorHex, isDark = false) {
  * Creates live locomotive position marker for a specific train
  */
 function createLiveTrainIcon(trainNumber, speed, colorHex, isFocused = false, isDark = false) {
-  const bg = colorHex || (isDark ? '#1E3A8A' : '#17324D');
-  const border = isFocused ? '#FFFFFF' : (isDark ? '#64748B' : '#CBD2D9');
+  const accent = colorHex || (isDark ? '#60A5FA' : '#17324D');
 
   return L.divIcon({
-    className: 'railway-locomotive-marker',
+    className: `live-train-dot-marker${isFocused ? ' is-focused' : ''}`,
     html: `
-      <div style="position: relative; display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%); z-index: ${isFocused ? 1000 : 500};">
-        <div style="
-          display: flex;
-          align-items: center;
-          gap: 4px;
-          padding: 3px 6px;
-          background-color: ${bg};
-          color: #FFFFFF;
-          border: 2px solid ${border};
-          border-radius: 6px;
-          box-shadow: 0 4px 12px rgba(0,0,0,0.45);
-          font-family: 'Inter', sans-serif;
-          font-size: 11px;
-          font-weight: 700;
-          white-space: nowrap;
-          transform: scale(${isFocused ? 1.08 : 0.95});
-          transition: transform 0.2s ease;
-        ">
-          <span style="display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: #10B981;"></span>
-          <span>#${trainNumber || 'TRAIN'}</span>
-          <span style="font-size: 9px; opacity: 0.9; font-weight: 500;">${speed || 0} km/h</span>
-        </div>
-        <div style="
-          width: 0; 
-          height: 0; 
-          border-left: 5px solid transparent;
-          border-right: 5px solid transparent;
-          border-top: 6px solid ${bg};
-        "></div>
+      <div class="live-train-dot" style="--train-accent: ${accent};" aria-label="Live train #${trainNumber || 'TRAIN'}">
+        <span class="live-train-dot__pulse"></span>
+        <span class="live-train-dot__core"></span>
+        ${isFocused ? `<span class="live-train-dot__label">LIVE · ${speed || 0} km/h</span>` : ''}
       </div>
     `,
-    iconSize: [84, 38],
-    iconAnchor: [42, 38],
+    iconSize: isFocused ? [110, 72] : [48, 48],
+    iconAnchor: isFocused ? [55, 36] : [24, 24],
+    popupAnchor: [0, -22],
   });
 }
 
@@ -311,12 +286,12 @@ export default function TrainMap({
   }, [normalizedTrains]);
 
   return (
-    <div className="relative w-full h-[360px] sm:h-[480px] lg:h-[620px] bg-slate-100 dark:bg-slate-900 rounded-lg border border-border dark:border-slate-800 shadow-card overflow-hidden font-sans transition-colors">
+    <div className="train-map-shell relative w-full h-[360px] sm:h-[480px] lg:h-[620px] bg-slate-100 dark:bg-slate-900 rounded-xl border border-border dark:border-slate-800 shadow-card overflow-hidden font-sans transition-colors">
       
       {/* Top Left Floating Status Card */}
-      <div className="absolute top-2 sm:top-3 left-2 sm:left-3 z-[1000] flex flex-wrap items-center gap-1.5 sm:gap-2 pointer-events-auto max-w-[calc(100%-120px)]">
+      <div className="absolute top-3 left-3 z-[1000] flex flex-wrap items-center gap-2 pointer-events-auto max-w-[calc(100%-120px)]">
         {focusedTrain && (
-          <div className="px-2.5 sm:px-3 py-1.5 rounded-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-border dark:border-slate-700 shadow-sm text-xs text-foreground dark:text-slate-100 flex items-center gap-1.5 sm:gap-2 font-medium">
+          <div className="map-glass-card px-3 py-2 rounded-lg backdrop-blur-md text-xs text-foreground dark:text-slate-100 flex items-center gap-2 font-medium">
             <span 
               className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-2xs"
               style={{ backgroundColor: focusedTrain.color.currentHex }}
@@ -332,7 +307,7 @@ export default function TrainMap({
         )}
 
         {focusedTrain?.currentPosition?.speed_kmh !== undefined && (
-          <div className="hidden sm:flex px-3 py-1.5 rounded-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs border border-border dark:border-slate-700 shadow-sm text-xs text-foreground dark:text-slate-100 items-center gap-1.5 font-sans">
+          <div className="hidden sm:flex map-glass-card px-3 py-2 rounded-lg backdrop-blur-md text-xs text-foreground dark:text-slate-100 items-center gap-1.5 font-sans">
             <Gauge className="w-3.5 h-3.5 text-navy dark:text-blue-400" />
             <span className="font-bold text-navy dark:text-blue-400">{focusedTrain.currentPosition.speed_kmh}</span>
             <span className="text-muted dark:text-slate-400 text-[11px]">{t('km')}/h</span>
@@ -341,13 +316,13 @@ export default function TrainMap({
       </div>
 
       {/* Top Right Controls Overlay */}
-      <div className="absolute top-2 sm:top-3 right-2 sm:right-3 z-[1000] flex items-center gap-1.5 sm:gap-2 pointer-events-auto">
+      <div className="absolute top-3 right-3 z-[1000] flex items-center gap-2 pointer-events-auto">
         <button
           onClick={() => setFollowTrain(!followTrain)}
           className={`flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 min-h-[36px] rounded-md text-xs font-semibold border shadow-sm transition-all active:scale-95 ${
             followTrain 
-              ? 'bg-navy dark:bg-blue-600 text-white border-navy dark:border-blue-500' 
-              : 'bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs text-muted dark:text-slate-300 hover:text-navy dark:hover:text-white border-border dark:border-slate-700'
+              ? 'bg-slate-950 dark:bg-blue-600 text-white border-slate-950 dark:border-blue-500 shadow-lg' 
+              : 'map-glass-control text-muted dark:text-slate-300 hover:text-navy dark:hover:text-white'
           }`}
           title={focusedTrain ? `Auto-follow Train #${focusedTrain.trainNumber}` : 'Auto-follow train'}
         >
@@ -360,7 +335,7 @@ export default function TrainMap({
             setFollowTrain(false);
             setRecenterTrigger(prev => prev + 1);
           }}
-          className="p-2 min-h-[36px] min-w-[36px] flex items-center justify-center rounded-md bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs text-muted dark:text-slate-300 hover:text-navy dark:hover:text-white border border-border dark:border-slate-700 shadow-sm transition-all active:scale-95"
+          className="map-glass-control p-2 min-h-[38px] min-w-[38px] flex items-center justify-center rounded-lg transition-all active:scale-95"
           title={t('recenterRoute')}
           aria-label={t('recenterRoute')}
         >
@@ -370,7 +345,7 @@ export default function TrainMap({
 
       {/* Multi-Train Color Key Legend (Shown when tracking 2+ trains) */}
       {normalizedTrains.length > 1 && (
-        <div className="absolute bottom-3 left-3 z-[1000] w-48 sm:w-56 max-h-36 overflow-y-auto rounded-lg border border-border dark:border-slate-800 bg-white/95 dark:bg-slate-900/95 backdrop-blur-xs p-2 shadow-card space-y-1 text-xs">
+        <div className="map-glass-card absolute bottom-3 left-3 z-[1000] w-52 sm:w-60 max-h-40 overflow-y-auto rounded-xl backdrop-blur-md p-2.5 shadow-card space-y-1 text-xs">
           <div className="flex items-center justify-between px-1 pb-1 border-b border-border dark:border-slate-800 text-[10px] font-bold uppercase tracking-wider text-muted dark:text-slate-400">
             <span className="flex items-center gap-1">
               <Layers className="w-3 h-3 text-navy dark:text-blue-400" />
@@ -413,6 +388,10 @@ export default function TrainMap({
           </div>
         </div>
       )}
+
+      <div className="absolute bottom-3 right-3 z-[1000] map-glass-card rounded-lg px-2.5 py-1.5 text-[10px] font-semibold uppercase tracking-wider text-muted dark:text-slate-300 flex items-center gap-2">
+        <span className="live-status-dot" /> Live position
+      </div>
 
       {/* Leaflet Map with OpenStreetMap / Esri Tiles (No API key / watermark required) */}
       <MapContainer

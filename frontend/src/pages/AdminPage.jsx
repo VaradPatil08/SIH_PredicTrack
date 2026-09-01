@@ -15,6 +15,8 @@ import {
   ArrowUpDown
 } from 'lucide-react';
 import { getAdminStations, getAdminStationArrivals } from '../services/api';
+import { useSettings } from '../context/SettingsContext';
+import { translateStationName, translateTrainName } from '../locales/trainNames';
 
 // Convert scheduled_offset_min + delay into a HH:MM clock string
 function offsetToTime(baseOffsetMin, delayMin = 0) {
@@ -56,35 +58,33 @@ function computeTrainStatus(scheduledOffsetMin, delayMin, haltMin = 2) {
  * Visual Status Badge Component
  */
 function StatusBadge({ status }) {
+  const { t } = useSettings();
   if (status === 'APPROACHING') {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border border-blue-200 text-navy bg-blue-50 shadow-2xs tracking-wide">
-        APPROACHING
+        {t('approaching')}
       </span>
     );
   }
   if (status === 'AT_PLATFORM') {
     return (
       <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold bg-navy text-white shadow-xs tracking-wide">
-        AT PLATFORM
+        {t('atPlatform')}
       </span>
     );
   }
   // DEPARTED (faded/quiet visual state)
   return (
     <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold border border-slate-200 text-muted bg-slate-100 tracking-wide">
-      DEPARTED
+      {t('departedStatus')}
     </span>
   );
 }
 
 /**
  * 2. DELAY SEVERITY LOGIC (computed independently of status badge)
- * delayMinutes <= 5: on-time
- * delayMinutes 6-15: moderate
- * delayMinutes >= 16: severe
  */
-function getDelaySeverity(delayMinutes = 0) {
+function getDelaySeverity(delayMinutes = 0, t = (k) => k) {
   const d = Math.max(0, delayMinutes || 0);
 
   if (d <= 5) {
@@ -94,7 +94,7 @@ function getDelaySeverity(delayMinutes = 0) {
       badgeClass: 'bg-emerald-50 border border-emerald-200 text-transit-green',
       borderLeftClass: 'border-l-transit-green',
       dotColor: '#2E7D32',
-      label: d === 0 ? 'ON TIME' : `+${d}m`,
+      label: d === 0 ? t('onTimeStatus') : `+${d}m`,
     };
   }
   if (d <= 15) {
@@ -104,7 +104,7 @@ function getDelaySeverity(delayMinutes = 0) {
       badgeClass: 'bg-amber-50 border border-amber-200 text-transit-orange',
       borderLeftClass: 'border-l-transit-orange',
       dotColor: '#ED8B00',
-      label: `+${d}m LATE`,
+      label: `+${d}m`,
     };
   }
   return {
@@ -113,12 +113,13 @@ function getDelaySeverity(delayMinutes = 0) {
     badgeClass: 'bg-red-50 border border-red-200 text-railway-red',
     borderLeftClass: 'border-l-railway-red',
     dotColor: '#D32F2F',
-    label: `+${d}m LATE`,
+    label: `+${d}m`,
   };
 }
 
 function DelaySeverityBadge({ delayMinutes }) {
-  const sev = getDelaySeverity(delayMinutes);
+  const { t } = useSettings();
+  const sev = getDelaySeverity(delayMinutes, t);
   return (
     <span className={`inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold font-mono ${sev.badgeClass}`}>
       {sev.label}
@@ -143,6 +144,7 @@ function SkeletonRow() {
 // ---------------------------------------------------------------------------
 function StationPickerView() {
   const navigate = useNavigate();
+  const { t, language } = useSettings();
   const [stations, setStations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filterQuery, setFilterQuery] = useState('');
@@ -169,19 +171,16 @@ function StationPickerView() {
         <div className="space-y-2">
           <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-[#17324D] dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-semibold">
             <span className="w-2 h-2 rounded-full bg-[#17324D] dark:bg-blue-400 inline-block" />
-            <span>Station Admin Portal</span>
+            <span>{t('adminPanel')}</span>
             <span className="text-slate-300 dark:text-slate-600">|</span>
-            <span className="font-normal text-muted dark:text-slate-400">Live Arrivals Board</span>
+            <span className="font-normal text-muted dark:text-slate-400">{t('liveArrivalsBoard')}</span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-bold text-[#17324D] dark:text-[#93C5FD] tracking-tight">
-            Select Station & Live Arrivals Board
+            {t('adminStationBoard')}
           </h1>
           <p className="text-xs sm:text-sm text-[#667085] dark:text-[#94A3B8] max-w-2xl">
-            Pick a station from the directory below to view real-time arrivals, delay updates, platform assignments, and halt durations.
-            {!loading && stations.length > 0 && (
-              <span className="ml-1 font-semibold text-[#17324D] dark:text-blue-300">({stations.length.toLocaleString()} stations available)</span>
-            )}
+            {t('adminSubtitle')}
           </p>
         </div>
 
@@ -193,7 +192,7 @@ function StationPickerView() {
               type="text"
               value={filterQuery}
               onChange={e => setFilterQuery(e.target.value)}
-              placeholder="Search station by name or code (e.g. BGJT, NDLS, New Delhi, Kanpur, CNB, Mumbai)..."
+              placeholder={t('searchStationPlaceholder')}
               className="w-full pl-10 pr-10 py-2.5 rounded-lg border border-[#D9DEE5] dark:border-slate-700 bg-[#F8FAFC] dark:bg-slate-800/50 text-[#1F2933] dark:text-slate-100 placeholder:text-[#667085] dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 transition-all"
               aria-label="Filter stations"
               autoFocus
@@ -220,22 +219,21 @@ function StationPickerView() {
           <div className="p-12 text-center bg-white dark:bg-[#1E293B] rounded-lg border border-dashed border-[#D9DEE5] dark:border-slate-700 space-y-3 shadow-card">
             <Building2 className="w-10 h-10 text-[#667085] dark:text-slate-500 mx-auto opacity-60" />
             <p className="text-sm font-semibold text-[#1F2933] dark:text-slate-200">
-              No stations matching "{filterQuery}"
+              {t('noMatchingServices', { query: filterQuery })}
             </p>
             <button 
               onClick={() => setFilterQuery('')} 
               className="px-4 py-2 rounded-lg bg-[#17324D] dark:bg-blue-600 hover:bg-[#24476B] text-white text-xs font-semibold transition-colors"
             >
-              Clear Search Filter
+              {t('clearSearchFilter')}
             </button>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs text-[#667085] dark:text-[#94A3B8]">
               <span className="font-semibold uppercase tracking-wider">
-                {filtered.length < stations.length ? `Showing ${filtered.length} of ${stations.length} stations` : `All ${stations.length.toLocaleString()} Stations`}
+                {t('coveredTrainsCount')}
               </span>
-              <span className="text-[11px]">Click any station to open live board</span>
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 max-h-[65vh] overflow-y-auto pr-1">
@@ -252,17 +250,12 @@ function StationPickerView() {
                       </span>
                     </div>
                     <div className="text-xs text-[#1F2933] dark:text-slate-300 font-medium truncate max-w-[200px]">
-                      {station.name}
+                      {translateStationName(station.name, language)}
                     </div>
                   </div>
                   <ChevronRight className="w-4 h-4 text-[#667085] dark:text-slate-400 group-hover:text-[#17324D] dark:group-hover:text-blue-300 group-hover:translate-x-0.5 transition-all shrink-0" />
                 </button>
               ))}
-              {filtered.length > 300 && (
-                <div className="col-span-full text-center text-xs text-[#667085] dark:text-slate-400 py-3">
-                  + {filtered.length - 300} more stations — type in search to narrow down
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -276,6 +269,7 @@ function StationPickerView() {
 // ---------------------------------------------------------------------------
 function ArrivalsBoard({ stationCode }) {
   const navigate = useNavigate();
+  const { t, language } = useSettings();
   const [arrivals, setArrivals] = useState([]);
   const [loading, setLoading] = useState(true);
   const [lastUpdated, setLastUpdated] = useState(null);
@@ -290,11 +284,11 @@ function ArrivalsBoard({ stationCode }) {
       setLastUpdated(new Date());
       setError(null);
     } catch (err) {
-      setError('Failed to load arrivals. Retrying...');
+      setError(t('telemetryOffline', { trainNumber: stationCode }));
     } finally {
       setLoading(false);
     }
-  }, [stationCode]);
+  }, [stationCode, t]);
 
   useEffect(() => {
     setLoading(true);
@@ -329,7 +323,7 @@ function ArrivalsBoard({ stationCode }) {
         arr.predicted_delay_min,
         arr.halt_min
       );
-      const severity = getDelaySeverity(arr.predicted_delay_min);
+      const severity = getDelaySeverity(arr.predicted_delay_min, t);
       return {
         ...arr,
         computedStatus: status,
@@ -342,7 +336,7 @@ function ArrivalsBoard({ stationCode }) {
     }
     // Default chronological by predicted arrival
     return list.sort((a, b) => (a.predicted_arrival_offset_min || 0) - (b.predicted_arrival_offset_min || 0));
-  }, [arrivals, sortBy]);
+  }, [arrivals, sortBy, t]);
 
   return (
     <div className="min-h-screen bg-[#F5F6F8] dark:bg-[#0F172A] text-[#1F2933] dark:text-[#F1F5F9] font-sans transition-colors">
@@ -355,7 +349,7 @@ function ArrivalsBoard({ stationCode }) {
             className="inline-flex items-center gap-1.5 min-h-[36px] text-xs sm:text-sm font-semibold text-[#667085] dark:text-slate-400 hover:text-[#17324D] dark:hover:text-blue-400 transition-colors rounded p-1 group active:scale-95"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Back to All Stations</span>
+            <span>{t('backToDirectory')}</span>
           </button>
 
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
@@ -365,19 +359,19 @@ function ArrivalsBoard({ stationCode }) {
                   {stationCode}
                 </span>
                 <span className="px-2.5 py-0.5 rounded text-xs font-semibold bg-blue-50 dark:bg-blue-950/60 text-[#17324D] dark:text-blue-300 border border-blue-200 dark:border-blue-800">
-                  Live Arrivals Board
+                  {t('liveArrivalsBoard')}
                 </span>
                 <span className="text-[11px] font-semibold text-[#2E7D32] dark:text-emerald-400 flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
                     <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-[#2E7D32] opacity-75"></span>
                     <span className="relative inline-flex rounded-full h-2 w-2 bg-[#2E7D32]"></span>
                   </span>
-                  <span>Live Feed Active</span>
+                  <span>{t('irSatOperational')}</span>
                 </span>
               </div>
 
               <h1 className="text-2xl sm:text-3xl font-bold text-[#17324D] dark:text-[#93C5FD] tracking-tight">
-                {stationCode} Station Live Arrivals
+                {translateStationName(stationCode, language)} {t('liveArrivalsBoard')}
               </h1>
 
               {/* 4. SUMMARY STRIP (under heading, above table) */}
@@ -385,15 +379,15 @@ function ArrivalsBoard({ stationCode }) {
                 <div className="flex items-center gap-4 text-xs font-medium pt-0.5 text-[#1F2933] dark:text-slate-300">
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-[#639922] inline-block" />
-                    <span><strong>{onTimeCount}</strong> on-time</span>
+                    <span><strong>{onTimeCount}</strong> {t('onTime')}</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-[#BA7517] inline-block" />
-                    <span><strong>{moderateCount}</strong> delayed</span>
+                    <span><strong>{moderateCount}</strong> {t('delayed')}</span>
                   </span>
                   <span className="flex items-center gap-1.5">
                     <span className="w-2 h-2 rounded-full bg-[#A32D2D] inline-block" />
-                    <span><strong>{severeCount}</strong> critical</span>
+                    <span><strong>{severeCount}</strong> {t('delayLabel')}</span>
                   </span>
                 </div>
               )}
@@ -401,40 +395,12 @@ function ArrivalsBoard({ stationCode }) {
 
             {/* Right Status / Actions */}
             <div className="flex items-center gap-2.5 text-xs flex-wrap">
-              
-              {/* 6. Sort Toggle */}
-              <button
-                onClick={() => setSortBy(prev => prev === 'time' ? 'delay' : 'time')}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border font-semibold text-xs transition-all shadow-2xs active:scale-95 ${
-                  sortBy === 'delay'
-                    ? 'bg-[#17324D] dark:bg-blue-600 text-white border-[#17324D] dark:border-blue-600'
-                    : 'bg-white dark:bg-slate-800 text-[#17324D] dark:text-blue-300 border-[#D9DEE5] dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'
-                }`}
-                title={sortBy === 'delay' ? 'Currently sorting by highest delay' : 'Currently sorting chronologically'}
-              >
-                <ArrowUpDown className="w-3.5 h-3.5" />
-                <span>{sortBy === 'delay' ? 'Sorted by Delay' : 'Sort by Delay'}</span>
-              </button>
-
-              {/* Auto-Refresh Badge */}
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white dark:bg-slate-800 border border-[#D9DEE5] dark:border-slate-700 text-[#667085] dark:text-slate-300 shadow-2xs">
-                <span className="w-2 h-2 rounded-full bg-[#2E7D32] inline-block animate-pulse" />
-                <span className="text-[11px] font-medium">Auto-refresh: 12s</span>
-              </div>
-
-              {lastUpdated && (
-                <div className="hidden md:flex items-center gap-1.5 text-[11px] text-[#667085] dark:text-slate-400">
-                  <Clock className="w-3.5 h-3.5" />
-                  <span>Updated {lastUpdated.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
-                </div>
-              )}
-
               <button
                 onClick={fetchArrivals}
                 className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg bg-white dark:bg-slate-800 hover:bg-slate-100 dark:hover:bg-slate-700 text-[#17324D] dark:text-blue-400 border border-[#D9DEE5] dark:border-slate-700 font-semibold text-xs transition-all shadow-2xs active:scale-95"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh</span>
+                <span>{t('syncTelemetry')}</span>
               </button>
             </div>
           </div>
@@ -454,13 +420,13 @@ function ArrivalsBoard({ stationCode }) {
             <table className="w-full text-xs font-sans border-collapse">
               <thead>
                 <tr className="bg-slate-50 dark:bg-slate-800/80 border-b border-[#D9DEE5] dark:border-slate-800 text-[11px] font-semibold text-[#667085] dark:text-slate-400">
-                  <th className="text-left px-4 py-3.5">TRAIN</th>
-                  <th className="text-left px-4 py-3.5">PLATFORM</th>
-                  <th className="text-left px-4 py-3.5">EXP ARRIVAL</th>
-                  <th className="text-left px-4 py-3.5">STATUS / DELAY</th>
-                  <th className="text-left px-4 py-3.5">HALT</th>
-                  <th className="text-left px-4 py-3.5">DIRECTION</th>
-                  <th className="text-right px-4 py-3.5">ACTION</th>
+                  <th className="text-left px-4 py-3.5">{t('tableTrain')}</th>
+                  <th className="text-left px-4 py-3.5">{t('tablePlatform')}</th>
+                  <th className="text-left px-4 py-3.5">{t('tableExpected')}</th>
+                  <th className="text-left px-4 py-3.5">{t('tableStatus')} / {t('tableDelay')}</th>
+                  <th className="text-left px-4 py-3.5">{t('halt')}</th>
+                  <th className="text-left px-4 py-3.5">{t('originDestination')}</th>
+                  <th className="text-right px-4 py-3.5">{t('action')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[#D9DEE5] dark:divide-slate-800">
@@ -471,7 +437,7 @@ function ArrivalsBoard({ stationCode }) {
                     <td colSpan={7} className="px-4 py-16 text-center text-muted dark:text-slate-400">
                       <Train className="w-8 h-8 mx-auto mb-2 opacity-50 text-[#17324D] dark:text-blue-400" />
                       <p className="text-xs font-semibold">
-                        No trains currently scheduled through {stationCode}
+                        {t('noArrivalsFound')}
                       </p>
                     </td>
                   </tr>
@@ -479,6 +445,10 @@ function ArrivalsBoard({ stationCode }) {
 
                 {!loading && processedArrivals.map((arrival, idx) => {
                   const isDeparted = arrival.computedStatus === 'DEPARTED';
+                  const localizedTrainName = translateTrainName(arrival.train_name, language, arrival.train_number);
+                  const localizedDirection = arrival.direction 
+                    ? arrival.direction.split(/[-–—→]/).map(s => translateStationName(s.trim(), language)).join(' → ')
+                    : '';
 
                   return (
                     <motion.tr
@@ -486,7 +456,6 @@ function ArrivalsBoard({ stationCode }) {
                       initial={{ opacity: 0 }}
                       animate={{ opacity: 1 }}
                       transition={{ delay: Math.min(idx * 0.02, 0.3) }}
-                      /* 3. ROW LEFT BORDER (4px colored by severity) & 5. DEPARTED ROW MUTING */
                       className={`transition-colors border-l-4 ${arrival.severity.borderLeftClass} ${
                         isDeparted 
                           ? 'opacity-55 hover:opacity-80 bg-slate-50/40 dark:bg-slate-900/20' 
@@ -508,7 +477,7 @@ function ArrivalsBoard({ stationCode }) {
                         <div className={`text-[11px] truncate max-w-[220px] ${
                           isDeparted ? 'text-slate-400 dark:text-slate-500' : 'text-[#667085] dark:text-slate-400'
                         }`}>
-                          {arrival.train_name}
+                          {localizedTrainName}
                         </div>
                       </td>
 
@@ -519,7 +488,7 @@ function ArrivalsBoard({ stationCode }) {
                             ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
                             : 'bg-slate-100 dark:bg-slate-800 border-[#D9DEE5] dark:border-slate-700 text-[#17324D] dark:text-slate-200'
                         }`}>
-                          PF {arrival.platform}
+                          {t('platform')} {arrival.platform}
                         </span>
                       </td>
 
@@ -531,16 +500,14 @@ function ArrivalsBoard({ stationCode }) {
                           {offsetToTime(arrival.scheduled_arrival_offset_min, arrival.predicted_delay_min)}
                         </div>
                         <div className="text-[10px] text-[#667085] dark:text-slate-400 font-mono">
-                          SCH: {offsetToTime(arrival.scheduled_arrival_offset_min)}
+                          {t('schedHalt')}: {offsetToTime(arrival.scheduled_arrival_offset_min)}
                         </div>
                       </td>
 
                       {/* 1. STATUS & 2. DELAY SEVERITY BADGES (independent) */}
                       <td className="px-4 py-3.5">
                         <div className="flex flex-col items-start gap-1">
-                          {/* 1. Status badge (APPROACHING / AT PLATFORM / DEPARTED) */}
                           <StatusBadge status={arrival.computedStatus} />
-                          {/* 2. Delay severity badge (ON TIME / +Xm / +Xm LATE) */}
                           <DelaySeverityBadge delayMinutes={arrival.predicted_delay_min} />
                         </div>
                       </td>
@@ -552,7 +519,7 @@ function ArrivalsBoard({ stationCode }) {
                             ? isDeparted ? 'text-slate-400 dark:text-slate-500' : 'text-[#1F2933] dark:text-slate-200'
                             : 'text-[#667085] dark:text-slate-500'
                         }`}>
-                          {arrival.halt_min > 0 ? `${arrival.halt_min} min` : '—'}
+                          {arrival.halt_min > 0 ? `${arrival.halt_min} ${t('minuteSuffix')}` : '—'}
                         </span>
                       </td>
 
@@ -561,7 +528,7 @@ function ArrivalsBoard({ stationCode }) {
                         <span className={`text-xs truncate max-w-[180px] block ${
                           isDeparted ? 'text-slate-400 dark:text-slate-500' : 'text-[#667085] dark:text-slate-300'
                         }`}>
-                          {arrival.direction}
+                          {localizedDirection || arrival.direction}
                         </span>
                       </td>
 
@@ -575,7 +542,7 @@ function ArrivalsBoard({ stationCode }) {
                               : 'bg-[#17324D] dark:bg-blue-600 text-white hover:bg-[#24476B] dark:hover:bg-blue-500'
                           }`}
                         >
-                          <span>Track</span>
+                          <span>{t('track')}</span>
                           <ExternalLink className="w-3 h-3" />
                         </Link>
                       </td>

@@ -22,12 +22,13 @@ import AnimatedNumber from '../components/AnimatedNumber';
 import { formatDuration } from '../utils/time';
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
+import { translateTrainName, translateStationName } from '../locales/trainNames';
 
 const POLL_INTERVAL_SECONDS = 6;
 
 export default function TrackingPage() {
   const { trainNumber } = useParams();
-  const { t } = useSettings();
+  const { t, language } = useSettings();
   const { isAuthenticated, openLoginModal } = useAuth();
   const [etaData, setEtaData] = useState(null);
   const [reportSummary, setReportSummary] = useState(null);
@@ -224,7 +225,7 @@ export default function TrackingPage() {
 
                 {/* Train Name */}
                 <h1 className="font-bold text-xl sm:text-2xl lg:text-3xl text-navy dark:text-blue-400 tracking-tight leading-tight">
-                  {etaData.name}
+                  {translateTrainName(etaData.name, language, etaData.train_number)}
                 </h1>
 
                 <div className="flex flex-wrap items-center gap-3 sm:gap-4 text-xs text-muted dark:text-slate-400 pt-1">
@@ -243,7 +244,7 @@ export default function TrackingPage() {
                   {etaData.current_position?.next_station_name && (
                     <span className="flex items-center gap-1.5">
                       <Train className="w-3.5 h-3.5 text-navy dark:text-blue-400 shrink-0" />
-                      <span>{t('nextStation')}: <strong className="text-navy dark:text-blue-300 font-semibold">{etaData.current_position.next_station_name}</strong></span>
+                      <span>{t('nextStation')}: <strong className="text-navy dark:text-blue-300 font-semibold">{translateStationName(etaData.current_position.next_station_name, language)}</strong></span>
                     </span>
                   )}
                 </div>
@@ -267,7 +268,7 @@ export default function TrackingPage() {
                     />
                   </div>
                   <div className="text-[10px] text-muted dark:text-slate-400 mt-0.5">
-                    {isDelayedOverall ? 'Delay Expected' : 'Running on Schedule'}
+                    {isDelayedOverall ? t('delayExpected') : t('runningOnSchedule')}
                   </div>
                 </div>
 
@@ -344,10 +345,10 @@ export default function TrackingPage() {
                 <AlertTriangle className={`w-4 h-4 shrink-0 mt-0.5 sm:mt-0 ${reportSummary.flagged ? 'text-red-600' : 'text-amber-600'}`} />
                 <div>
                   <span className="font-bold">
-                    {reportSummary.flagged ? 'Active Section Alert: ' : 'Passenger Disruption Reports: '}
+                    {reportSummary.flagged ? t('activeSectionAlert') : t('passengerDisruptionReports')}
                   </span>
                   <span>
-                    {reportSummary.report_count} verified passenger {reportSummary.report_count === 1 ? 'report' : 'reports'} received in the last {reportSummary.window_hours}h.
+                    {t('verifiedPassengerReports', { count: reportSummary.report_count, countWord: reportSummary.report_count === 1 ? 'report' : 'reports', hours: reportSummary.window_hours })}
                   </span>
                 </div>
               </div>
@@ -355,7 +356,7 @@ export default function TrackingPage() {
                 onClick={handleOpenReportModal}
                 className="px-3 py-1.5 rounded-lg bg-white hover:bg-slate-50 font-semibold text-xs transition-colors border border-current shadow-2xs self-start sm:self-auto active:scale-95"
               >
-                + Add Report
+                {t('addReport')}
               </button>
             </motion.div>
           )}

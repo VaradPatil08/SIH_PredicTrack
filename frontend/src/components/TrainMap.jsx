@@ -3,6 +3,7 @@ import { MapContainer, TileLayer, Polyline, Marker, Popup, useMap } from 'react-
 import L from 'leaflet';
 import { Navigation, Maximize2, Gauge } from 'lucide-react';
 import { useSettings } from '../context/SettingsContext';
+import { translateStationName, translateTrainName } from '../locales/trainNames';
 
 // Fix standard Leaflet default icon path issues
 delete L.Icon.Default.prototype._getIconUrl;
@@ -144,7 +145,7 @@ export default function TrainMap({
   trainName = '',
   onSelectStation = null
 }) {
-  const { theme, t } = useSettings();
+  const { theme, t, language } = useSettings();
   const isDark = theme === 'dark';
 
   const [followTrain, setFollowTrain] = useState(false);
@@ -330,16 +331,16 @@ export default function TrainMap({
             <Popup>
               <div className="font-sans text-xs space-y-1.5 text-foreground dark:text-slate-100 min-w-[190px]">
                 <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
-                  <span className="font-bold text-navy dark:text-blue-400 text-xs">{stn.name}</span>
+                  <span className="font-bold text-navy dark:text-blue-400 text-xs">{translateStationName(stn.name, language)}</span>
                   <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 font-bold text-[10px]">
                     {stn.code}
                   </span>
                 </div>
                 <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-muted dark:text-slate-400 pt-0.5">
                   <div>{t('distance')} <span className="text-foreground dark:text-slate-200 font-semibold">{stn.distance_km || 0} {t('km')}</span></div>
-                  <div>Status: <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'text-navy dark:text-blue-400 font-medium'}>{stn.status === 'reached' ? 'Departed' : stn.status === 'delayed' ? 'Delayed' : 'Upcoming'}</span></div>
+                  <div>{t('statusLabel')} <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'text-navy dark:text-blue-400 font-medium'}>{stn.status === 'reached' ? t('departed') : stn.status === 'delayed' ? t('delayed') : t('upcoming')}</span></div>
                   <div>{t('scheduled')} <span className="text-foreground dark:text-slate-200 font-medium">+{stn.scheduled_offset_min}m</span></div>
-                  <div>Delay: <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
+                  <div>{t('delayLabel')} <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
                 </div>
               </div>
             </Popup>
@@ -356,7 +357,7 @@ export default function TrainMap({
             <Popup autoPan={false}>
               <div className="font-sans text-xs space-y-1.5 min-w-[210px] text-foreground dark:text-slate-100">
                 <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
-                  <span className="text-navy dark:text-blue-400 font-bold text-xs">{trainNumber} {trainName}</span>
+                  <span className="text-navy dark:text-blue-400 font-bold text-xs">#{trainNumber} {translateTrainName(trainName, language, trainNumber)}</span>
                   <span className="px-1.5 py-0.5 rounded text-[10px] bg-transit-green-light dark:bg-emerald-950 text-transit-green dark:text-emerald-400 font-bold">
                     {t('liveTrack')}
                   </span>
@@ -369,7 +370,7 @@ export default function TrainMap({
                   {currentPosition?.next_station_name && (
                     <div className="flex justify-between">
                       <span>{t('nextStation')}:</span>
-                      <span className="text-navy dark:text-blue-300 font-semibold">{currentPosition.next_station_name}</span>
+                      <span className="text-navy dark:text-blue-300 font-semibold">{translateStationName(currentPosition.next_station_name, language)}</span>
                     </div>
                   )}
                 </div>

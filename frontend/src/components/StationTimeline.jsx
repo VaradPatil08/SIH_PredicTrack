@@ -4,6 +4,8 @@ import { ChevronDown, ChevronUp, AlertCircle, Check, Circle } from 'lucide-react
 import { formatOffsetToTime } from '../utils/time';
 import { getStationDelayReasons } from '../services/api';
 import { useSettings } from '../context/SettingsContext';
+import { translateDelayReason, translateDelayCategory } from '../locales/delayReasons';
+import { translateStationName } from '../locales/trainNames';
 
 /**
  * Modern Indian Railways Station Timeline
@@ -15,7 +17,7 @@ export default function StationTimeline({
   currentPosition = null,
   onSelectStation = null
 }) {
-  const { t } = useSettings();
+  const { t, language } = useSettings();
   const [expandedStation, setExpandedStation] = useState(null);
   const [delayReasons, setDelayReasons] = useState({});
   const [loadingReasons, setLoadingReasons] = useState({});
@@ -177,7 +179,7 @@ export default function StationTimeline({
                 <div className="flex-1 min-w-0 pr-1 space-y-0.5">
                   <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap">
                     <span className="font-bold text-navy dark:text-blue-400 text-sm">
-                      {station.name}
+                      {translateStationName(station.name, language)}
                     </span>
                     <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 font-mono font-bold text-[10px]">
                       {station.code}
@@ -237,21 +239,15 @@ export default function StationTimeline({
                       {loadingReasons[station.code] ? (
                         <div className="py-2 text-muted dark:text-slate-400 flex items-center gap-2 text-xs">
                           <div className="w-3 h-3 rounded-full border border-navy dark:border-blue-400 border-t-transparent animate-spin" />
-                          <span>Fetching delay reasons...</span>
+                          <span>{t('fetchingReasons')}</span>
                         </div>
                       ) : (
                         <div className="space-y-2">
                           {reasonsList.map((reason, rIdx) => {
                             const reasonText = typeof reason === 'string' ? reason : (reason.reason || 'Speed caution');
                             const rawCat = typeof reason === 'object' ? (reason.category || 'TRACK_OCCUPANCY') : 'TRACK_OCCUPANCY';
-                            const categoryNames = {
-                              'TRACK_OCCUPANCY': 'Track Congestion',
-                              'PLATFORM_HOLD': 'Waiting for Platform',
-                              'INTERLOCKING_HOLD': 'Signal Clearance',
-                              'SPEED_RESTRICTION': 'Track Work Caution',
-                              'WEATHER_CAUTION': 'Weather Caution'
-                            };
-                            const reasonCategory = categoryNames[rawCat] || rawCat.replace(/_/g, ' ');
+                            const reasonCategory = translateDelayCategory(rawCat, language);
+                            const localizedReason = translateDelayReason(reasonText, language);
                             const reasonImpact = typeof reason === 'object' ? (reason.impact_min || station.predicted_delay_min) : station.predicted_delay_min;
                             const reasonConf = typeof reason === 'object' ? reason.confidence : null;
 
@@ -262,11 +258,11 @@ export default function StationTimeline({
                                     {reasonCategory}
                                   </span>
                                   <span className="text-transit-orange dark:text-amber-400 font-bold">
-                                    +{reasonImpact} min
+                                    +{reasonImpact} {t('minuteSuffix')}
                                   </span>
                                 </div>
                                 <p className="text-muted dark:text-slate-300 text-xs leading-normal">
-                                  {reasonText}
+                                  {localizedReason}
                                 </p>
                                 {reasonConf && (
                                   <div className="flex items-center gap-2 pt-1 text-[10px] text-muted dark:text-slate-400">

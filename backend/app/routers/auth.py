@@ -1,8 +1,14 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.db import get_db
-from app.models.auth_schemas import OTPRequestIn, OTPRequestOut, OTPVerifyIn, TokenOut
+from app.models.auth_schemas import (
+    OTPRequestIn,
+    OTPRequestOut,
+    OTPVerifyIn,
+    TokenOut,
+    AdminLoginIn,
+)
 from app.services import auth_service
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -31,5 +37,23 @@ def verify_otp(payload: OTPVerifyIn, db: Session = Depends(get_db)):
         user.name = payload.name
         db.commit()
 
-    token = auth_service.create_access_token(user.id)
+    token = auth_service.create_access_token(user.id, role=user.role)
+    return TokenOut(access_token=token, user_id=user.id)
+
+
+@router.post("/admin/login", response_model=TokenOut)
+def admin_login(payload: AdminLoginIn, db: Session = Depends(get_db)):
+    """
+    Verifies pre-provisioned station-admin credentials (username/employee_id + password)
+    and returns a JWT token. No self-registration endpoint is provided.
+    """
+    user = auth_service.authenticate_admin(payload.username, payload.password, db)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid username or password",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
+    token = auth_service.create_access_token(user.id, role=user.role)
     return TokenOut(access_token=token, user_id=user.id)

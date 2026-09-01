@@ -23,6 +23,7 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
+from passlib.context import CryptContext
 from sqlalchemy.orm import Session
 
 from app.db import get_db
@@ -37,6 +38,20 @@ OTP_EXPIRE_MINUTES = 5
 OTP_MAX_ATTEMPTS = 5
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/otp/verify", auto_error=False)
+
+pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+
+
+def hash_password(password: str) -> str:
+    """Hashes a password using passlib bcrypt."""
+    return pwd_context.hash(password)
+
+
+def verify_password(plain_password: str, hashed_password: str) -> bool:
+    """Verifies a plain password against its bcrypt hash."""
+    if not hashed_password or not plain_password:
+        return False
+    return pwd_context.verify(plain_password, hashed_password)
 
 
 def _hash_code(code: str) -> str:
@@ -100,7 +115,7 @@ def verify_otp(phone_number: str, code: str, db: Session) -> User:
 
     user = db.query(User).filter(User.phone_number == phone_number).first()
     if not user:
-        user = User(phone_number=phone_number)
+        user = User(phone_number=phone_number, role="passenger")
         db.add(user)
         db.commit()
         db.refresh(user)
@@ -108,9 +123,29 @@ def verify_otp(phone_number: str, code: str, db: Session) -> User:
     return user
 
 
-def create_access_token(user_id: str) -> str:
+def authenticate_admin(username: str, password: str, db: Session) -> Optional[User]:
+    """Verifies admin credentials by checking username (or employee ID / phone) and password hash."""
+    if not username or not password:
+        return None
+    clean_username = username.strip()
+    user = (
+        db.query(User)
+        .filter(
+            (User.phone_number == clean_username) | (User.name == clean_username),
+            User.role == "station_admin",
+        )
+        .first()
+    )
+    if not user or not user.password_hash:
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    return user
+
+
+def create_access_token(user_id: str, role: str = "passenger") -> str:
     expire = datetime.datetime.utcnow() + datetime.timedelta(minutes=JWT_EXPIRE_MINUTES)
-    payload = {"sub": user_id, "exp": expire}
+    payload = {"sub": user_id, "role": role, "exp": expire}
     return jwt.encode(payload, JWT_SECRET, algorithm=JWT_ALGORITHM)
 
 
@@ -137,3 +172,16 @@ def get_current_user(
     if user is None:
         raise credentials_error
     return user
+
+
+def get_current_station_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """FastAPI dependency for routes that require a logged-in station admin. Enforces DB role check."""
+    if current_user.role != "station_admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Station admin privileges required",
+        )
+    return current_user
+

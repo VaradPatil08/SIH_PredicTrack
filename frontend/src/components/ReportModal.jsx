@@ -239,6 +239,7 @@ export default function ReportModal({
             <span>{t('brandTitle')}</span>
             <span>{t('evaluationReady')}</span>
           </div>
+
         </motion.div>
       </div>
     </AnimatePresence>

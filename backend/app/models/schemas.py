@@ -3,7 +3,7 @@ Pydantic schemas — this file defines the API contract between frontend and bac
 """
 
 from pydantic import BaseModel, Field
-from typing import Optional, List
+from typing import Optional, List, Union
 
 
 class Station(BaseModel):
@@ -39,16 +39,35 @@ class TrainSummary(BaseModel):
 class CurrentPosition(BaseModel):
     lat: float
     lng: float
-    speed_kmh: int
+    speed_kmh: Union[int, float]
     last_updated: str
     next_station_code: str
     next_station_name: str
-    distance_to_next_km: int
+    distance_to_next_km: Union[int, float]
+    bearing_degrees: Optional[float] = None
+    synced_at: Optional[str] = None
+    source: str = "simulated"  # "simulated" | "railradar"
+
+
+class LiveSyncResponse(BaseModel):
+    train_number: str
+    lat: float
+    lng: float
+    speed_kmh: float
+    bearing_degrees: Optional[float] = None
+    next_station_code: Optional[str] = None
+    next_station_name: Optional[str] = None
+    distance_to_next_km: Optional[float] = None
+    source: str = "simulated"  # "railradar" | "simulated"
+    synced_at: str
 
 
 class TrainETAResponse(BaseModel):
     train_number: str
     name: str
+    scheduled_departure: Optional[str] = None
+    schedule_source: str = "local_fallback"  # "railradar" | "local_fallback"
+    schedule_fetched_at: Optional[str] = None
     current_position: CurrentPosition
     elapsed_min: int
     stations: List[StationETA]
@@ -81,9 +100,15 @@ class StationArrivalItem(BaseModel):
     train_name: str
     platform: int
     scheduled_arrival_offset_min: int
+    scheduled_departure: str = "00:00"
+    scheduled_arrival_time: Optional[str] = None
     predicted_delay_min: int
     predicted_arrival_offset_min: int
     halt_min: int
     status: str
     direction: str
-
+    lat: Optional[float] = None
+    lng: Optional[float] = None
+    speed_kmh: Optional[float] = None
+    live_source: str = "simulated"  # "railradar" | "simulated"
+    live_synced_at: Optional[str] = None

@@ -5,6 +5,8 @@ import { SettingsProvider } from './context/SettingsContext';
 import { AuthProvider } from './context/AuthContext';
 import SettingsModal from './components/SettingsModal';
 import AuthModal from './components/AuthModal';
+import AdminLoginModal from './components/AdminLoginModal';
+import RequireStationAdmin from './components/RequireStationAdmin';
 import Navbar from './components/Navbar';
 import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
@@ -81,31 +83,35 @@ function MainApp() {
             {/* Fallback to Home */}
             <Route path="*" element={<Navigate to="/" replace />} />
 
-            {/* Station Admin View */}
+            {/* Station Admin View — Guarded by RequireStationAdmin */}
             <Route
               path="/admin"
               element={
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <AdminPage />
-                </motion.div>
+                <RequireStationAdmin>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <AdminPage />
+                  </motion.div>
+                </RequireStationAdmin>
               }
             />
             <Route
               path="/admin/:stationCode"
               element={
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  exit={{ opacity: 0 }}
-                  transition={{ duration: 0.15 }}
-                >
-                  <AdminPage />
-                </motion.div>
+                <RequireStationAdmin>
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    transition={{ duration: 0.15 }}
+                  >
+                    <AdminPage />
+                  </motion.div>
+                </RequireStationAdmin>
               }
             />
 
@@ -116,12 +122,14 @@ function MainApp() {
       {/* Global Modals */}
       <SettingsModal />
       <AuthModal />
+      <AdminLoginModal />
 
-      {/* Global Footer */}
+      {/* Global Footer (hidden on Track Train pages via internal route check) */}
       <Footer />
     </div>
   );
 }
+
 
 export default function App() {
   return (

@@ -1,29 +1,69 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ChevronDown, ChevronUp, AlertCircle, Check, Circle } from 'lucide-react';
+import { ChevronDown, ChevronUp, AlertCircle, Check, Circle, Train as TrainIcon } from 'lucide-react';
 import { formatOffsetToTime } from '../utils/time';
 import { getStationDelayReasons } from '../services/api';
 import { useSettings } from '../context/SettingsContext';
 import { translateDelayReason, translateDelayCategory } from '../locales/delayReasons';
 import { translateStationName } from '../locales/trainNames';
+import { getTrainColor } from '../utils/trainColors';
 
 /**
- * Modern Indian Railways Station Timeline
+ * Modern Indian Railways Station Timeline with Multi-Train Tabs
  */
 export default function StationTimeline({ 
   stations = [], 
   trainNumber = '', 
   baseTime = '06:00',
   currentPosition = null,
-  onSelectStation = null
+  onSelectStation = null,
+  // Multi-train support props:
+  trains = [],
+  focusedTrainNumber = null,
+  onFocusTrain = null
 }) {
-  const { t, language } = useSettings();
+  const { theme, t, language } = useSettings();
+  const isDark = theme === 'dark';
   const [expandedStation, setExpandedStation] = useState(null);
   const [delayReasons, setDelayReasons] = useState({});
   const [loadingReasons, setLoadingReasons] = useState({});
 
+  // Normalize trains input: support both unified trains array and single-train legacy props
+  const normalizedTrains = useMemo(() => {
+    if (Array.isArray(trains) && trains.length > 0) {
+      return trains.map((t, idx) => ({
+        ...t,
+        color: t.color || getTrainColor(idx, isDark),
+        isFocused: focusedTrainNumber ? t.trainNumber === focusedTrainNumber : idx === 0
+      }));
+    }
+    return [{
+      trainNumber: trainNumber || 'TRAIN',
+      trainName: '',
+      stations: stations || [],
+      scheduled_departure: baseTime,
+      currentPosition: currentPosition || null,
+      color: getTrainColor(0, isDark),
+      isFocused: true
+    }];
+  }, [trains, trainNumber, stations, baseTime, currentPosition, focusedTrainNumber, isDark]);
+
+  // Selected active train for timeline display
+  const activeTrain = useMemo(() => {
+    return normalizedTrains.find(t => t.isFocused) || normalizedTrains[0];
+  }, [normalizedTrains]);
+
+  const activeStations = activeTrain?.stations || [];
+  const activeTrainNumber = activeTrain?.trainNumber || '';
+  const activeBaseTime = activeTrain?.scheduled_departure || baseTime || '06:00';
+  const activeScheduleSource = activeTrain?.schedule_source || 'local_fallback';
+  const activeScheduleFetchedAt = activeTrain?.schedule_fetched_at || null;
+  const activeColor = activeTrain?.color?.currentHex || (isDark ? '#3B82F6' : '#17324D');
+
   const toggleStation = async (stationCode, isDelayed) => {
     if (!isDelayed) return;
+
+    const cacheKey = `${activeTrainNumber}-${stationCode}`;
 
     if (expandedStation === stationCode) {
       setExpandedStation(null);
@@ -32,17 +72,17 @@ export default function StationTimeline({
 
     setExpandedStation(stationCode);
 
-    if (!delayReasons[stationCode] && !loadingReasons[stationCode]) {
-      setLoadingReasons((prev) => ({ ...prev, [stationCode]: true }));
+    if (!delayReasons[cacheKey] && !loadingReasons[cacheKey]) {
+      setLoadingReasons((prev) => ({ ...prev, [cacheKey]: true }));
       try {
-        const reasons = await getStationDelayReasons(trainNumber, stationCode);
+        const reasons = await getStationDelayReasons(activeTrainNumber, stationCode);
         const normalized = Array.isArray(reasons) ? reasons : (reasons?.reasons || []);
-        setDelayReasons((prev) => ({ ...prev, [stationCode]: normalized }));
+        setDelayReasons((prev) => ({ ...prev, [cacheKey]: normalized }));
       } catch (err) {
         console.error(`Error loading delay reasons for ${stationCode}:`, err);
         setDelayReasons((prev) => ({
           ...prev,
-          [stationCode]: [
+          [cacheKey]: [
             {
               category: 'TRACK_OCCUPANCY',
               reason: 'Waiting for signal clearance ahead of station.',
@@ -52,7 +92,7 @@ export default function StationTimeline({
           ]
         }));
       } finally {
-        setLoadingReasons((prev) => ({ ...prev, [stationCode]: false }));
+        setLoadingReasons((prev) => ({ ...prev, [cacheKey]: false }));
       }
     }
   };
@@ -61,15 +101,77 @@ export default function StationTimeline({
     <div className="rounded-lg border border-border dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card p-4 sm:p-5 font-sans text-foreground dark:text-slate-100 transition-colors">
       
       {/* Header Bar */}
-      <div className="flex items-center justify-between pb-3 mb-4 border-b border-border dark:border-slate-800 text-xs">
-        <div className="flex items-center gap-2">
-          <span className="w-2.5 h-2.5 rounded-full bg-navy dark:bg-blue-400 inline-block" />
-          <span className="font-bold text-navy dark:text-blue-400 text-sm sm:text-base">{t('timelineTitle')}</span>
+      <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-border dark:border-slate-800 text-xs">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span 
+            className="w-2.5 h-2.5 rounded-full inline-block shrink-0 shadow-2xs" 
+            style={{ backgroundColor: activeColor }}
+          />
+          <span className="font-bold text-sm sm:text-base text-navy dark:text-blue-400">
+            {t('timelineTitle')}
+          </span>
+          {normalizedTrains.length > 1 && (
+            <span className="font-mono font-bold text-xs" style={{ color: activeColor }}>
+              (#{activeTrainNumber})
+            </span>
+          )}
+
+          {/* Schedule Source Indicator Badge */}
+          {activeScheduleSource === 'railradar' ? (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/30"
+              title={activeScheduleFetchedAt ? `Live timetable synced via RailRadar API at ${new Date(activeScheduleFetchedAt).toLocaleTimeString()}` : 'Live timetable synced via RailRadar API'}
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+              Live Schedule (RailRadar)
+            </span>
+          ) : (
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/15 text-amber-700 dark:text-amber-300 border border-amber-500/30"
+              title="Using published Indian Railways schedule fallback"
+            >
+              <span className="w-1.5 h-1.5 rounded-full bg-amber-500" />
+              Fallback Schedule
+            </span>
+          )}
         </div>
+
         <span className="px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 border border-border dark:border-slate-700">
-          {stations.length} {t('halt')}
+          {activeStations.length} {t('halt')}
         </span>
       </div>
+
+      {/* Multi-Train Horizontal Scrollable Tab Strip (Shown when tracking 2+ trains) */}
+      {normalizedTrains.length > 1 && (
+        <div className="flex items-center gap-1.5 overflow-x-auto pb-2.5 mb-3 border-b border-border dark:border-slate-800 no-scrollbar">
+          {normalizedTrains.map((tItem) => {
+            const isSelected = tItem.trainNumber === activeTrainNumber;
+            const colorHex = tItem.color.currentHex;
+            return (
+              <button
+                key={tItem.trainNumber}
+                type="button"
+                onClick={() => onFocusTrain && onFocusTrain(tItem.trainNumber)}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-md text-xs font-semibold whitespace-nowrap transition-all shrink-0 ${
+                  isSelected
+                    ? 'bg-slate-100 dark:bg-slate-800 text-foreground dark:text-slate-100 shadow-2xs border border-border dark:border-slate-700'
+                    : 'text-muted dark:text-slate-400 hover:text-foreground dark:hover:text-slate-200 hover:bg-slate-50 dark:hover:bg-slate-800/50'
+                }`}
+                style={isSelected ? { borderBottom: `2.5px solid ${colorHex}` } : {}}
+              >
+                <span
+                  className="w-2 h-2 rounded-full shrink-0 shadow-2xs"
+                  style={{ backgroundColor: colorHex }}
+                />
+                <span className="font-mono font-bold">#{tItem.trainNumber}</span>
+                <span className="text-[11px] font-normal truncate max-w-[100px] hidden sm:inline opacity-80">
+                  {tItem.trainName}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Timeline with connecting vertical railway line */}
       <div className="relative pl-7 space-y-1">
@@ -77,18 +179,18 @@ export default function StationTimeline({
         {/* Continuous vertical track line */}
         <div className="absolute left-[13px] top-3 bottom-4 w-[2px] bg-slate-200 dark:bg-slate-800 pointer-events-none" />
 
-        {stations.map((station, idx) => {
+        {activeStations.map((station, idx) => {
           const isReached = station.status === 'reached';
           const delayMin = station.predicted_delay_min || 0;
           const isDelayed = delayMin > 2;
           const isCritical = delayMin > 20;
           const isExpanded = expandedStation === station.code;
-          const isNext = !isReached && (idx === 0 || stations[idx - 1]?.status === 'reached');
+          const isNext = !isReached && (idx === 0 || activeStations[idx - 1]?.status === 'reached');
 
-          const schedTime = formatOffsetToTime(station.scheduled_offset_min, baseTime);
+          const schedTime = formatOffsetToTime(station.scheduled_offset_min, activeBaseTime);
           const predTime = formatOffsetToTime(
             (station.scheduled_offset_min || 0) + (station.predicted_delay_min || 0),
-            baseTime
+            activeBaseTime
           );
 
           // Status badges & node styling
@@ -143,22 +245,23 @@ export default function StationTimeline({
               </span>
             );
             nodeIcon = (
-              <div className="relative w-6 h-6 rounded-full bg-navy dark:bg-blue-600 text-white flex items-center justify-center shadow-sm">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-navy dark:bg-blue-500 opacity-25" />
+              <div className="relative w-6 h-6 rounded-full text-white flex items-center justify-center shadow-sm" style={{ backgroundColor: activeColor }}>
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-25" style={{ backgroundColor: activeColor }} />
                 <span className="relative w-2 h-2 rounded-full bg-white shadow-xs" />
               </div>
             );
           }
 
-          const rawReasons = delayReasons[station.code];
+          const cacheKey = `${activeTrainNumber}-${station.code}`;
+          const rawReasons = delayReasons[cacheKey];
           const reasonsList = Array.isArray(rawReasons) ? rawReasons : (rawReasons?.reasons || []);
 
           return (
             <motion.div
-              key={station.code || idx}
+              key={`${activeTrainNumber}-${station.code || idx}`}
               initial={{ opacity: 0, x: -8 }}
               animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.25, delay: Math.min(idx * 0.025, 0.25), ease: [0.16, 1, 0.3, 1] }}
+              transition={{ duration: 0.2, delay: Math.min(idx * 0.02, 0.2), ease: [0.16, 1, 0.3, 1] }}
               className={`relative py-3 px-2 rounded-lg transition-all duration-200 border-b border-slate-100 dark:border-slate-800 last:border-0 ${
                 isNext ? 'bg-slate-50/90 dark:bg-slate-800/60 shadow-2xs' : isExpanded ? 'bg-slate-50 dark:bg-slate-800/80 shadow-xs' : 'hover:bg-slate-50/80 dark:hover:bg-slate-800/50'
               }`}
@@ -232,11 +335,11 @@ export default function StationTimeline({
                       <div className="flex items-center justify-between pb-2 border-b border-border dark:border-slate-700">
                         <div className="flex items-center gap-1.5 text-navy dark:text-blue-400 font-bold">
                           <AlertCircle className="w-4 h-4 text-transit-orange dark:text-amber-400" />
-                          <span>{t('rootCauseAttribution')} ({station.code})</span>
+                          <span>{t('rootCauseAttribution')} ({station.code}) — Train #{activeTrainNumber}</span>
                         </div>
                       </div>
 
-                      {loadingReasons[station.code] ? (
+                      {loadingReasons[cacheKey] ? (
                         <div className="py-2 text-muted dark:text-slate-400 flex items-center gap-2 text-xs">
                           <div className="w-3 h-3 rounded-full border border-navy dark:border-blue-400 border-t-transparent animate-spin" />
                           <span>{t('fetchingReasons')}</span>
@@ -293,7 +396,3 @@ export default function StationTimeline({
     </div>
   );
 }
-
-
-
-

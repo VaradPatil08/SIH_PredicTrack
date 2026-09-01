@@ -110,10 +110,10 @@ export default function Navbar() {
                       ? 'text-navy dark:text-blue-300 bg-navy-subtle dark:bg-blue-950/60 font-bold'
                       : 'text-muted dark:text-slate-500 hover:text-navy dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800'
                   }`}
-                  title="Station Admin — Arrivals Board"
+                  title={t('stationAdminArrivals')}
                 >
                   <LayoutGrid className="w-3.5 h-3.5" />
-                  <span>Station Admin</span>
+                  <span>{t('stationAdmin')}</span>
                 </Link>
               </>
             )}
@@ -281,7 +281,6 @@ export default function Navbar() {
                   </Link>
                 );
               })}
-
               {/* Station Admin link in mobile drawer — ONLY when isStationAdmin === true */}
               {isStationAdmin && (
                 <Link
@@ -294,7 +293,7 @@ export default function Navbar() {
                   }`}
                 >
                   <LayoutGrid className="w-4 h-4" />
-                  Station Admin
+                  {t('stationAdmin')}
                 </Link>
               )}
             </nav>

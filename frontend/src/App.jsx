@@ -124,8 +124,8 @@ function MainApp() {
       <AuthModal />
       <AdminLoginModal />
 
-      {/* Global Footer (hidden on Live Trains directory and Track Train pages) */}
-      {location.pathname !== '/' && !location.pathname.startsWith('/train') && <Footer />}
+      {/* Global Footer (hidden on Track Train pages via internal route check) */}
+      <Footer />
     </div>
   );
 }

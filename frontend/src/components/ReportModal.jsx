@@ -2,7 +2,9 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, AlertTriangle, Send, RefreshCw, CheckCircle2, ShieldCheck, MapPin, Radio } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
+import { useSettings } from '../context/SettingsContext';
 import { submitDisruptionReport } from '../services/api';
+import { translateTrainName, translateStationName } from '../locales/trainNames';
 
 export default function ReportModal({
   isOpen,
@@ -13,6 +15,7 @@ export default function ReportModal({
   onReportSubmitted = null,
 }) {
   const { user, token, isAuthenticated, openLoginModal } = useAuth();
+  const { t, language } = useSettings();
 
   const [stationCode, setStationCode] = useState('');
   const [description, setDescription] = useState('');
@@ -36,7 +39,7 @@ export default function ReportModal({
 
     const trimmedDesc = description.trim();
     if (trimmedDesc.length < 3) {
-      setError('Description must be at least 3 characters.');
+      setError(t('reportMinChars'));
       return;
     }
 
@@ -51,7 +54,7 @@ export default function ReportModal({
         token
       );
 
-      setSuccessMsg('Report submitted successfully. Thank you for helping fellow passengers!');
+      setSuccessMsg(t('reportSuccess'));
       if (onReportSubmitted) {
         onReportSubmitted(res);
       }
@@ -63,7 +66,7 @@ export default function ReportModal({
         onClose();
       }, 1200);
     } catch (err) {
-      setError(err.message || 'Failed to submit report. Please try again.');
+      setError(err.message || t('reportFailed'));
     } finally {
       setLoading(false);
     }
@@ -94,15 +97,15 @@ export default function ReportModal({
           {/* Header */}
           <div className="flex items-start justify-between pb-3 border-b border-border dark:border-slate-800">
             <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 dark:bg-red-950/60 text-transit-red dark:text-red-400 border border-red-200 dark:border-red-900/60 shadow-xs">
+              <div className="flex items-center justify-center w-10 h-10 rounded-lg bg-red-50 dark:bg-red-950/60 text-transit-red dark:text-red-400 border border-red-200 dark:border-red-800 shadow-xs">
                 <Radio className="w-5 h-5" />
               </div>
               <div>
                 <h2 className="font-bold text-base text-navy dark:text-blue-400 tracking-tight">
-                  Report Delay or Issue
+                  {t('reportTitle')}
                 </h2>
                 <p className="text-xs text-muted dark:text-slate-400">
-                  Train #{trainNumber} {trainName ? `— ${trainName}` : ''}
+                  {t('reportSubtitle', { trainNumber })} {trainName ? `— ${translateTrainName(trainName, language, trainNumber)}` : ''}
                 </p>
               </div>
             </div>
@@ -117,13 +120,13 @@ export default function ReportModal({
           </div>
 
           {/* Verified Reporter Identity */}
-          <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/80 border border-border dark:border-slate-700 rounded-lg text-xs text-muted dark:text-slate-400">
+          <div className="flex items-center justify-between p-3 bg-slate-50 dark:bg-slate-800/60 border border-border dark:border-slate-700 rounded-lg text-xs text-muted dark:text-slate-300">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-transit-green dark:text-emerald-400" />
-              <span>Verified Passenger: <strong className="text-foreground dark:text-slate-200 font-mono">{user?.phone_number || 'OTP Verified'}</strong></span>
+              <span>{t('verifiedPassenger')} <strong className="text-foreground dark:text-slate-100 font-mono">{user?.phone_number || 'OTP Verified'}</strong></span>
             </div>
-            <span className="text-[11px] font-semibold text-navy dark:text-blue-300 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded">
-              Verified
+            <span className="text-[11px] font-semibold text-navy dark:text-blue-400 bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded">
+              {t('verifiedBadge')}
             </span>
           </div>
 
@@ -132,7 +135,7 @@ export default function ReportModal({
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-900/60 rounded-lg text-xs flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold"
+              className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold"
             >
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
               <span>{successMsg}</span>
@@ -144,12 +147,12 @@ export default function ReportModal({
             <motion.div
               initial={{ opacity: 0, y: -4 }}
               animate={{ opacity: 1, y: 0 }}
-              className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-900/60 rounded-lg text-xs text-red-800 dark:text-red-300 flex items-start gap-2"
+              className="p-3 bg-red-50 dark:bg-red-950/60 border border-red-200 dark:border-red-800 rounded-lg text-xs text-red-800 dark:text-red-300 flex items-start gap-2"
             >
               <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
               <div>
-                <div className="font-semibold">Submission Error</div>
-                <div className="text-red-700 dark:text-red-400">{error}</div>
+                <div className="font-semibold">{t('notice')}</div>
+                <div className="text-red-700 dark:text-red-300">{error}</div>
               </div>
             </motion.div>
           )}
@@ -159,7 +162,7 @@ export default function ReportModal({
             {/* Station Dropdown */}
             <div className="space-y-1.5">
               <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
-                Affected Station / Section (Optional)
+                {t('selectStation')}
               </label>
               <div className="relative">
                 <div className="absolute left-3.5 top-1/2 -translate-y-1/2 text-muted dark:text-slate-400 pointer-events-none">
@@ -168,12 +171,12 @@ export default function ReportModal({
                 <select
                   value={stationCode}
                   onChange={(e) => setStationCode(e.target.value)}
-                  className="w-full pl-10 pr-8 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-foreground dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 cursor-pointer transition-all appearance-none"
+                  className="w-full pl-10 pr-8 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-foreground dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 cursor-pointer transition-all appearance-none"
                 >
-                  <option value="">En-route / General Section</option>
+                  <option value="" className="dark:bg-slate-800 dark:text-slate-100">{t('allStationsOption')}</option>
                   {stations.map((stn) => (
-                    <option key={stn.code} value={stn.code}>
-                      {stn.code} — {stn.name}
+                    <option key={stn.code} value={stn.code} className="dark:bg-slate-800 dark:text-slate-100">
+                      {stn.code} — {translateStationName(stn.name, language)}
                     </option>
                   ))}
                 </select>
@@ -184,7 +187,7 @@ export default function ReportModal({
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
-                  Details / Reason *
+                  {t('disruptionType')} *
                 </label>
                 <span className="text-[11px] text-muted dark:text-slate-400 font-mono">
                   {description.length}/500
@@ -196,12 +199,9 @@ export default function ReportModal({
                 maxLength={500}
                 rows={4}
                 required
-                placeholder="e.g. Train stopped outside station, signal clearance delay, speed caution, heavy rain..."
-                className="w-full p-3 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-foreground dark:text-slate-100 placeholder:text-muted dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 resize-none transition-all"
+                placeholder={t('disruptionPlaceholder')}
+                className="w-full p-3 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-foreground dark:text-slate-100 placeholder:text-muted dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 resize-none transition-all"
               />
-              <p className="text-[11px] text-muted dark:text-slate-400">
-                Passenger reports help keep arrival times and delay information accurate for everyone.
-              </p>
             </div>
 
             {/* Actions */}
@@ -211,23 +211,23 @@ export default function ReportModal({
                 onClick={onClose}
                 className="px-4 py-2.5 rounded-lg border border-border dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-800 text-foreground dark:text-slate-200 font-semibold text-xs transition-colors active:scale-98"
               >
-                Cancel
+                {t('cancel')}
               </button>
 
               <button
                 type="submit"
                 disabled={loading || description.trim().length < 3}
-                className="flex-1 py-2.5 rounded-lg bg-railway-red hover:bg-railway-dark text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
+                className="flex-1 py-2.5 rounded-lg bg-railway-red hover:bg-railway-dark dark:bg-red-600 dark:hover:bg-red-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
               >
                 {loading ? (
                   <>
                     <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                    <span>Submitting Report...</span>
+                    <span>{t('submitting')}</span>
                   </>
                 ) : (
                   <>
                     <Send className="w-3.5 h-3.5" />
-                    <span>Submit Report</span>
+                    <span>{t('submitReport')}</span>
                   </>
                 )}
               </button>
@@ -236,8 +236,8 @@ export default function ReportModal({
 
           {/* Footer Info */}
           <div className="pt-2 border-t border-border dark:border-slate-800 flex items-center justify-between text-[11px] text-muted dark:text-slate-400">
-            <span>Passenger Updates</span>
-            <span>Indian Railways Train Enquiry</span>
+            <span>{t('brandTitle')}</span>
+            <span>{t('evaluationReady')}</span>
           </div>
 
         </motion.div>

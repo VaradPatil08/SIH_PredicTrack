@@ -810,26 +810,30 @@ export async function getAdminStations(authToken) {
  * 15. ADMIN: GET /admin/station/{code}/arrivals — live arrivals board for a station
  */
 export async function getAdminStationArrivals(stationCode, authToken) {
-  try {
-    const code = (stationCode || '').trim().toUpperCase();
-    const token = authToken || localStorage.getItem('railpulse_token');
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
+  const code = (stationCode || '').trim().toUpperCase();
+  const token = authToken || localStorage.getItem('railpulse_token');
+  const headers = {};
+  if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetchWithTimeout(`${BASE_URL}/admin/station/${code}/arrivals`, { headers });
+  try {
+    const res = await fetchWithTimeout(`${BASE_URL}/admin/station/${code}/arrivals`, { headers }, 18000);
     if (res.status === 401) {
       console.error(`[RailPulse API] getAdminStationArrivals 401 Unauthorized for station ${code}: admin token is invalid or expired.`);
-      return [];
+      throw new Error('Unauthorized: Admin session expired or invalid credentials.');
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
+    if (err.name === 'AbortError') {
+      console.warn(`[RailPulse API] getAdminStationArrivals timed out for station ${code}`);
+      throw new Error(`Request timed out while loading arrivals for ${code}. Please retry.`);
+    }
     if (err.message && err.message.includes('401')) {
       console.error(`[RailPulse API] getAdminStationArrivals 401 Unauthorized for station ${code}:`, err.message);
     } else {
       console.warn(`[RailPulse API] getAdminStationArrivals error:`, err.message);
     }
-    return [];
+    throw err;
   }
 }
 

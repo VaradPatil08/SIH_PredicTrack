@@ -15,39 +15,44 @@ import {
   Server
 } from 'lucide-react';
 
+import { useSettings } from '../context/SettingsContext';
+
 export default function AboutPage() {
+  const { t, theme } = useSettings();
+  const isDark = theme === 'dark';
+
   return (
     <div className="min-h-[calc(100vh-8rem)] font-sans text-foreground transition-colors">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
         
         {/* Back Link & Breadcrumb */}
-        <div className="flex items-center justify-between pb-2 border-b border-border">
+        <div className="flex items-center justify-between pb-2 border-b border-border dark:border-slate-800">
           <Link
             to="/"
-            className="inline-flex items-center gap-1.5 min-h-[36px] text-xs sm:text-sm font-semibold text-muted hover:text-navy transition-colors rounded p-1 group active:scale-95"
+            className="inline-flex items-center gap-1.5 min-h-[36px] text-xs sm:text-sm font-semibold text-muted hover:text-navy dark:hover:text-blue-400 transition-colors rounded p-1 group active:scale-95"
           >
             <ArrowLeft className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" />
-            <span>Back to Live Trains</span>
+            <span>{t('backToLiveTrains')}</span>
           </Link>
 
-          <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 text-navy border border-blue-200 font-semibold">
-            System Architecture & Methodology
+          <span className="text-xs px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-navy dark:text-blue-300 border border-blue-200 dark:border-blue-800 font-semibold">
+            {t('sysArchMethodology')}
           </span>
         </div>
 
         {/* Hero Header */}
         <div className="space-y-3 max-w-3xl">
-          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 text-navy border border-blue-200 text-xs font-semibold shadow-2xs">
+          <div className="inline-flex items-center gap-2 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-950/60 text-navy dark:text-blue-300 border border-blue-200 dark:border-blue-800 text-xs font-semibold shadow-2xs">
             <span className="w-2 h-2 rounded-full bg-transit-green inline-block animate-pulse" />
-            <span>PredicTrack ML ETA Architecture</span>
+            <span>{t('mlEtaArch')}</span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-navy tracking-tight leading-tight">
-            Dynamic Machine Learning ETA Engine
+          <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-navy dark:text-blue-400 tracking-tight leading-tight">
+            {t('heroAboutHeading')}
           </h1>
 
-          <p className="text-sm sm:text-base text-muted leading-relaxed">
-            Standard Indian Railways passenger tracking relies on static timetable extrapolation or basic linear speed averages. PredicTrack applies section-level Machine Learning to model live track block clearance, precedence conflicts, and corridor recovery.
+          <p className="text-sm sm:text-base text-muted dark:text-slate-400 leading-relaxed">
+            {t('heroAboutLead')}
           </p>
         </div>
 
@@ -56,14 +61,14 @@ export default function AboutPage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-          className="p-5 sm:p-6 rounded-xl border border-border bg-white shadow-card space-y-4"
+          className="p-5 sm:p-6 rounded-xl border border-border dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card space-y-4"
         >
-          <div className="flex items-center justify-between pb-3 border-b border-border">
-            <div className="flex items-center gap-2 font-bold text-sm text-navy">
+          <div className="flex items-center justify-between pb-3 border-b border-border dark:border-slate-800">
+            <div className="flex items-center gap-2 font-bold text-sm text-navy dark:text-blue-400">
               <ShieldCheck className="w-4 h-4 text-transit-green" />
-              <span>Demonstration & Evaluation Disclosure</span>
+              <span>{t('demoEvalDisclosure')}</span>
             </div>
-            <span className="text-xs text-muted font-medium">Smart India Hackathon 2026</span>
+            <span className="text-xs text-muted dark:text-slate-400 font-medium">{t('sihFooter')}</span>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">

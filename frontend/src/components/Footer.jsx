@@ -7,8 +7,8 @@ export default function Footer() {
   const { t } = useSettings();
   const { pathname } = useLocation();
 
-  // Hide footer on track-train page
-  if (pathname.startsWith('/train')) {
+  // Hide footer on live trains page (/) and track-train pages (/train)
+  if (pathname === '/' || pathname.startsWith('/train')) {
     return null;
   }
 

@@ -31,6 +31,9 @@ def perform_live_sync(clean_num: str, train: dict, db: Session, active_sync: boo
     # If active sync is disabled for this train (e.g. beyond top N cap in admin view),
     # do NOT make outbound HTTP calls; fall back immediately to simulated state.
     if not active_sync:
+        if cached is not None and cached.source == "railradar":
+            return cached
+
         sim_pos, _, _ = live_feed.get_live_position_and_state(
             stations,
             train_number=clean_num,

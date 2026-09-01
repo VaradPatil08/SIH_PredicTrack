@@ -16,9 +16,28 @@ import {
 } from 'lucide-react';
 import { getAdminStations, getAdminStationArrivals } from '../services/api';
 
-// Convert scheduled_offset_min + delay into a HH:MM clock string
-function offsetToTime(baseOffsetMin, delayMin = 0) {
-  const total = Math.max(0, (baseOffsetMin || 0) + (delayMin || 0));
+// Convert a station's schedule offset (relative to the train's origin departure)
+// into the actual HH:MM clock time used by the tracking page.
+function offsetToTime(baseOffsetMin, delayMin = 0, scheduledDeparture = '00:00', scheduledArrivalTime = null) {
+  const absoluteParts = String(scheduledArrivalTime || '').split(':');
+  if (absoluteParts.length >= 2) {
+    const absoluteHour = Number.parseInt(absoluteParts[0], 10);
+    const absoluteMinute = Number.parseInt(absoluteParts[1], 10);
+    if (Number.isFinite(absoluteHour) && Number.isFinite(absoluteMinute)) {
+      const total = Math.max(0, absoluteHour * 60 + absoluteMinute + (delayMin || 0));
+      const h = Math.floor(total / 60) % 24;
+      const m = total % 60;
+      return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+    }
+  }
+
+  const departureParts = String(scheduledDeparture || '00:00').split(':');
+  const departureHour = Number.parseInt(departureParts[0], 10);
+  const departureMinute = Number.parseInt(departureParts[1], 10);
+  const departureTotal = Number.isFinite(departureHour) && Number.isFinite(departureMinute)
+    ? departureHour * 60 + departureMinute
+    : 0;
+  const total = Math.max(0, departureTotal + (baseOffsetMin || 0) + (delayMin || 0));
   const h = Math.floor(total / 60) % 24;
   const m = total % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -31,10 +50,16 @@ function offsetToTime(baseOffsetMin, delayMin = 0) {
  * - AT PLATFORM: current time is between expected arrival and (expected arrival + halt duration)
  * - DEPARTED: current time is past (expected arrival + halt duration)
  */
-function computeTrainStatus(scheduledOffsetMin, delayMin, haltMin = 2) {
+function computeTrainStatus(scheduledOffsetMin, delayMin, haltMin = 2, scheduledDeparture = '00:00') {
   const now = new Date();
   const currentMin = now.getHours() * 60 + now.getMinutes();
-  const expTotalMin = Math.max(0, (scheduledOffsetMin || 0) + (delayMin || 0));
+  const departureParts = String(scheduledDeparture || '00:00').split(':');
+  const departureHour = Number.parseInt(departureParts[0], 10);
+  const departureMinute = Number.parseInt(departureParts[1], 10);
+  const departureTotal = Number.isFinite(departureHour) && Number.isFinite(departureMinute)
+    ? departureHour * 60 + departureMinute
+    : 0;
+  const expTotalMin = Math.max(0, departureTotal + (scheduledOffsetMin || 0) + (delayMin || 0));
   const expMin = expTotalMin % 1440;
   const halt = haltMin > 0 ? haltMin : 2;
 
@@ -327,7 +352,8 @@ function ArrivalsBoard({ stationCode }) {
       const status = computeTrainStatus(
         arr.scheduled_arrival_offset_min,
         arr.predicted_delay_min,
-        arr.halt_min
+        arr.halt_min,
+        arr.scheduled_departure
       );
       const severity = getDelaySeverity(arr.predicted_delay_min);
       return {
@@ -560,10 +586,10 @@ function ArrivalsBoard({ stationCode }) {
                         <div className={`font-mono text-sm font-bold ${
                           isDeparted ? 'text-slate-500 dark:text-slate-400' : 'text-[#1F2933] dark:text-slate-100'
                         }`}>
-                          {offsetToTime(arrival.scheduled_arrival_offset_min, arrival.predicted_delay_min)}
+                          {offsetToTime(arrival.scheduled_arrival_offset_min, arrival.predicted_delay_min, arrival.scheduled_departure, arrival.scheduled_arrival_time)}
                         </div>
                         <div className="text-[10px] text-[#667085] dark:text-slate-400 font-mono">
-                          SCH: {offsetToTime(arrival.scheduled_arrival_offset_min)}
+                          SCH: {offsetToTime(arrival.scheduled_arrival_offset_min, 0, arrival.scheduled_departure, arrival.scheduled_arrival_time)}
                         </div>
                       </td>
 

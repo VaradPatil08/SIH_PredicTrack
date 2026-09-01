@@ -816,7 +816,7 @@ export async function getAdminStationArrivals(stationCode, authToken) {
   if (token) headers['Authorization'] = `Bearer ${token}`;
 
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/admin/station/${code}/arrivals`, { headers }, 15000);
+    const res = await fetchWithTimeout(`${BASE_URL}/admin/station/${code}/arrivals`, { headers }, 18000);
     if (res.status === 401) {
       console.error(`[RailPulse API] getAdminStationArrivals 401 Unauthorized for station ${code}: admin token is invalid or expired.`);
       throw new Error('Unauthorized: Admin session expired or invalid credentials.');

@@ -1,4 +1,5 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
+import datetime
 import csv
 import hashlib
 import json
@@ -12,7 +13,12 @@ from sqlalchemy.orm import Session
 from app.db import get_db, SessionLocal
 from app.models.schemas import StationPickerItem, StationArrivalItem
 from app.models_db import User
-from app.routers.trains import _MOCK_TRAINS, _compute_base_delay
+from app.routers.trains import (
+    _MOCK_TRAINS,
+    _TRAIN_FIRST_DEP,
+    _TRAIN_SCHEDULE_LOOKUP,
+    _compute_base_delay,
+)
 from app.services import eta, live_feed, live_sync, auth_service
 
 logger = logging.getLogger(__name__)
@@ -99,14 +105,13 @@ def get_admin_stations(
 
 
 # Latency bounding constants for Admin arrivals view:
-# 1. MAX_ACTIVE_SYNC_TRAINS: Caps how many soonest-arriving trains trigger an outbound
-#    network sync attempt per station view. Any remaining trains beyond this cap read from
-#    the shared DB cache (or fall back to simulator) without triggering outbound HTTP calls.
-# 2. MAX_SYNC_WORKERS: Thread pool concurrency cap to parallelize blocking httpx calls,
-#    ensuring total endpoint latency is bounded by ~1 single request timeout (~6s worst-case)
-#    rather than accumulating sequentially across all trains (which previously caused 20s+ latency).
-MAX_ACTIVE_SYNC_TRAINS = 10
-MAX_SYNC_WORKERS = 8
+# 1. MAX_ACTIVE_SYNC_TRAINS: Candidates are already capped at 30 per station view; 20
+#    active-sync trains covers the large majority of real station boards.
+# 2. MAX_SYNC_WORKERS: Thread pool concurrency cap to parallelize blocking httpx calls;
+#    raised roughly proportionally to keep worst-case latency to about 2 sequential batches
+#    of a single RailRadar timeout (~12s total).
+MAX_ACTIVE_SYNC_TRAINS = 20
+MAX_SYNC_WORKERS = 14
 
 
 def _sync_single_train(train_number: str, train: dict, active_sync: bool) -> tuple[str, Optional[dict]]:
@@ -121,6 +126,8 @@ def _sync_single_train(train_number: str, train: dict, active_sync: bool) -> tup
                 "speed_kmh": cached.speed_kmh,
                 "live_source": "railradar",
                 "live_synced_at": cached.synced_at.isoformat() if cached.synced_at else None,
+                "raw_response": cached.raw_response,
+                "source": cached.source,
             }
     except Exception as exc:
         logger.warning(f"Live sync thread failed for train {train_number}: {exc}")
@@ -161,7 +168,17 @@ def get_station_arrivals(
         if stn_idx >= len(stations):
             continue
         st = stations[stn_idx]
-        sched_offset = st.get("scheduled_offset_min", 0)
+        # Use the same real local schedule offsets as the passenger tracking page
+        # when available. The mock station offsets are only a fallback for trains
+        # without a corresponding processed schedule row.
+        schedule_row = _TRAIN_SCHEDULE_LOOKUP.get(train_number, {}).get(
+            (st.get("code") or "").strip().upper()
+        )
+        sched_offset = (
+            schedule_row["scheduled_offset_min"]
+            if schedule_row is not None
+            else st.get("scheduled_offset_min", 0)
+        )
         candidates.append((train_number, stn_idx, sched_offset, train, stations, st))
 
     candidates.sort(key=lambda c: c[2])
@@ -220,6 +237,10 @@ def get_station_arrivals(
             live_source = "simulated"
             live_synced_at = None
 
+        # Optional absolute scheduled arrival from RailRadar. When present, the
+        # admin board can display the exact same clock time as the live tracking page.
+        scheduled_arrival_time = None
+
         base_delay = _compute_base_delay(train_number, stations, float(elapsed_min))
 
         if stn_idx < current_station_index:
@@ -241,6 +262,60 @@ def get_station_arrivals(
         pred_offset = sched_offset + delay
         platform = _compute_platform(train_number, station_code)
 
+        if tele and tele.get("source") == "railradar" and tele.get("raw_response") is not None:
+            try:
+                raw = json.loads(tele["raw_response"])
+                route = raw.get("route", [])
+                station_code_upper = station_code.strip().upper()
+                entry = next(
+                    (
+                        e for e in route
+                        if e["stationCode"].strip().upper() == station_code_upper
+                    ),
+                    None,
+                )
+                if entry is not None:
+                    scheduled_arrival_raw = entry.get("scheduledArrival") or entry.get("scheduledDeparture")
+                    if scheduled_arrival_raw:
+                        try:
+                            scheduled_arrival_time = datetime.datetime.fromisoformat(
+                                str(scheduled_arrival_raw)
+                            ).strftime("%H:%M")
+                        except Exception:
+                            # Some payloads may provide a plain HH:MM time.
+                            raw_time = str(scheduled_arrival_raw).strip()
+                            if len(raw_time) >= 5 and raw_time[2] == ":":
+                                scheduled_arrival_time = raw_time[:5]
+
+                    delay = int(
+                        entry.get("delayArrival")
+                        if entry.get("delayArrival") is not None
+                        else (entry.get("delayDeparture") or 0)
+                    )
+                    platform_value = entry.get("platform")
+                    try:
+                        platform = int(
+                            str(platform_value).strip()[2:]
+                            if str(platform_value).strip().lower().startswith("pf")
+                            else str(platform_value).strip()
+                        )
+                    except Exception:
+                        platform = _compute_platform(train_number, station_code)
+                    status_value = entry.get("status", "").strip().lower()
+                    if status_value in ("departed", "reached", "arrived"):
+                        status = "departed"
+                    elif delay > 2:
+                        status = "delayed"
+                    else:
+                        status = "on_time"
+                    pred_offset = sched_offset + delay
+            except Exception as exc:
+                logger.warning(
+                    f"RailRadar arrival data parse failed for train {train_number} at station {station_code}: {exc}"
+                )
+
+        pred_offset = sched_offset + delay
+
         # Lookup halt duration: 0 for origin/destination, real CSV halt or 5 min fallback for mid-route
         if stn_idx == 0 or stn_idx == len(stations) - 1:
             halt = 0
@@ -257,6 +332,10 @@ def get_station_arrivals(
                 train_name=train.get("name", f"Train {train_number}"),
                 platform=platform,
                 scheduled_arrival_offset_min=sched_offset,
+                scheduled_departure=_TRAIN_FIRST_DEP.get(
+                    train_number, train.get("scheduled_departure", "00:00")
+                ),
+                scheduled_arrival_time=scheduled_arrival_time,
                 predicted_delay_min=delay,
                 predicted_arrival_offset_min=pred_offset,
                 halt_min=halt,

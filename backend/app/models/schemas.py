@@ -100,6 +100,8 @@ class StationArrivalItem(BaseModel):
     train_name: str
     platform: int
     scheduled_arrival_offset_min: int
+    scheduled_departure: str = "00:00"
+    scheduled_arrival_time: Optional[str] = None
     predicted_delay_min: int
     predicted_arrival_offset_min: int
     halt_min: int

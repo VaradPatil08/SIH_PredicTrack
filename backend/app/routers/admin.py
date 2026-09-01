@@ -1,3 +1,4 @@
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import csv
 import hashlib
 import json
@@ -8,7 +9,7 @@ from typing import Optional
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
-from app.db import get_db
+from app.db import get_db, SessionLocal
 from app.models.schemas import StationPickerItem, StationArrivalItem
 from app.models_db import User
 from app.routers.trains import _MOCK_TRAINS, _compute_base_delay
@@ -97,6 +98,37 @@ def get_admin_stations(
     return _STATIONS_LIST
 
 
+# Latency bounding constants for Admin arrivals view:
+# 1. MAX_ACTIVE_SYNC_TRAINS: Caps how many soonest-arriving trains trigger an outbound
+#    network sync attempt per station view. Any remaining trains beyond this cap read from
+#    the shared DB cache (or fall back to simulator) without triggering outbound HTTP calls.
+# 2. MAX_SYNC_WORKERS: Thread pool concurrency cap to parallelize blocking httpx calls,
+#    ensuring total endpoint latency is bounded by ~1 single request timeout (~6s worst-case)
+#    rather than accumulating sequentially across all trains (which previously caused 20s+ latency).
+MAX_ACTIVE_SYNC_TRAINS = 10
+MAX_SYNC_WORKERS = 8
+
+
+def _sync_single_train(train_number: str, train: dict, active_sync: bool) -> tuple[str, Optional[dict]]:
+    """Worker function executed in thread pool for parallel RailRadar telemetry sync."""
+    thread_db = SessionLocal()
+    try:
+        cached = live_sync.perform_live_sync(train_number, train, thread_db, active_sync=active_sync)
+        if cached and cached.source == "railradar":
+            return train_number, {
+                "lat": cached.lat,
+                "lng": cached.lng,
+                "speed_kmh": cached.speed_kmh,
+                "live_source": "railradar",
+                "live_synced_at": cached.synced_at.isoformat() if cached.synced_at else None,
+            }
+    except Exception as exc:
+        logger.warning(f"Live sync thread failed for train {train_number}: {exc}")
+    finally:
+        thread_db.close()
+    return train_number, None
+
+
 @router.get("/station/{code}/arrivals", response_model=list[StationArrivalItem])
 def get_station_arrivals(
     code: str,
@@ -105,7 +137,8 @@ def get_station_arrivals(
 ):
     """
     Returns upcoming/live arrivals for the given station code, sorted soonest first,
-    capped at the top 30 arrivals. Reuses live delay telemetry and shared RailRadar sync.
+    capped at the top 30 arrivals. Reuses live delay telemetry and shared RailRadar sync
+    with bounded latency via thread-pooled parallelization.
     """
     station_code = code.strip().upper()
     if station_code not in _STATION_TO_TRAINS:
@@ -134,20 +167,42 @@ def get_station_arrivals(
     candidates.sort(key=lambda c: c[2])
     selected_candidates = candidates[:30]
 
+    # Determine which trains qualify for active network sync (top MAX_ACTIVE_SYNC_TRAINS soonest)
+    active_sync_trains = set(c[0] for c in selected_candidates[:MAX_ACTIVE_SYNC_TRAINS])
+
+    # Parallelize live sync calls across thread pool to bound worst-case latency
+    telemetry_map = {}
+    if selected_candidates:
+        num_workers = min(len(selected_candidates), MAX_SYNC_WORKERS)
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
+            futures = [
+                executor.submit(
+                    _sync_single_train,
+                    train_number,
+                    train,
+                    (train_number in active_sync_trains),
+                )
+                for train_number, _, _, train, _, _ in selected_candidates
+            ]
+            for future in as_completed(futures):
+                try:
+                    tn, tele = future.result()
+                    if tele:
+                        telemetry_map[tn] = tele
+                except Exception as exc:
+                    logger.warning(f"Error gathering live sync result: {exc}")
+
     arrivals = []
     for train_number, stn_idx, sched_offset, train, stations, st in selected_candidates:
         sim_offset = train.get("sim_start_offset_min", 0)
 
-        # 1. Perform shared RailRadar / cache sync
-        cached = live_sync.perform_live_sync(train_number, train, db)
-        is_railradar = bool(cached and cached.source == "railradar")
-
-        if is_railradar and cached:
-            lat = cached.lat
-            lng = cached.lng
-            speed_kmh = cached.speed_kmh
-            live_source = "railradar"
-            live_synced_at = cached.synced_at.isoformat() if cached.synced_at else None
+        tele = telemetry_map.get(train_number)
+        if tele:
+            lat = tele["lat"]
+            lng = tele["lng"]
+            speed_kmh = tele["speed_kmh"]
+            live_source = tele["live_source"]
+            live_synced_at = tele["live_synced_at"]
             _, elapsed_min, current_station_index = live_feed.get_live_position_and_state(
                 stations,
                 train_number=train_number,

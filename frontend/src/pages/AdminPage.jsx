@@ -466,7 +466,28 @@ function ArrivalsBoard({ stationCode }) {
               <tbody className="divide-y divide-[#D9DEE5] dark:divide-slate-800">
                 {loading && [...Array(8)].map((_, i) => <SkeletonRow key={i} />)}
 
-                {!loading && processedArrivals.length === 0 && !error && (
+                {!loading && error && processedArrivals.length === 0 && (
+                  <tr>
+                    <td colSpan={7} className="px-4 py-16 text-center text-muted dark:text-slate-400">
+                      <AlertTriangle className="w-8 h-8 mx-auto mb-2 text-[#ED8B00]" />
+                      <p className="text-sm font-semibold text-slate-800 dark:text-slate-200 mb-1">
+                        Couldn't load arrivals for {stationCode}
+                      </p>
+                      <p className="text-xs text-muted dark:text-slate-400 mb-4 max-w-sm mx-auto">
+                        {error}
+                      </p>
+                      <button
+                        onClick={fetchArrivals}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#17324D] dark:bg-blue-600 hover:opacity-90 text-white font-semibold text-xs transition-all shadow-xs active:scale-95"
+                      >
+                        <RefreshCw className="w-3.5 h-3.5" />
+                        <span>Retry Loading</span>
+                      </button>
+                    </td>
+                  </tr>
+                )}
+
+                {!loading && !error && processedArrivals.length === 0 && (
                   <tr>
                     <td colSpan={7} className="px-4 py-16 text-center text-muted dark:text-slate-400">
                       <Train className="w-8 h-8 mx-auto mb-2 opacity-50 text-[#17324D] dark:text-blue-400" />

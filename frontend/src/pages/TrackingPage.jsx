@@ -200,10 +200,7 @@ export default function TrackingPage() {
       return;
     }
 
-    if (!activatedTrainsRef.current.has(cleanNum)) {
-      activatedTrainsRef.current.add(cleanNum);
-      activateLiveTracking(cleanNum);
-    }
+    activateLiveTracking(cleanNum);
 
     const currentCompareList = compareParam
       ? compareParam.split(',').map(s => s.trim()).filter(Boolean)

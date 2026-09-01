@@ -21,6 +21,7 @@ import { getTrainETA, getDisruptionReportSummary, getTrainsSearch, activateLiveT
 import TrainMap from '../components/TrainMap';
 import StationTimeline from '../components/StationTimeline';
 import DelaySparkline from '../components/DelaySparkline';
+import WhatIfSimulator from '../components/WhatIfSimulator';
 import ReportModal from '../components/ReportModal';
 import { TrackingHeaderSkeleton, MapSkeleton, TimelineSkeleton } from '../components/SkeletonLoader';
 import AnimatedNumber from '../components/AnimatedNumber';
@@ -85,6 +86,7 @@ export default function TrackingPage() {
 
   const timerRef = useRef(null);
   const countdownRef = useRef(null);
+  const activatedTrainsRef = useRef(new Set());
 
   // Trigger RailRadar live telemetry sync on initial mount and whenever tracked trains change/refresh
   const trackedTrainsKey = trackedTrainNumbers.join(',');
@@ -732,6 +734,9 @@ export default function TrackingPage() {
 
               {/* Delay Progression Sparkline Graph (Scoped to Focused Train) */}
               <DelaySparkline stations={focusedStations} />
+
+              {/* Interactive What-If Disruption Scenario Sandbox */}
+              <WhatIfSimulator onSimulationChange={() => fetchAllTelemetry(false)} />
             </div>
 
             {/* Right: Dynamic Station Timeline with Multi-Train Tabs */}

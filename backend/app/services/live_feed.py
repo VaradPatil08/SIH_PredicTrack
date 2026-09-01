@@ -157,20 +157,26 @@ def get_live_position_and_state(
         next_stn = stations[-1]  # point "next" at terminus so UI doesn't show wrong station
     else:
         segment_duration = max(1, next_stn.get("scheduled_offset_min", 0) - cur_stn.get("scheduled_offset_min", 0))
-        progress_in_segment = min(0.95, max(0.05,
+        linear_progress = min(0.95, max(0.05,
             (effective_elapsed - cur_stn.get("scheduled_offset_min", 0)) / segment_duration
         ))
 
-        current_lat = cur_stn["lat"] + (next_stn["lat"] - cur_stn["lat"]) * progress_in_segment
-        current_lng = cur_stn["lng"] + (next_stn["lng"] - cur_stn["lng"]) * progress_in_segment
+        # Kinematic S-curve trajectory profile (Cubic Hermite smoothstep: 3τ² - 2τ³)
+        # Inspired by robotics path planning: eliminates infinite-jerk jumps at waypoints,
+        # modeling smooth acceleration departing stations, cruising, and deceleration on approach.
+        smooth_progress = 3.0 * (linear_progress ** 2) - 2.0 * (linear_progress ** 3)
 
-        # Speed oscillates naturally around 95 km/h; slow sine cycle (period ~12s real)
-        # stays visually smooth regardless of poll interval
-        current_speed = int(95 + math.sin(real_tick * 0.5) * 18)
+        current_lat = cur_stn["lat"] + (next_stn["lat"] - cur_stn["lat"]) * smooth_progress
+        current_lng = cur_stn["lng"] + (next_stn["lng"] - cur_stn["lng"]) * smooth_progress
+
+        # Velocity envelope mirrors the acceleration-cruise-deceleration kinematic profile:
+        # smooth ramp-up from station, sustained cruising speed, and gentle deceleration into halts
+        speed_envelope = math.sin(linear_progress * math.pi)
+        current_speed = int(55 + speed_envelope * 55 + math.sin(real_tick * 0.5) * 8)
 
         cur_dist = cur_stn.get("distance_km", 0)
         next_dist = next_stn.get("distance_km", 0)
-        traveled_in_seg = (next_dist - cur_dist) * progress_in_segment
+        traveled_in_seg = (next_dist - cur_dist) * smooth_progress
         distance_to_next = max(1, round(next_dist - (cur_dist + traveled_in_seg)))
 
     position = {

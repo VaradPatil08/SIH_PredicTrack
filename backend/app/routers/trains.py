@@ -51,6 +51,22 @@ _TRAIN_FIRST_DEP: dict[str, str] = {}
 _TRAIN_SCHEDULE_LOOKUP: dict[str, dict[str, dict]] = {}
 
 
+def _parse_platform_value(platform_value) -> int | None:
+    """Parse only an actual platform value from an upstream payload."""
+    if platform_value is None:
+        return None
+    raw = str(platform_value).strip()
+    if not raw:
+        return None
+    if raw.lower().startswith("pf"):
+        raw = raw[2:].strip()
+    try:
+        value = int(raw)
+        return value if value > 0 else None
+    except (ValueError, TypeError):
+        return None
+
+
 def _parse_time_str(time_str: str | None) -> str:
     if not time_str:
         return ""
@@ -322,7 +338,14 @@ def sync_train_live(train_number: str, db: Session = Depends(get_db)):
 
 @router.get("/trains/{train_number}/eta", response_model=TrainETAResponse)
 @router.get("/train/{train_number}/eta", response_model=TrainETAResponse)
-def get_train_eta(train_number: str, db: Session = Depends(get_db)):
+def get_train_eta(
+    train_number: str,
+    fog_severity: int = Query(0, ge=0, le=30),
+    freight_precedence: bool = False,
+    tsr_speed_limit: bool = False,
+    platform_hold: bool = False,
+    db: Session = Depends(get_db),
+):
     """
     Main endpoint the live tracking page polls every 60 seconds.
     Performs active RailRadar sync check (refreshing if cache > TTL and budget available),
@@ -443,11 +466,8 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
 
                     dist = float(h.get("distance", 0.0) or (local_s.get("distance_km", 0.0) if local_s else 0.0))
 
-                    pf_raw = str(h.get("platform", "")).replace("PF", "").replace("pf", "").strip()
-                    try:
-                        pf_num = int(pf_raw)
-                    except Exception:
-                        pf_num = (idx % 4) + 1
+                    pf_num = _parse_platform_value(h.get("platform"))
+                    platform_is_estimated = pf_num is None
 
                     station_etas.append(
                         StationETA(
@@ -461,11 +481,16 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
                             predicted_offset_min=sched_offset + delay,
                             status=st_status,
                             platform=pf_num,
+                            platform_is_estimated=platform_is_estimated,
                             top_delay_factors=eta.get_delay_reasons(
                                 station_code=code,
                                 predicted_delay=delay,
                                 current_delay=base_delay,
                                 train_number=clean_num,
+                                fog_severity=fog_severity,
+                                freight_precedence=freight_precedence,
+                                tsr_speed_limit=tsr_speed_limit,
+                                platform_hold=platform_hold,
                             ),
                         )
                     )
@@ -498,6 +523,10 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
                     distance_km=st.get("distance_km", 0),
                     current_delay_min=base_delay,
                     total_distance_km=train.get("total_distance_km"),
+                    fog_severity=fog_severity,
+                    freight_precedence=freight_precedence,
+                    tsr_speed_limit=tsr_speed_limit,
+                    platform_hold=platform_hold,
                 )
                 status = eta.status_from_delay(delay)
 
@@ -512,12 +541,17 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
                     predicted_delay_min=delay,
                     predicted_offset_min=sched_offset + delay,
                     status=status,
-                    platform=(idx % 4) + 1,
+                    platform=None,
+                    platform_is_estimated=True,
                     top_delay_factors=eta.get_delay_reasons(
                         station_code=st["code"],
                         predicted_delay=delay,
                         current_delay=base_delay,
                         train_number=clean_num,
+                        fog_severity=fog_severity,
+                        freight_precedence=freight_precedence,
+                        tsr_speed_limit=tsr_speed_limit,
+                        platform_hold=platform_hold,
                     ),
                 )
             )
@@ -540,7 +574,14 @@ def get_train_eta(train_number: str, db: Session = Depends(get_db)):
 
 @router.get("/trains/{train_number}/eta/{station_code}/reasons", response_model=DelayReasonsResponse)
 @router.get("/train/{train_number}/eta/{station_code}/reasons", response_model=DelayReasonsResponse)
-def get_station_delay_reasons(train_number: str, station_code: str):
+def get_station_delay_reasons(
+    train_number: str,
+    station_code: str,
+    fog_severity: int = Query(0, ge=0, le=30),
+    freight_precedence: bool = False,
+    tsr_speed_limit: bool = False,
+    platform_hold: bool = False,
+):
     """Returns dynamic root-cause attribution reasons for a station."""
     raw_num = str(train_number).strip()
     clean_num = raw_num.zfill(5)
@@ -560,6 +601,10 @@ def get_station_delay_reasons(train_number: str, station_code: str):
                 distance_km=st_match.get("distance_km", 0),
                 current_delay_min=current_delay,
                 total_distance_km=train.get("total_distance_km"),
+                fog_severity=fog_severity,
+                freight_precedence=freight_precedence,
+                tsr_speed_limit=tsr_speed_limit,
+                platform_hold=platform_hold,
             )
         else:
             predicted_delay = current_delay
@@ -570,6 +615,10 @@ def get_station_delay_reasons(train_number: str, station_code: str):
         current_delay=current_delay,
         train_number=clean_num,
         return_structured=True,
+        fog_severity=fog_severity,
+        freight_precedence=freight_precedence,
+        tsr_speed_limit=tsr_speed_limit,
+        platform_hold=platform_hold,
     )
     return DelayReasonsResponse(reasons=reasons)
 

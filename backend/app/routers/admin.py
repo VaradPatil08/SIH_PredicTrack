@@ -1,7 +1,6 @@
 from concurrent.futures import ThreadPoolExecutor, as_completed
 import datetime
 import csv
-import hashlib
 import json
 import logging
 from pathlib import Path
@@ -18,6 +17,7 @@ from app.routers.trains import (
     _TRAIN_FIRST_DEP,
     _TRAIN_SCHEDULE_LOOKUP,
     _compute_base_delay,
+    _parse_platform_value,
 )
 from app.services import eta, live_feed, live_sync, auth_service
 
@@ -92,9 +92,13 @@ def _build_admin_indices():
 _build_admin_indices()
 
 
-def _compute_platform(train_number: str, station_code: str) -> int:
-    key = f"{train_number}_{station_code}".encode("utf-8")
-    return (int(hashlib.md5(key).hexdigest(), 16) % 6) + 1
+def _compute_platform(train_number: str, station_code: str):
+    """Return a real platform from available station/training data, never a hash.
+
+    No historical platform source exists in the current repository, so absence is
+    represented as None and flagged by platform_is_estimated.
+    """
+    return None
 
 
 @router.get("/stations", response_model=list[StationPickerItem])
@@ -261,6 +265,7 @@ def get_station_arrivals(
 
         pred_offset = sched_offset + delay
         platform = _compute_platform(train_number, station_code)
+        platform_is_estimated = True
 
         if tele and tele.get("source") == "railradar" and tele.get("raw_response") is not None:
             try:
@@ -293,14 +298,8 @@ def get_station_arrivals(
                         else (entry.get("delayDeparture") or 0)
                     )
                     platform_value = entry.get("platform")
-                    try:
-                        platform = int(
-                            str(platform_value).strip()[2:]
-                            if str(platform_value).strip().lower().startswith("pf")
-                            else str(platform_value).strip()
-                        )
-                    except Exception:
-                        platform = _compute_platform(train_number, station_code)
+                    platform = _parse_platform_value(platform_value)
+                    platform_is_estimated = platform is None
                     status_value = entry.get("status", "").strip().lower()
                     if status_value in ("departed", "reached", "arrived"):
                         status = "departed"
@@ -331,6 +330,7 @@ def get_station_arrivals(
                 train_number=train_number,
                 train_name=train.get("name", f"Train {train_number}"),
                 platform=platform,
+                platform_is_estimated=platform_is_estimated,
                 scheduled_arrival_offset_min=sched_offset,
                 scheduled_departure=_TRAIN_FIRST_DEP.get(
                     train_number, train.get("scheduled_departure", "00:00")

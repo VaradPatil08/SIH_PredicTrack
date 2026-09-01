@@ -290,7 +290,7 @@ export default function StationTimeline({
                     {statusBadge}
                     {station.platform && (
                       <span className="text-[10px] text-muted dark:text-slate-300 bg-white dark:bg-slate-800 px-1.5 py-0.5 rounded border border-border dark:border-slate-700">
-                        {t('platform')} {station.platform}
+                        {t('platform')} {station.platform}{station.platform_is_estimated ? ' (est.)' : ''}
                       </span>
                     )}
                   </div>

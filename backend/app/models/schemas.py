@@ -19,7 +19,8 @@ class StationETA(Station):
     predicted_delay_min: int = 0
     predicted_offset_min: int = 0
     status: str = "on_time"   # "reached" | "on_time" | "delayed"
-    platform: int = 1
+    platform: Optional[int] = None
+    platform_is_estimated: bool = True
     top_delay_factors: List[str] = []
 
 
@@ -105,7 +106,8 @@ class StationPickerItem(BaseModel):
 class StationArrivalItem(BaseModel):
     train_number: str
     train_name: str
-    platform: int
+    platform: Optional[int] = None
+    platform_is_estimated: bool = True
     scheduled_arrival_offset_min: int
     scheduled_departure: str = "00:00"
     scheduled_arrival_time: Optional[str] = None

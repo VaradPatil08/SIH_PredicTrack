@@ -1,7 +1,7 @@
 /**
  * RailPulse Cyber-Industrial API Client Service
  * Connects to the FastAPI backend (default: http://localhost:8000).
- * Features high-fidelity offline simulation fallback & dynamic What-If disruption controls.
+ * Features an offline simulation fallback; real What-If controls are sent to the backend.
  */
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
@@ -342,7 +342,7 @@ function generateSyntheticETA(routeData) {
     currentSpeed = 0;
   }
 
-  // Calculate injected disruption delay from simulation overrides
+  // OFFLINE DEMO FALLBACK ONLY: no backend/model is available, so emulate overrides locally
   const injectedDelay = 
     (simulationOverrides.fogSeverity || 0) +
     (simulationOverrides.freightPrecedence ? 12 : 0) +
@@ -374,7 +374,8 @@ function generateSyntheticETA(routeData) {
       predicted_delay_min: Math.max(0, delay),
       predicted_offset_min: (stn.scheduled_offset_min || 0) + Math.max(0, delay),
       status: status,
-      platform: (idx % 4) + 1,
+      platform: null,
+      platform_is_estimated: true,
     };
   });
 
@@ -469,27 +470,15 @@ export async function getTrainRoute(trainNumber) {
  */
 export async function getTrainETA(trainNumber) {
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/eta`);
+    const params = new URLSearchParams({
+      fog_severity: String(simulationOverrides.fogSeverity || 0),
+      freight_precedence: String(Boolean(simulationOverrides.freightPrecedence)),
+      tsr_speed_limit: String(Boolean(simulationOverrides.tsrSpeedLimit)),
+      platform_hold: String(Boolean(simulationOverrides.platformHold)),
+    });
+    const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/eta?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    
-    // Apply What-If injected delays if active
-    const extraDelay = 
-      (simulationOverrides.fogSeverity || 0) +
-      (simulationOverrides.freightPrecedence ? 12 : 0) +
-      (simulationOverrides.tsrSpeedLimit ? 8 : 0) +
-      (simulationOverrides.platformHold ? 6 : 0);
-
-    if (extraDelay > 0 && data.stations) {
-      data.stations = data.stations.map((stn, idx) => ({
-        ...stn,
-        distance_km: stn.distance_km ?? stn.distance_from_origin_km ?? 0,
-        predicted_delay_min: stn.predicted_delay_min + extraDelay,
-        predicted_offset_min: stn.predicted_offset_min + extraDelay,
-        status: (stn.predicted_delay_min + extraDelay) > 2 ? (stn.status === 'reached' ? 'reached' : 'delayed') : stn.status
-      }));
-    }
-
     return { ...data, is_mock: false };
   } catch (err) {
     console.warn(`[RailPulse API] Using dynamic synthetic telemetry for ${trainNumber}:`, err.message);
@@ -510,49 +499,20 @@ export async function getTrainETA(trainNumber) {
 export async function getStationDelayReasons(trainNumber, stationCode) {
   const code = (stationCode || '').toUpperCase();
 
-  // Dynamic What-If simulation injection if active
-  const overrideReasons = [];
-  if (simulationOverrides.fogSeverity > 0) {
-    overrideReasons.push({
-      category: 'WEATHER_CAUTION',
-      reason: `Dense fog visibility restriction (< 150m): active fog safety speed ceiling applied.`,
-      impact_min: simulationOverrides.fogSeverity,
-      confidence: 0.96
-    });
-  }
-  if (simulationOverrides.freightPrecedence) {
-    overrideReasons.push({
-      category: 'FREIGHT_PRECEDENCE',
-      reason: 'Freight rake precedence: express train holding for container corridor clearance.',
-      impact_min: 12,
-      confidence: 0.94
-    });
-  }
-  if (simulationOverrides.tsrSpeedLimit) {
-    overrideReasons.push({
-      category: 'SPEED_RESTRICTION',
-      reason: 'Track maintenance caution (30 km/h): engineering speed limit along active section.',
-      impact_min: 8,
-      confidence: 0.92
-    });
-  }
-  if (simulationOverrides.platformHold) {
-    overrideReasons.push({
-      category: 'PLATFORM_HOLD',
-      reason: 'Platform road occupancy hold: waiting outside station for platform line to clear.',
-      impact_min: 6,
-      confidence: 0.89
-    });
-  }
-
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/eta/${code}/reasons`);
+    const params = new URLSearchParams({
+      fog_severity: String(simulationOverrides.fogSeverity || 0),
+      freight_precedence: String(Boolean(simulationOverrides.freightPrecedence)),
+      tsr_speed_limit: String(Boolean(simulationOverrides.tsrSpeedLimit)),
+      platform_hold: String(Boolean(simulationOverrides.platformHold)),
+    });
+    const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/eta/${code}/reasons?${params.toString()}`);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
-    
-    // Normalize response to array of structured objects
+
+    // Normalize backend response to the existing frontend array contract.
     const rawList = Array.isArray(data) ? data : (data.reasons || []);
-    const normalized = rawList.map((item, idx) => {
+    return rawList.map((item, idx) => {
       if (typeof item === 'string') {
         return {
           category: idx === 0 ? 'TRACK_OCCUPANCY' : 'SIGNAL_INTERLOCKING',
@@ -563,11 +523,9 @@ export async function getStationDelayReasons(trainNumber, stationCode) {
       }
       return item;
     });
-
-    return [...overrideReasons, ...normalized];
   } catch (err) {
     console.warn(`[RailPulse API] Using structured mock reasons for ${code}:`, err.message);
-    const fallback = MOCK_REASONS_MAP[code] || [
+    return MOCK_REASONS_MAP[code] || [
       {
         category: 'SPEED_RESTRICTION',
         reason: 'Temporary speed caution due to sectional maintenance work ahead.',
@@ -581,7 +539,6 @@ export async function getStationDelayReasons(trainNumber, stationCode) {
         confidence: 0.82
       }
     ];
-    return [...overrideReasons, ...fallback];
   }
 }
 

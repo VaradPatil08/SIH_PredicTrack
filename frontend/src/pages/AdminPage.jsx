@@ -573,7 +573,7 @@ function ArrivalsBoard({ stationCode }) {
                             ? 'bg-slate-100 dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-400 dark:text-slate-500'
                             : 'bg-slate-100 dark:bg-slate-800 border-[#D9DEE5] dark:border-slate-700 text-[#17324D] dark:text-slate-200'
                         }`}>
-                          {t('platform')} {arrival.platform}
+                          {t('platform')} {arrival.platform ?? '—'}{arrival.platform_is_estimated ? ' (est.)' : ''}
                         </span>
                       </td>
 

@@ -22,30 +22,6 @@ _ML_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "ml")
 _MODEL_PATH = os.path.join(_ML_DIR, "model", "delay_model.pkl")
 _METRICS_PATH = os.path.join(_ML_DIR, "model", "metrics.json")
 
-STATION_REASONS = {
-    'BVI': ['Speed restriction of 30 km/h due to track renewal near Dahisar', 'Heavy suburban commuter peak section headway'],
-    'ST': ['Section clearance delay following freight rake precedence at Sachin yard', 'Overhead Equipment (OHE) voltage fluctuation'],
-    'BRC': ['Platform 2 line occupation by delayed 19015 Saurashtra Express', 'Yard junction signal interlocking wait at Makarpura'],
-    'RTM': ['Crew changeover & brake continuity test extended by 6 mins', 'Single-line token exchange clearance at Morwani curve'],
-    'KOTA': ['Speed restriction in Chambal bridge section for safety overhaul', 'Preceding goods train clearing Nagda-Kota quad line'],
-    'SWM': ['Wildlife alert speed reduction (45 km/h) along Ranthambore corridor', 'Signal aspect caution between Gangapur City and Sawai Madhopur'],
-    'MTJ': ['Dense fog visibility condition (< 150m) in NCR approach segment', 'Platform clearance delay for connecting Agra Cantt passenger train'],
-    'NDLS': ['Terminal platform 12 occupancy by delayed Kalka Shatabdi', 'Terminal yard congestion at Shivaji Bridge outer signals'],
-    'CNB': ['Ganga Bridge maintenance block speed limit', 'Heavy freight crossover at Juhi yard'],
-    'PRYJ': ['Yard remodeling block at Naini junction', 'Congestion clearance post Vande Bharat overtaking slot'],
-    'BSB': ['Outer signal wait due to Varanasi Cantt platform renovation', 'Speed restriction near Shivpur'],
-    'VAPI': ['Monsoon speed restriction in coastal section', 'Level crossing gate repair delay'],
-    'BH': ['Narmada river bridge maintenance inspection', 'Station approach signal hold'],
-    'ANND': ['Dairy siding shunting movement crossing mainline', 'Automated signaling test in section'],
-    'ND': ['Suburban MEMU crossover delay', 'Platform dwell extended for parcel loading'],
-    'ADI': ['Terminal approach track maintenance', 'Platform 1 signal clearance queue'],
-    'ASN': ['Coal freight rake clearance at Sitarampur', 'Section speed caution due to ballast work'],
-    'DHN': ['Coalfield junction priority conflict', 'OHE maintenance speed restriction'],
-    'PNME': ['Ghat section gradient descent regulated speed', 'Automatic block signaling glitch resolved'],
-    'GAYA': ['Crew change and loco inspection duration', 'Grand Chord junction track crossover'],
-    'DDU': ['Major freight corridor interchange clearance at Mughalsarai yards', 'Double-headed container rake precedence'],
-}
-
 _model = None
 _model_load_attempted = False
 _hist_averages = None
@@ -78,6 +54,10 @@ def predict_delay_minutes(
     distance_km: float,
     current_delay_min: int = 18,
     total_distance_km: float = None,
+    fog_severity: int = 0,
+    freight_precedence: bool = False,
+    tsr_speed_limit: bool = False,
+    platform_hold: bool = False,
 ) -> tuple[int, list[str]]:
     """
     Returns (predicted_delay_minutes, top_delay_factors).
@@ -91,6 +71,14 @@ def predict_delay_minutes(
     """
     _try_load_model()
 
+    scenario_delay_offset = (
+        max(0, min(int(fog_severity), 30))
+        + (12 if freight_precedence else 0)
+        + (8 if tsr_speed_limit else 0)
+        + (6 if platform_hold else 0)
+    )
+    scenario_current_delay = max(0, int(current_delay_min)) + scenario_delay_offset
+
     if _model is not None and total_distance_km:
         from features import build_features, current_time_features
         hour, dow = current_time_features()
@@ -99,14 +87,17 @@ def predict_delay_minutes(
             station_code=station_code,
             distance_km=distance_km,
             total_distance_km=total_distance_km,
-            current_delay_min=current_delay_min,
+            # The trained v2/v4 model has no scenario-specific columns. Feeding the
+            # scenario-adjusted current delay preserves the trained feature vector shape
+            # while making the disruption part of the actual model inference path.
+            current_delay_min=scenario_current_delay,
             scheduled_departure_hour=hour,
             day_of_week=dow,
             hist_averages=_hist_averages,
         )
         predicted = max(0, round(float(_model.predict([features])[0])))
     else:
-        base = current_delay_min * 0.85
+        base = scenario_current_delay * 0.85
         distance_factor = distance_km / 450
         noise = random.uniform(-1, 3)
         predicted = max(0, round(base + distance_factor + noise))
@@ -114,34 +105,39 @@ def predict_delay_minutes(
     factors = get_delay_reasons(
         station_code=station_code,
         predicted_delay=predicted,
-        current_delay=current_delay_min,
+        current_delay=scenario_current_delay,
         train_number=train_number,
+        fog_severity=fog_severity,
+        freight_precedence=freight_precedence,
+        tsr_speed_limit=tsr_speed_limit,
+        platform_hold=platform_hold,
     )
     return predicted, factors
 
 
 STATION_INFRA_CONTEXT = {
-    'BVI': ('HEADWAY_PRESSURE', 'Heavy suburban commuter peak section headway and approach platform occupancy'),
-    'ST': ('FREIGHT_PRECEDENCE', 'Section clearance delay following container rake precedence at Sachin yard'),
-    'BRC': ('SIGNAL_INTERLOCKING', 'Yard junction signal interlocking route conflict and platform line occupation at Makarpura'),
-    'RTM': ('CREW_CHANGEOVER', 'Crew changeover & brake continuity test extended by operational requirements'),
-    'KOTA': ('BRIDGE_OVERHAUL', 'Speed restriction in Chambal bridge section for structural safety overhaul'),
-    'SWM': ('WILDLIFE_CORRIDOR', 'Wildlife alert speed reduction (45 km/h) along Ranthambore sanctuary corridor'),
-    'MTJ': ('FOG_VISIBILITY', 'Dense fog visibility restriction (< 150m) in NCR approach segment'),
-    'NDLS': ('TERMINAL_CONGESTION', 'Terminal platform occupancy queue and Shivaji Bridge outer signal interlocking hold'),
-    'CNB': ('BRIDGE_MAINTENANCE', 'Ganga Bridge maintenance block speed restriction and heavy freight crossover at Juhi yard'),
-    'PRYJ': ('YARD_INTERLOCKING', 'Yard remodeling block at Naini junction and Vande Bharat overtaking slot clearance'),
-    'BSB': ('PLATFORM_HOLD', 'Outer signal wait due to Varanasi Cantt platform renovation and speed caution near Shivpur'),
-    'VAPI': ('SPEED_RESTRICTION', 'Monsoon caution speed restriction in coastal section and level crossing gate maintenance'),
-    'BH': ('BRIDGE_MAINTENANCE', 'Narmada river bridge structural maintenance inspection caution'),
-    'ANND': ('SIGNAL_INTERLOCKING', 'Dairy siding shunting movement crossing mainline automated signaling'),
-    'ND': ('HEADWAY_PRESSURE', 'Suburban MEMU crossover delay and parcel loading dwell'),
-    'ADI': ('TERMINAL_CONGESTION', 'Terminal approach track maintenance and platform 1 signal clearance queue'),
-    'ASN': ('FREIGHT_PRECEDENCE', 'Coal freight rake clearance at Sitarampur yard and ballast maintenance caution'),
-    'DHN': ('SIGNAL_INTERLOCKING', 'Coalfield junction priority conflict and OHE maintenance speed limit'),
-    'PNME': ('SPEED_RESTRICTION', 'Ghat section gradient descent regulated speed ceiling'),
-    'GAYA': ('CREW_CHANGEOVER', 'Crew change, loco inspection duration, and Grand Chord crossover wait'),
-    'DDU': ('FREIGHT_PRECEDENCE', 'Major freight corridor interchange clearance at Mughalsarai yards'),
+    # Structural context only: rendering stays feature-driven in get_delay_reasons().
+    'BVI': ('HEADWAY_PRESSURE', {'corridor': 'suburban commuter peak section'}),
+    'ST': ('FREIGHT_PRECEDENCE', {'yard': 'Sachin yard'}),
+    'BRC': ('SIGNAL_INTERLOCKING', {'junction': 'Makarpura'}),
+    'RTM': ('CREW_CHANGEOVER', {'junction': 'Morwani curve'}),
+    'KOTA': ('BRIDGE_OVERHAUL', {'bridge': 'Chambal bridge'}),
+    'SWM': ('WILDLIFE_CORRIDOR', {'corridor': 'Ranthambore sanctuary'}),
+    'MTJ': ('FOG_VISIBILITY', {'corridor': 'NCR approach'}),
+    'NDLS': ('TERMINAL_CONGESTION', {'junction': 'Shivaji Bridge outer signals'}),
+    'CNB': ('BRIDGE_MAINTENANCE', {'bridge': 'Ganga Bridge', 'yard': 'Juhi yard'}),
+    'PRYJ': ('YARD_INTERLOCKING', {'junction': 'Naini junction'}),
+    'BSB': ('PLATFORM_HOLD', {'junction': 'Shivpur', 'station': 'Varanasi Cantt'}),
+    'VAPI': ('SPEED_RESTRICTION', {'corridor': 'coastal section'}),
+    'BH': ('BRIDGE_MAINTENANCE', {'bridge': 'Narmada river bridge'}),
+    'ANND': ('SIGNAL_INTERLOCKING', {'siding': 'Dairy siding'}),
+    'ND': ('HEADWAY_PRESSURE', {'corridor': 'suburban MEMU crossover'}),
+    'ADI': ('TERMINAL_CONGESTION', {'platform': 'platform 1'}),
+    'ASN': ('FREIGHT_PRECEDENCE', {'yard': 'Sitarampur yard'}),
+    'DHN': ('SIGNAL_INTERLOCKING', {'junction': 'Coalfield junction'}),
+    'PNME': ('SPEED_RESTRICTION', {'corridor': 'ghat section'}),
+    'GAYA': ('CREW_CHANGEOVER', {'junction': 'Grand Chord crossover'}),
+    'DDU': ('FREIGHT_PRECEDENCE', {'yard': 'Mughalsarai yards'}),
 }
 
 
@@ -151,6 +147,10 @@ def get_delay_reasons(
     current_delay: int = 0,
     train_number: str = "",
     return_structured: bool = False,
+    fog_severity: int = 0,
+    freight_precedence: bool = False,
+    tsr_speed_limit: bool = False,
+    platform_hold: bool = False,
 ) -> list:
     """
     Dynamically attributes root causes for predicted station delay based on the
@@ -167,9 +167,31 @@ def get_delay_reasons(
     _try_load_model()
     stn = str(station_code).upper().strip()
     tid = str(train_number).zfill(5) if train_number else ""
+    fog_severity = max(0, min(int(fog_severity), 30))
+    override_candidates = []
+    if fog_severity > 0:
+        override_candidates.append((110.0 + fog_severity, {
+            "category": "WEATHER_CAUTION",
+            "reason": f"Dense fog scenario: {fog_severity}m of forecast safety impact reduces visibility margin on the {stn} approach (current delay: {int(current_delay)}m).",
+        }))
+    if freight_precedence:
+        override_candidates.append((109.0 + current_delay, {
+            "category": "FREIGHT_PRECEDENCE",
+            "reason": f"Freight precedence scenario: +12m clearance allowance at {stn} is applied while current corridor delay is {int(current_delay)}m.",
+        }))
+    if tsr_speed_limit:
+        override_candidates.append((108.0 + current_delay, {
+            "category": "SPEED_RESTRICTION",
+            "reason": f"Track-speed restriction scenario: +8m running-time allowance on the {stn} section, with {int(current_delay)}m upstream delay carried into the prediction.",
+        }))
+    if platform_hold:
+        override_candidates.append((107.0 + current_delay, {
+            "category": "PLATFORM_HOLD",
+            "reason": f"Platform hold scenario: +6m dwell allowance at {stn}, with scheduled halt and approach congestion reflected in the model state.",
+        }))
 
     # 1. On-time / nominal operations
-    if predicted_delay <= 2:
+    if predicted_delay <= 2 and not override_candidates:
         factors = [
             {
                 "category": "NOMINAL_OPERATIONS",
@@ -196,7 +218,7 @@ def get_delay_reasons(
     halt_duration = float(lookup.get("scheduled_halt_duration_min", 2.0))
     seg_dist = float(lookup.get("segment_distance_km", 50.0))
 
-    candidates = []
+    candidates = list(override_candidates)
 
     # Check 1: Kinematic timetable compression (trapezoidal velocity profile ceiling)
     if slack_ratio >= 0.75:
@@ -210,20 +232,18 @@ def get_delay_reasons(
 
     # Check 2: Terminal junction interlocking & platform dwell bottleneck
     if congestion >= 15.0 or stn in STATION_INFRA_CONTEXT:
-        if stn in STATION_INFRA_CONTEXT:
-            cat, desc = STATION_INFRA_CONTEXT[stn]
-            candidates.append((
-                60.0 + congestion,
-                {"category": cat, "reason": desc}
-            ))
+        cat, context = STATION_INFRA_CONTEXT.get(stn, ("TERMINAL_CONGESTION", {}))
+        detail = ", ".join(str(v) for v in context.values())
+        reason = (
+            f"{cat.replace('_', ' ').title()} at {stn}: congestion index {congestion:.1f}, "
+            f"schedule slack ratio {slack_ratio:.2f}, section delay gradient {sec_gradient:.1f}m, "
+            f"scheduled halt {halt_duration:.1f}m, segment {seg_dist:.1f} km, current delay {int(current_delay)}m"
+        )
+        if detail:
+            reason += f"; structural context: {detail}."
         else:
-            candidates.append((
-                40.0 + congestion,
-                {
-                    "category": "TERMINAL_CONGESTION",
-                    "reason": f"Terminal approach congestion: heavy interlocking junction traffic at {stn} (historical bottleneck index: {round(congestion, 1)}m).",
-                }
-            ))
+            reason += "."
+        candidates.append((60.0 + congestion + sec_gradient + halt_duration, {"category": cat, "reason": reason}))
 
     # Check 3: Sectional delay accumulation / gradient
     if sec_gradient >= 3.0:

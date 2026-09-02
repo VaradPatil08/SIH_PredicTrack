@@ -94,13 +94,6 @@ SIH_PredicTrack/
 
 ---
 
-## Vercel deployment
-
-The complete application now deploys as one Vercel project: React is served at
-the site root and FastAPI is available at the same-origin `/api` path. See
-[`DEPLOYMENT.md`](DEPLOYMENT.md) for the required PostgreSQL and environment
-variable configuration.
-
 ## Quickstart & Local Development
 
 ### 1. Backend Service (FastAPI)
@@ -156,7 +149,7 @@ npm run dev
 Available at http://localhost:5173.
 
 > [!NOTE]
-> `frontend/.env.example` defaults `VITE_API_BASE_URL` to `http://localhost:8000` for local development. In Vercel production, leave it unset and the frontend uses same-origin `/api`.
+> `frontend/.env.example` defaults `VITE_API_BASE_URL` to `http://localhost:8000`. Copy `.env.example` to `.env` to override.
 
 ---
 
@@ -242,3 +235,4 @@ The feature vector is defined exclusively in `backend/ml/features.py` (`build_fe
 ## Offline Resilience
 
 `frontend/src/services/api.js` includes automatic client-side synthetic fallback. If the backend is unreachable during a demo, the frontend generates structurally identical responses with smooth kinematic simulation drift — no crashes, no error screens.
+

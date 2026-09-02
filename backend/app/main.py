@@ -19,18 +19,10 @@ app = FastAPI(
 frontend_origin = os.getenv("FRONTEND_ORIGIN")
 if frontend_origin:
     allowed_origins = [origin.strip().rstrip("/") for origin in frontend_origin.split(",") if origin.strip()]
-elif os.getenv("VERCEL_URL"):
-    # Vercel supplies this host name for each production/preview deployment.
-    # Same-origin requests do not require CORS, but this also supports direct
-    # API calls from the deployment URL.
-    vercel_origin = os.environ["VERCEL_URL"].rstrip("/")
-    allowed_origins = [f"https://{vercel_origin}"]
 elif DEV_MODE:
     allowed_origins = ["*"]
 else:
-    raise RuntimeError(
-        "FRONTEND_ORIGIN is required when RAILPULSE_DEV_MODE is false outside Vercel"
-    )
+    raise RuntimeError("FRONTEND_ORIGIN is required when RAILPULSE_DEV_MODE is false")
 
 app.add_middleware(
     CORSMiddleware,
@@ -50,3 +42,4 @@ app.include_router(admin.router)
 @app.get("/")
 def health_check():
     return {"status": "ok", "service": "PredicTrack API"}
+

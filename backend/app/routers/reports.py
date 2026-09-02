@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from sqlalchemy.exc import IntegrityError
 
@@ -198,3 +198,27 @@ def report_summary(train_number: str, db: Session = Depends(get_db)):
         flagged=len(recent) >= FLAG_THRESHOLD,
         recent_reports=recent[:10],
     )
+
+
+@router.delete("/{train_number}/reports/{report_id}")
+def delete_own_report(
+    train_number: str,
+    report_id: str,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Delete a report only when it belongs to the authenticated passenger."""
+    report = (
+        db.query(Report)
+        .filter(
+            Report.id == report_id,
+            Report.train_number == str(train_number).strip(),
+            Report.user_id == current_user.id,
+        )
+        .first()
+    )
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found or you are not allowed to delete it")
+    db.delete(report)
+    db.commit()
+    return {"message": "Report deleted", "id": report_id}

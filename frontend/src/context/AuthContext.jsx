@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { 
   getUserProfile, 
   getUserPreferences, 
@@ -59,41 +59,41 @@ export function AuthProvider({ children }) {
     }
   };
 
-  const login = (newToken, userData) => {
+  const login = useCallback((newToken, userData) => {
     setToken(newToken);
     if (userData) {
       setUser(userData);
       localStorage.setItem('railpulse_user', JSON.stringify(userData));
     }
-  };
+  }, []);
 
-  const loginAsAdmin = (newToken, userData) => {
+  const loginAsAdmin = useCallback((newToken, userData) => {
     const adminData = userData ? { ...userData, role: 'station_admin' } : { role: 'station_admin' };
     setToken(newToken);
     setUser(adminData);
     localStorage.setItem('railpulse_user', JSON.stringify(adminData));
-  };
+  }, []);
 
-  const logout = () => {
+  const logout = useCallback(() => {
     setToken(null);
     setUser(null);
     setFavorites([]);
     resetSimulationOverrides();
     localStorage.removeItem('railpulse_token');
     localStorage.removeItem('railpulse_user');
-  };
+  }, []);
 
-  const openLoginModal = () => setIsLoginModalOpen(true);
-  const closeLoginModal = () => setIsLoginModalOpen(false);
+  const openLoginModal = useCallback(() => setIsLoginModalOpen(true), []);
+  const closeLoginModal = useCallback(() => setIsLoginModalOpen(false), []);
 
-  const openAdminLoginModal = (errorMsg = null) => {
+  const openAdminLoginModal = useCallback((errorMsg = null) => {
     setAdminLoginInitialError(typeof errorMsg === 'string' ? errorMsg : null);
     setIsAdminLoginModalOpen(true);
-  };
-  const closeAdminLoginModal = () => {
+  }, []);
+  const closeAdminLoginModal = useCallback(() => {
     setIsAdminLoginModalOpen(false);
     setAdminLoginInitialError(null);
-  };
+  }, []);
 
   const role = user?.role || 'passenger';
   const isStationAdmin = role === 'station_admin';
@@ -164,4 +164,4 @@ export function useAuth() {
     throw new Error('useAuth must be used within an AuthProvider');
   }
   return context;
-}
+}

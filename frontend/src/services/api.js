@@ -735,6 +735,42 @@ export async function submitDisruptionReport(trainNumber, { station_code, issue_
 /**
  * 12. REPORTS: GET /trains/{train_number}/reports/summary
  */
+export async function deleteDisruptionReport(trainNumber, reportId, token) {
+  const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports/${reportId}`, {
+    method: 'DELETE',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function getAdminReports(token, stationCode = null) {
+  const query = stationCode ? `?station_code=${encodeURIComponent(stationCode)}` : '';
+  const res = await fetchWithTimeout(`${BASE_URL}/admin/reports${query}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
+export async function deleteAdminReport(reportId, token) {
+  const res = await fetchWithTimeout(`${BASE_URL}/admin/reports/${reportId}`, {
+    method: 'DELETE',
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  });
+  if (!res.ok) {
+    const errData = await res.json().catch(() => ({}));
+    throw new Error(errData.detail || `HTTP ${res.status}`);
+  }
+  return await res.json();
+}
+
 export async function getDisruptionReportSummary(trainNumber) {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports/summary`);

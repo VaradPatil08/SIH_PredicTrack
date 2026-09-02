@@ -4,7 +4,7 @@ import { ChevronDown, ChevronUp, AlertCircle, Check, Circle, Train as TrainIcon 
 import { formatOffsetToTime } from '../utils/time';
 import { getStationDelayReasons } from '../services/api';
 import { useSettings } from '../context/SettingsContext';
-import { translateDelayReason, translateDelayCategory } from '../locales/delayReasons';
+import { translateDelayReason, translateDelayReasonByKey, translateDelayCategory } from '../locales/delayReasons';
 import { translateStationName } from '../locales/trainNames';
 import { getTrainColor } from '../utils/trainColors';
 
@@ -28,6 +28,7 @@ export default function StationTimeline({
   const [expandedStation, setExpandedStation] = useState(null);
   const [delayReasons, setDelayReasons] = useState({});
   const [loadingReasons, setLoadingReasons] = useState({});
+  const [reasonsUpdated, setReasonsUpdated] = useState(false);
 
   // Crowd reports can change the backend reason result without changing the
   // station list. Clear the per-station reason cache after a report is submitted
@@ -35,6 +36,11 @@ export default function StationTimeline({
   React.useEffect(() => {
     setDelayReasons({});
     setLoadingReasons({});
+    if (reasonRefreshKey > 0) {
+      setReasonsUpdated(true);
+      const timer = window.setTimeout(() => setReasonsUpdated(false), 2200);
+      return () => window.clearTimeout(timer);
+    }
   }, [reasonRefreshKey]);
 
   // Normalize trains input: support both unified trains array and single-train legacy props
@@ -108,6 +114,12 @@ export default function StationTimeline({
 
   return (
     <div className="rounded-lg border border-border dark:border-slate-800 bg-white dark:bg-slate-900 shadow-card p-4 sm:p-5 font-sans text-foreground dark:text-slate-100 transition-colors">
+      {reasonsUpdated && (
+        <div className="mb-3 inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-md bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 text-emerald-700 dark:text-emerald-300 text-[11px] font-semibold">
+          <Check className="w-3 h-3" />
+          <span>{t('reasonsUpdated')}</span>
+        </div>
+      )}
       
       {/* Header Bar */}
       <div className="flex flex-wrap items-center justify-between gap-2 pb-3 mb-3 border-b border-border dark:border-slate-800 text-xs">
@@ -359,7 +371,7 @@ export default function StationTimeline({
                             const reasonText = typeof reason === 'string' ? reason : (reason.reason || 'Speed caution');
                             const rawCat = typeof reason === 'object' ? (reason.category || 'TRACK_OCCUPANCY') : 'TRACK_OCCUPANCY';
                             const reasonCategory = translateDelayCategory(rawCat, language);
-                            const localizedReason = translateDelayReason(reasonText, language);
+                            const localizedReason = (typeof reason === 'object' && reason.reason_key ? translateDelayReasonByKey(reason.reason_key, reason.reason_params || {}, language) : null) || translateDelayReason(reasonText, language);
                             const reasonImpact = typeof reason === 'object' ? (reason.impact_min || station.predicted_delay_min) : station.predicted_delay_min;
                             const reasonConf = typeof reason === 'object' ? reason.confidence : null;
 

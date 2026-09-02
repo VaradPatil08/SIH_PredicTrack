@@ -11,7 +11,8 @@ from sqlalchemy.orm import Session
 
 from app.db import get_db, SessionLocal
 from app.models.schemas import StationPickerItem, StationArrivalItem
-from app.models_db import User
+from app.models.auth_schemas import ReportOut
+from app.models_db import User, Report
 from app.routers.trains import (
     _MOCK_TRAINS,
     _TRAIN_FIRST_DEP,
@@ -351,3 +352,31 @@ def get_station_arrivals(
 
     arrivals.sort(key=lambda a: a.predicted_arrival_offset_min)
     return arrivals[:30]
+
+
+@router.get("/reports", response_model=list[ReportOut])
+def get_admin_reports(
+    station_code: Optional[str] = None,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(auth_service.get_current_station_admin),
+):
+    """Return active crowd reports for station-admin moderation."""
+    query = db.query(Report).filter(Report.is_active.is_(True))
+    if station_code:
+        query = query.filter(Report.station_code == station_code.strip().upper())
+    return query.order_by(Report.created_at.desc()).limit(200).all()
+
+
+@router.delete("/reports/{report_id}")
+def delete_admin_report(
+    report_id: str,
+    db: Session = Depends(get_db),
+    current_admin: User = Depends(auth_service.get_current_station_admin),
+):
+    """Station admins may delete any crowd report."""
+    report = db.query(Report).filter(Report.id == report_id).first()
+    if report is None:
+        raise HTTPException(status_code=404, detail="Report not found")
+    db.delete(report)
+    db.commit()
+    return {"message": "Report deleted by station admin", "id": report_id}

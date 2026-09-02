@@ -3,8 +3,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShieldCheck, User, Lock, ArrowRight, RefreshCw, CheckCircle2, AlertCircle, Sparkles } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { adminLogin, getUserProfile } from '../services/api';
+import { useSettings } from '../context/SettingsContext';
 
 export default function AdminLoginModal() {
+  const { t } = useSettings();
   const { 
     isAdminLoginModalOpen, 
     closeAdminLoginModal, 
@@ -20,7 +22,8 @@ export default function AdminLoginModal() {
 
   React.useEffect(() => {
     if (isAdminLoginModalOpen && adminLoginInitialError) {
-      setError(adminLoginInitialError);
+      const isExpired = adminLoginInitialError === 'Your session has expired, please log in again.';
+      setError(isExpired ? { key: 'adminSessionExpired' } : adminLoginInitialError);
     }
   }, [isAdminLoginModalOpen, adminLoginInitialError]);
 
@@ -32,11 +35,11 @@ export default function AdminLoginModal() {
 
     const cleanUsername = username.trim();
     if (!cleanUsername) {
-      setError('Please enter your station admin username or employee ID.');
+      setError({ key: 'adminUsernameRequired' });
       return;
     }
     if (!password) {
-      setError('Please enter your password.');
+      setError({ key: 'adminPasswordRequired' });
       return;
     }
 
@@ -63,7 +66,7 @@ export default function AdminLoginModal() {
         setSuccessMsg(null);
       }, 700);
     } catch (err) {
-      setError(err.message || 'Invalid username or password. Access denied.');
+      setError(err?.message ? { key: 'apiError', fallback: err.message } : { key: 'adminInvalidCredentials' });
     } finally {
       setLoading(false);
     }
@@ -153,7 +156,7 @@ export default function AdminLoginModal() {
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
               <div>
                 <div className="font-semibold">Authentication Failed</div>
-                <div className="text-red-700 dark:text-red-400">{error}</div>
+                <div className="text-red-700 dark:text-red-400">{typeof error === 'string' ? error : (error.fallback || t(error.key, error.params))}</div>
               </div>
             </motion.div>
           )}

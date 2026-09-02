@@ -8,7 +8,6 @@ import AuthModal from './components/AuthModal';
 import AdminLoginModal from './components/AdminLoginModal';
 import RequireStationAdmin from './components/RequireStationAdmin';
 import Navbar from './components/Navbar';
-import Footer from './components/Footer';
 import LandingPage from './pages/LandingPage';
 import TrackingPage from './pages/TrackingPage';
 import AboutPage from './pages/AboutPage';
@@ -124,8 +123,6 @@ function MainApp() {
       <AuthModal />
       <AdminLoginModal />
 
-      {/* Global Footer (hidden on Track Train pages via internal route check) */}
-      <Footer />
     </div>
   );
 }

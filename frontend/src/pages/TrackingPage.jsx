@@ -15,9 +15,10 @@ import {
   X,
   Search,
   Loader2,
-  Info
+  Info,
+  Trash2
 } from 'lucide-react';
-import { getTrainETA, getDisruptionReportSummary, getTrainsSearch, activateLiveTracking } from '../services/api';
+import { getTrainETA, getDisruptionReportSummary, getTrainsSearch, activateLiveTracking, deleteDisruptionReport } from '../services/api';
 import TrainMap from '../components/TrainMap';
 import StationTimeline from '../components/StationTimeline';
 import DelaySparkline from '../components/DelaySparkline';
@@ -41,7 +42,7 @@ export default function TrackingPage() {
 
   const { theme, t, language } = useSettings();
   const isDark = theme === 'dark';
-  const { isAuthenticated, openLoginModal } = useAuth();
+  const { isAuthenticated, openLoginModal, user, token } = useAuth();
 
   // Parse tracked train numbers from URL (:trainNumber and ?compare=...)
   const compareParam = searchParams.get('compare') || '';
@@ -258,6 +259,24 @@ export default function TrackingPage() {
         setAddSearchLoading(false);
       }
     }, 300);
+  };
+
+  const handleDeleteOwnReport = async (report) => {
+    if (!report?.id || !token || report.user_id !== user?.id) return;
+    if (!window.confirm(t('deleteReportConfirm'))) return;
+    try {
+      await deleteDisruptionReport(report.train_number, report.id, token);
+      setReportSummary((prev) => prev ? {
+        ...prev,
+        report_count: Math.max(0, prev.report_count - 1),
+        recent_reports: (prev.recent_reports || []).filter(r => r.id !== report.id),
+        flagged: Math.max(0, prev.report_count - 1) >= 3,
+      } : prev);
+      setReasonRefreshKey((value) => value + 1);
+      fetchAllTelemetry(true);
+    } catch (err) {
+      setError({ key: 'apiError', fallback: err?.message || t('deleteReportFailed') });
+    }
   };
 
   const handleOpenReportModal = () => {
@@ -754,6 +773,24 @@ export default function TrackingPage() {
                         confidence: Math.round(focusedTrain.etaData.crowd_signal.confidence * 100),
                       })}
                     </span>
+                  )}
+                  {reportSummary.recent_reports?.some(r => r.user_id === user?.id) && (
+                    <div className="mt-2 space-y-1.5">
+                      {reportSummary.recent_reports.filter(r => r.user_id === user?.id).map(report => (
+                        <div key={report.id} className="flex items-center gap-2 text-[11px] font-medium">
+                          <span className="truncate">{report.issue_type?.replaceAll('_', ' ')} · {report.delay_bucket}</span>
+                          <button
+                            type="button"
+                            onClick={() => handleDeleteOwnReport(report)}
+                            className="inline-flex items-center gap-1 shrink-0 px-2 py-1 rounded border border-current/30 hover:bg-white/70 transition-colors"
+                            title={t('deleteReport')}
+                          >
+                            <Trash2 className="w-3 h-3" />
+                            <span>{t('deleteReport')}</span>
+                          </button>
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               </div>

@@ -26,7 +26,7 @@ export default function AuthModal() {
 
     const cleanedPhone = phoneNumber.trim();
     if (cleanedPhone.length < 10) {
-      setError(t('invalidPhone'));
+      setError({ key: 'invalidPhone' });
       return;
     }
 
@@ -39,7 +39,7 @@ export default function AuthModal() {
       }
       setStep(2);
     } catch (err) {
-      setError(err.message || t('reportFailed'));
+      setError(err?.message ? { key: 'apiError', fallback: err.message } : { key: 'reportFailed' });
     } finally {
       setLoading(false);
     }
@@ -51,7 +51,7 @@ export default function AuthModal() {
 
     const cleanedCode = otpCode.trim();
     if (cleanedCode.length !== 6) {
-      setError(t('invalidOtp'));
+      setError({ key: 'invalidOtp' });
       return;
     }
 
@@ -163,7 +163,7 @@ export default function AuthModal() {
               <AlertCircle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
               <div>
                 <div className="font-semibold">{t('notice')}</div>
-                <div className="text-red-700 dark:text-red-300">{error}</div>
+                <div className="text-red-700 dark:text-red-300">{typeof error === 'string' ? error : (error.fallback || t(error.key, error.params))}</div>
               </div>
             </motion.div>
           )}

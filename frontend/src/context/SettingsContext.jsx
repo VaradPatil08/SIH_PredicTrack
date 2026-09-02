@@ -90,6 +90,11 @@ export function SettingsProvider({ children }) {
     return text;
   };
 
+  // Keep browser chrome localized immediately when the language changes.
+  useEffect(() => {
+    document.title = t('appTitle');
+  }, [language]);
+
   return (
     <SettingsContext.Provider
       value={{

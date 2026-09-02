@@ -15,13 +15,22 @@ class Station(BaseModel):
     distance_km: float = 0.0
 
 
+class DelayReasonItem(BaseModel):
+    category: str = "TRACK_OCCUPANCY"
+    reason: str
+    reason_key: Optional[str] = None
+    reason_params: dict = Field(default_factory=dict)
+    impact_min: int = 5
+    confidence: float = 0.90
+
+
 class StationETA(Station):
     predicted_delay_min: int = 0
     predicted_offset_min: int = 0
     status: str = "on_time"   # "reached" | "on_time" | "delayed"
     platform: Optional[int] = None
     platform_is_estimated: bool = True
-    top_delay_factors: List[str] = []
+    top_delay_factors: List[DelayReasonItem] = Field(default_factory=list)
 
 
 class TrainSummary(BaseModel):
@@ -80,13 +89,6 @@ class TrainRouteResponse(BaseModel):
     train_number: str
     name: str
     stations: List[Station]
-
-
-class DelayReasonItem(BaseModel):
-    category: str = "TRACK_OCCUPANCY"
-    reason: str
-    impact_min: int = 5
-    confidence: float = 0.90
 
 
 class DelayReasonsResponse(BaseModel):

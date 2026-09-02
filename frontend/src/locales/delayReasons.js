@@ -117,6 +117,26 @@ export const DELAY_CATEGORIES = {
     en: 'Section Throughput',
     hi: 'सेक्शन क्षमता विनियमन',
   },
+  CROWD_DELAY: {
+    en: 'Crowd-Reported Delay',
+    hi: 'यात्रियों द्वारा रिपोर्ट की गई देरी',
+  },
+  PASSENGER_CROWDING: {
+    en: 'Passenger Crowding',
+    hi: 'यात्रियों की भीड़',
+  },
+  ACCIDENT_DISRUPTION: {
+    en: 'Accident Disruption',
+    hi: 'दुर्घटना व्यवधान',
+  },
+  TRACK_OBSTRUCTION: {
+    en: 'Track Obstruction',
+    hi: 'ट्रैक अवरोध',
+  },
+  CROWD_DISRUPTION: {
+    en: 'Crowd-Reported Disruption',
+    hi: 'यात्रियों द्वारा रिपोर्ट किया गया व्यवधान',
+  },
 };
 
 export const DELAY_REASONS_EXACT = {
@@ -355,6 +375,98 @@ const DYNAMIC_PATTERNS = [
     render: (type) => `जंक्शन सिग्नलों पर आगे चल रही ${type.trim()} ट्रेन की निकासी में विलंब।`,
   },
 ];
+
+/**
+ * Stable-key templates for dynamically generated backend delay reasons.
+ * Parameters are kept separate from prose so localization never has to parse
+ * interpolated English strings.
+ */
+export const DELAY_REASON_TEMPLATES = {
+  NOMINAL_HEADWAY: {
+    en: 'Nominal line headway: clear automated block signals and on-schedule transit into {station}.',
+    hi: 'सामान्य लाइन हेडवे: स्वचालित ब्लॉक सिग्नल स्पष्ट हैं और {station} में ट्रेन समय पर पहुंच रही है।',
+  },
+  SCHEDULE_SLACK: {
+    en: 'Timetable slack: adequate runtime margin allows on-time platform turnaround at {station}.',
+    hi: 'समय सारिणी में पर्याप्त मार्जिन के कारण {station} पर प्लेटफ़ॉर्म टर्नअराउंड समय पर हो सकता है।',
+  },
+  KINEMATIC_COMPRESSION: {
+    en: 'Kinematic timetable compression: tight scheduled time ({scheduled_minutes}m) leaves minimal speed margin to recover delay over {km} km section.',
+    hi: 'गतिज समय-सारिणी संपीड़न: कम निर्धारित समय ({scheduled_minutes} मिनट) के कारण {km} किमी सेक्शन में देरी की भरपाई के लिए गति मार्जिन बहुत कम है।',
+  },
+  TERMINAL_CONGESTION: {
+    en: 'Terminal congestion at {station}: congestion index {congestion}, schedule slack ratio {slack_ratio}, section delay gradient {gradient}m, scheduled halt {halt_minutes}m, segment {km} km, current delay {current_delay}m{context_suffix}.',
+    hi: '{station} पर टर्मिनल भीड़: भीड़ सूचकांक {congestion}, समय सारिणी मार्जिन अनुपात {slack_ratio}, सेक्शन देरी ग्रेडिएंट {gradient} मिनट, निर्धारित ठहराव {halt_minutes} मिनट, सेक्शन {km} किमी और वर्तमान देरी {current_delay} मिनट{context_suffix}।',
+  },
+  SECTIONAL_DELAY_GRADIENT: {
+    en: 'Sectional delay accumulation: train losing clearance interval over preceding block (+{minutes}m delay gradient).',
+    hi: 'सेक्शनल देरी संचय: पिछली ब्लॉक में क्लियरेंस अंतराल कम होने से ट्रेन की देरी बढ़ रही है (+{minutes} मिनट देरी ग्रेडिएंट)।',
+  },
+  UPSTREAM_RIPPLE: {
+    en: 'Upstream corridor ripple delay: carrying {minutes}m residual delay propagated from earlier section.',
+    hi: 'अपस्ट्रीम कॉरिडोर देरी प्रभाव: पिछले सेक्शन से चली आ रही {minutes} मिनट की शेष देरी आगे बढ़ रही है।',
+  },
+  EXTENDED_DWELL: {
+    en: 'Scheduled operational halt: extended {minutes}m crew changeover, loco check, and platform dwell.',
+    hi: 'निर्धारित परिचालन ठहराव: चालक दल बदलाव, लोको जांच और प्लेटफ़ॉर्म ठहराव के कारण {minutes} मिनट का विस्तारित ठहराव।',
+  },
+  SECTIONAL_SPEED_RESTRICTION: {
+    en: 'Sectional speed restriction: automated caution aspects and track maintenance speed limit approaching {station}.',
+    hi: 'सेक्शनल गति सीमा: {station} की ओर स्वचालित सावधानी संकेत और ट्रैक रखरखाव के कारण गति सीमा लागू है।',
+  },
+  APPROACH_SIGNAL_QUEUE: {
+    en: 'Station approach route signaling clearance queue entering {station} outer signals.',
+    hi: '{station} के आउटर सिग्नलों पर स्टेशन पहुंच मार्ग के सिग्नल क्लीयरेंस की कतार है।',
+  },
+  DENSE_FOG_IMPACT: {
+    en: 'Dense fog scenario: {minutes}m of forecast safety impact reduces visibility margin on the {station} approach (current delay: {current_delay}m).',
+    hi: 'घने कोहरे की स्थिति: अनुमानित {minutes} मिनट का सुरक्षा प्रभाव {station} पहुंच मार्ग पर दृश्यता मार्जिन कम करता है (वर्तमान देरी: {current_delay} मिनट)।',
+  },
+  FREIGHT_PRECEDENCE_ALLOWANCE: {
+    en: 'Freight precedence scenario: +{minutes}m clearance allowance at {station} is applied while current corridor delay is {current_delay}m.',
+    hi: 'मालगाड़ी प्राथमिकता स्थिति: {station} पर +{minutes} मिनट का क्लीयरेंस समय लागू है, जबकि वर्तमान कॉरिडोर देरी {current_delay} मिनट है।',
+  },
+  PLATFORM_HOLD_SCENARIO: {
+    en: 'Platform hold scenario: +{minutes}m dwell allowance at {station}, with scheduled halt and approach congestion reflected in the model state.',
+    hi: 'प्लेटफ़ॉर्म होल्ड स्थिति: {station} पर +{minutes} मिनट का ठहराव समय, जिसमें निर्धारित ठहराव और पहुंच मार्ग की भीड़ मॉडल में शामिल है।',
+  },
+  CROWD_REPORTED_ISSUE: {
+    en: '{count} {rider_word} reported {issue_type} near {station} in the last {hours}h.',
+    hi: 'पिछले {hours} घंटे में {station} के पास {count} {rider_word_hi} ने {issue_type_hi} की सूचना दी।',
+  },
+};
+
+/** Localize a structured backend reason without parsing its English fallback. */
+export function translateDelayReasonByKey(reasonKey, params = {}, language = 'en') {
+  const templateSet = DELAY_REASON_TEMPLATES[String(reasonKey || '').trim().toUpperCase()];
+  if (!templateSet) return null;
+  const lang = language === 'hi' ? 'hi' : 'en';
+  let template = templateSet[lang] || templateSet.en;
+  const values = { ...params };
+  const issueTypeCode = String(values.issue_type || '').toLowerCase();
+  if (reasonKey === 'CROWD_REPORTED_ISSUE') values.issue_type = issueTypeCode.replace(/_/g, ' ');
+  if (reasonKey === 'TERMINAL_CONGESTION') {
+    values.context_suffix = values.context
+      ? (lang === 'hi' ? `; संरचनात्मक संदर्भ: ${values.context}` : `; structural context: ${values.context}`)
+      : '';
+  }
+  if (reasonKey === 'CROWD_REPORTED_ISSUE') {
+    values.rider_word_hi = Number(values.count) === 1 ? 'यात्री' : 'यात्रियों';
+    values.issue_type_hi = {
+      delay: 'देरी',
+      signal_fault: 'सिग्नल खराबी',
+      crowding: 'भीड़',
+      accident: 'दुर्घटना',
+      weather: 'मौसम संबंधी समस्या',
+      track_obstruction: 'ट्रैक अवरोध',
+      other: 'समस्या',
+    }[issueTypeCode] || String(values.issue_type || 'समस्या');
+  }
+  Object.entries(values).forEach(([key, value]) => {
+    template = template.replace(new RegExp(`\\{${key}\\}`, 'g'), String(value ?? ''));
+  });
+  return template;
+}
 
 /**
  * Translates a train delay diagnostic reason into Hindi or active language.

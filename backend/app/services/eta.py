@@ -190,6 +190,14 @@ def get_delay_reasons(
             125.0 + crowd_confidence * 20.0,
             {
                 "category": crowd_category,
+                "reason_key": "CROWD_REPORTED_ISSUE",
+                "reason_params": {
+                    "count": count_text,
+                    "rider_word": rider_word,
+                    "issue_type": str(crowd_issue_type).lower(),
+                    "station": stn,
+                    "hours": 3,
+                },
                 "reason": (
                     f"{count_text} {rider_word} reported {str(crowd_issue_type).replace('_', ' ')} "
                     f"near {stn} in the last 3h."
@@ -201,21 +209,29 @@ def get_delay_reasons(
     if fog_severity > 0:
         override_candidates.append((110.0 + fog_severity, {
             "category": "WEATHER_CAUTION",
+            "reason_key": "DENSE_FOG_IMPACT",
+            "reason_params": {"minutes": int(fog_severity), "station": stn, "current_delay": int(current_delay)},
             "reason": f"Dense fog scenario: {fog_severity}m of forecast safety impact reduces visibility margin on the {stn} approach (current delay: {int(current_delay)}m).",
         }))
     if freight_precedence:
         override_candidates.append((109.0 + current_delay, {
             "category": "FREIGHT_PRECEDENCE",
+            "reason_key": "FREIGHT_PRECEDENCE_ALLOWANCE",
+            "reason_params": {"minutes": 12, "station": stn, "current_delay": int(current_delay)},
             "reason": f"Freight precedence scenario: +12m clearance allowance at {stn} is applied while current corridor delay is {int(current_delay)}m.",
         }))
     if tsr_speed_limit:
         override_candidates.append((108.0 + current_delay, {
             "category": "SPEED_RESTRICTION",
+            "reason_key": "SECTIONAL_SPEED_RESTRICTION",
+            "reason_params": {"minutes": 8, "station": stn, "current_delay": int(current_delay)},
             "reason": f"Track-speed restriction scenario: +8m running-time allowance on the {stn} section, with {int(current_delay)}m upstream delay carried into the prediction.",
         }))
     if platform_hold:
         override_candidates.append((107.0 + current_delay, {
             "category": "PLATFORM_HOLD",
+            "reason_key": "PLATFORM_HOLD_SCENARIO",
+            "reason_params": {"minutes": 6, "station": stn},
             "reason": f"Platform hold scenario: +6m dwell allowance at {stn}, with scheduled halt and approach congestion reflected in the model state.",
         }))
 
@@ -224,12 +240,16 @@ def get_delay_reasons(
         factors = [
             {
                 "category": "NOMINAL_OPERATIONS",
+                "reason_key": "NOMINAL_HEADWAY",
+                "reason_params": {"station": stn}, 
                 "reason": f"Nominal line headway: clear automated block signals and on-schedule transit into {stn}.",
                 "impact_min": 0,
                 "confidence": 0.98,
             },
             {
                 "category": "SCHEDULE_HEADROOM",
+                "reason_key": "SCHEDULE_SLACK",
+                "reason_params": {"station": stn},
                 "reason": f"Timetable slack: adequate runtime margin allows on-time platform turnaround at {stn}.",
                 "impact_min": 0,
                 "confidence": 0.95,
@@ -255,6 +275,8 @@ def get_delay_reasons(
             50.0 + slack_ratio * 30.0,
             {
                 "category": "SCHEDULE_HEADROOM",
+                "reason_key": "KINEMATIC_COMPRESSION",
+                "reason_params": {"scheduled_minutes": int(sched_time), "km": int(seg_dist)},
                 "reason": f"Kinematic timetable compression: tight scheduled time ({int(sched_time)}m) leaves minimal speed margin to recover delay over {int(seg_dist)} km section.",
             }
         ))
@@ -272,7 +294,24 @@ def get_delay_reasons(
             reason += f"; structural context: {detail}."
         else:
             reason += "."
-        candidates.append((60.0 + congestion + sec_gradient + halt_duration, {"category": cat, "reason": reason}))
+        candidates.append((
+            60.0 + congestion + sec_gradient + halt_duration,
+            {
+                "category": cat,
+                "reason_key": "TERMINAL_CONGESTION",
+                "reason_params": {
+                    "station": stn,
+                    "congestion": round(congestion, 1),
+                    "slack_ratio": round(slack_ratio, 2),
+                    "gradient": round(sec_gradient, 1),
+                    "halt_minutes": round(halt_duration, 1),
+                    "km": round(seg_dist, 1),
+                    "current_delay": int(current_delay),
+                    "context": detail,
+                },
+                "reason": reason,
+            }
+        ))
 
     # Check 3: Sectional delay accumulation / gradient
     if sec_gradient >= 3.0:
@@ -280,6 +319,8 @@ def get_delay_reasons(
             45.0 + sec_gradient * 2.0,
             {
                 "category": "HEADWAY_PRESSURE",
+                "reason_key": "SECTIONAL_DELAY_GRADIENT",
+                "reason_params": {"minutes": int(sec_gradient)},
                 "reason": f"Sectional delay accumulation: train losing clearance interval over preceding block (+{int(sec_gradient)}m delay gradient).",
             }
         ))
@@ -290,6 +331,8 @@ def get_delay_reasons(
             35.0 + float(current_delay),
             {
                 "category": "SECTION_CLEARANCE",
+                "reason_key": "UPSTREAM_RIPPLE",
+                "reason_params": {"minutes": int(current_delay)},
                 "reason": f"Upstream corridor ripple delay: carrying {int(current_delay)}m residual delay propagated from earlier section.",
             }
         ))
@@ -300,6 +343,8 @@ def get_delay_reasons(
             30.0 + halt_duration,
             {
                 "category": "PLATFORM_OCCUPANCY",
+                "reason_key": "EXTENDED_DWELL",
+                "reason_params": {"minutes": int(halt_duration)},
                 "reason": f"Scheduled operational halt: extended {int(halt_duration)}m crew changeover, loco check, and platform dwell.",
             }
         ))
@@ -309,6 +354,8 @@ def get_delay_reasons(
         10.0,
         {
             "category": "SPEED_RESTRICTION",
+            "reason_key": "SECTIONAL_SPEED_RESTRICTION",
+            "reason_params": {"station": stn},
             "reason": f"Sectional speed restriction: automated caution aspects and track maintenance speed limit approaching {stn}.",
         }
     ))
@@ -316,6 +363,8 @@ def get_delay_reasons(
         5.0,
         {
             "category": "SIGNAL_INTERLOCKING",
+            "reason_key": "APPROACH_SIGNAL_QUEUE",
+            "reason_params": {"station": stn},
             "reason": f"Station approach route signaling clearance queue entering {stn} outer signals.",
         }
     ))

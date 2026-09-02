@@ -527,6 +527,7 @@ def get_train_eta(
                             platform_is_estimated=platform_is_estimated,
                             top_delay_factors=eta.get_delay_reasons(
                                 station_code=code,
+                                return_structured=True,
                                 predicted_delay=delay,
                                 current_delay=base_delay,
                                 train_number=clean_num,
@@ -591,6 +592,7 @@ def get_train_eta(
                     platform_is_estimated=True,
                     top_delay_factors=eta.get_delay_reasons(
                         station_code=st["code"],
+                        return_structured=True,
                         predicted_delay=delay,
                         current_delay=base_delay,
                         train_number=clean_num,

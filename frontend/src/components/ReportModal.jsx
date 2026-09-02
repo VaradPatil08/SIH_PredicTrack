@@ -54,7 +54,7 @@ export default function ReportModal({
         token
       );
 
-      setSuccessMsg(t('reportSuccess'));
+      setSuccessMsg({ key: 'reportSuccess' });
       if (onReportSubmitted) {
         onReportSubmitted(res);
       }
@@ -68,7 +68,7 @@ export default function ReportModal({
         onClose();
       }, 1200);
     } catch (err) {
-      setError(err.message || t('reportFailed'));
+      setError(err?.message ? { key: 'apiError', fallback: err.message } : { key: 'reportFailed' });
     } finally {
       setLoading(false);
     }
@@ -140,7 +140,7 @@ export default function ReportModal({
               className="p-3 bg-emerald-50 dark:bg-emerald-950/60 border border-emerald-200 dark:border-emerald-800 rounded-lg text-xs flex items-center gap-2 text-emerald-800 dark:text-emerald-300 font-semibold"
             >
               <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
-              <span>{successMsg}</span>
+              <span>{typeof successMsg === 'string' ? successMsg : t(successMsg.key, successMsg.params)}</span>
             </motion.div>
           )}
 
@@ -154,7 +154,7 @@ export default function ReportModal({
               <AlertTriangle className="w-4 h-4 shrink-0 text-red-600 dark:text-red-400 mt-0.5" />
               <div>
                 <div className="font-semibold">{t('notice')}</div>
-                <div className="text-red-700 dark:text-red-300">{error}</div>
+                <div className="text-red-700 dark:text-red-300">{typeof error === 'string' ? error : (error.fallback || t(error.key, error.params))}</div>
               </div>
             </motion.div>
           )}

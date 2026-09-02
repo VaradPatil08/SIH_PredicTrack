@@ -552,6 +552,9 @@ function ArrivalsBoard({ stationCode }) {
           </div>
         )}
 
+        {/* What-If Disruption Simulator — Station Admin exclusive feature */}
+        <WhatIfSimulator onSimulationChange={fetchArrivals} />
+
         {/* Arrivals Table Card */}
         <div className="rounded-lg border border-[#D9DEE5] dark:border-[#334155] bg-white dark:bg-[#1E293B] shadow-card overflow-hidden">
           <div className="overflow-x-auto w-full">

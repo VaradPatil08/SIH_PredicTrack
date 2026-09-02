@@ -42,7 +42,11 @@ export default function TrackingPage() {
 
   const { theme, t, language } = useSettings();
   const isDark = theme === 'dark';
+<<<<<<< Updated upstream
   const { isAuthenticated, openLoginModal, user, token } = useAuth();
+=======
+  const { isAuthenticated, openLoginModal, isStationAdmin } = useAuth();
+>>>>>>> Stashed changes
 
   // Parse tracked train numbers from URL (:trainNumber and ?compare=...)
   const compareParam = searchParams.get('compare') || '';
@@ -820,8 +824,10 @@ export default function TrackingPage() {
               {/* Delay Progression Sparkline Graph (Scoped to Focused Train) */}
               <DelaySparkline stations={focusedStations} />
 
-              {/* Interactive What-If Disruption Scenario Sandbox */}
-              <WhatIfSimulator onSimulationChange={() => fetchAllTelemetry(false)} />
+              {/* Interactive What-If Disruption Scenario Sandbox — Station Admin only */}
+              {isStationAdmin && (
+                <WhatIfSimulator onSimulationChange={() => fetchAllTelemetry(false)} />
+              )}
             </div>
 
             {/* Right: Dynamic Station Timeline with Multi-Train Tabs */}

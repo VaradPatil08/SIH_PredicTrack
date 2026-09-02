@@ -1,5 +1,5 @@
 """
-Database setup for RailPulse's dynamic/user-generated data.
+Database setup for PredicTrack's dynamic/user-generated data.
 
 Design decision: static reference data (trains, stations, schedules)
 stays in data/mock_trains.json — it doesn't change per-request and is

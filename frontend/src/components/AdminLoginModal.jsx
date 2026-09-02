@@ -66,7 +66,17 @@ export default function AdminLoginModal() {
         setSuccessMsg(null);
       }, 700);
     } catch (err) {
+<<<<<<< Updated upstream
       setError(err?.message ? { key: 'apiError', fallback: err.message } : { key: 'adminInvalidCredentials' });
+=======
+      if (err.name === 'AbortError' || err.name === 'TimeoutError' || err.isTimeout || err.message?.toLowerCase().includes('abort') || err.message?.toLowerCase().includes('timed out')) {
+        setError('Request timed out — please try again.');
+      } else if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
+        setError('Backend server is unreachable. Please ensure the FastAPI backend is running on port 8000.');
+      } else {
+        setError(err.message || 'Invalid username or password. Access denied.');
+      }
+>>>>>>> Stashed changes
     } finally {
       setLoading(false);
     }
@@ -173,7 +183,7 @@ export default function AdminLoginModal() {
             <div className="flex flex-wrap gap-2 pt-0.5">
               <button
                 type="button"
-                onClick={() => fillDemoCredentials('admin_ndls', 'railpulse@admin2026')}
+                onClick={() => fillDemoCredentials('admin_ndls', 'predictrack@admin2026')}
                 className="px-2 py-1 bg-white dark:bg-slate-800 hover:bg-blue-100 dark:hover:bg-slate-700 border border-blue-300 dark:border-blue-700 rounded text-[11px] font-mono font-semibold text-navy dark:text-blue-200 transition-colors shadow-2xs"
               >
                 admin_ndls

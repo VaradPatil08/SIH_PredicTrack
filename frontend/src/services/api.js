@@ -1,5 +1,5 @@
 /**
- * RailPulse Cyber-Industrial API Client Service
+ * PredicTrack API Client Service
  * Connects to the FastAPI backend (default: http://localhost:8000).
  * Features an offline simulation fallback; real What-If controls are sent to the backend.
  */
@@ -292,10 +292,14 @@ const MOCK_REASONS_MAP = {
 let mockSimElapsedMin = 310;
 let mockTickCount = 0;
 
+const DEFAULT_TIMEOUT_MS = 3500;
+const USER_ACTION_TIMEOUT_MS = 15000;
+
 /**
- * Generic fetch wrapper with timeout
+ * Generic fetch wrapper with timeout.
+ * Attaches isTimeout flag and clean error message if aborted by timeout.
  */
-async function fetchWithTimeout(url, options = {}, timeoutMs = 2500) {
+async function fetchWithTimeout(url, options = {}, timeoutMs = DEFAULT_TIMEOUT_MS) {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
   try {
@@ -304,6 +308,12 @@ async function fetchWithTimeout(url, options = {}, timeoutMs = 2500) {
     return res;
   } catch (err) {
     clearTimeout(timeoutId);
+    if (err.name === 'AbortError' || controller.signal.aborted) {
+      const timeoutErr = new Error(`Request timed out after ${Math.round(timeoutMs / 1000)}s — please try again.`);
+      timeoutErr.name = 'AbortError';
+      timeoutErr.isTimeout = true;
+      throw timeoutErr;
+    }
     throw err;
   }
 }
@@ -413,7 +423,7 @@ export async function getTrains(params = {}) {
     const data = await res.json();
     return Array.isArray(data) ? data : (data.trains || MOCK_TRAINS);
   } catch (err) {
-    console.warn(`[RailPulse API] Live backend unreachable at ${BASE_URL}/trains. Using fallback mock dataset.`, err.message);
+    console.warn(`[PredicTrack API] Live backend unreachable at ${BASE_URL}/trains. Using fallback mock dataset.`, err.message);
     if (params.featured !== undefined) {
       return MOCK_TRAINS.filter(t => Boolean(t.featured) === Boolean(params.featured));
     }
@@ -434,7 +444,7 @@ export async function getTrainsSearch(query, limit = 20) {
     const data = await res.json();
     return Array.isArray(data) ? data : [];
   } catch (err) {
-    console.warn(`[RailPulse API] Search failed, falling back to local mock filter:`, err.message);
+    console.warn(`[PredicTrack API] Search failed, falling back to local mock filter:`, err.message);
     const ql = q.toLowerCase();
     return MOCK_TRAINS.filter(t =>
       t.train_number.toLowerCase().includes(ql) ||
@@ -455,7 +465,7 @@ export async function getTrainRoute(trainNumber) {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] Using fallback route for ${trainNumber}:`, err.message);
+    console.warn(`[PredicTrack API] Using fallback route for ${trainNumber}:`, err.message);
     if (MOCK_ROUTES[trainNumber]) return MOCK_ROUTES[trainNumber];
 
     return {
@@ -483,7 +493,7 @@ export async function getTrainETA(trainNumber) {
     const data = await res.json();
     return { ...data, is_mock: false };
   } catch (err) {
-    console.warn(`[RailPulse API] Using dynamic synthetic telemetry for ${trainNumber}:`, err.message);
+    console.warn(`[PredicTrack API] Using dynamic synthetic telemetry for ${trainNumber}:`, err.message);
     let route = MOCK_ROUTES[trainNumber];
     if (!route) {
       // Prefer the backend's full-network route data so synthetic telemetry still
@@ -526,7 +536,7 @@ export async function getStationDelayReasons(trainNumber, stationCode) {
       return item;
     });
   } catch (err) {
-    console.warn(`[RailPulse API] Using structured mock reasons for ${code}:`, err.message);
+    console.warn(`[PredicTrack API] Using structured mock reasons for ${code}:`, err.message);
     return MOCK_REASONS_MAP[code] || [
       {
         category: 'SPEED_RESTRICTION',
@@ -573,14 +583,14 @@ export async function requestOTP(phoneNumber) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone_number: phoneNumber })
-    });
+    }, USER_ACTION_TIMEOUT_MS);
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
       throw new Error(errData.detail || `HTTP ${res.status}`);
     }
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] requestOTP error:`, err.message);
+    console.warn(`[PredicTrack API] requestOTP error:`, err.message);
     // Offline simulation fallback
     return {
       message: 'DEV_MODE: Simulated OTP generated (offline fallback).',
@@ -598,14 +608,14 @@ export async function verifyOTP(phoneNumber, code, name = null) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ phone_number: phoneNumber, code, name })
-    });
+    }, USER_ACTION_TIMEOUT_MS);
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
       throw new Error(errData.detail || `HTTP ${res.status}`);
     }
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] verifyOTP error:`, err.message);
+    console.warn(`[PredicTrack API] verifyOTP error:`, err.message);
     if (code === '123456') {
       return {
         access_token: 'mock-jwt-token-' + Date.now(),
@@ -621,16 +631,26 @@ export async function verifyOTP(phoneNumber, code, name = null) {
  * 6b. AUTH: POST /auth/admin/login
  */
 export async function adminLogin(username, password) {
-  const res = await fetchWithTimeout(`${BASE_URL}/auth/admin/login`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username: (username || '').trim(), password: password || '' })
-  });
-  if (!res.ok) {
-    const errData = await res.json().catch(() => ({}));
-    throw new Error(errData.detail || `HTTP ${res.status}`);
+  try {
+    const res = await fetchWithTimeout(`${BASE_URL}/auth/admin/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username: (username || '').trim(), password: password || '' })
+    }, USER_ACTION_TIMEOUT_MS);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    if (err.name === 'AbortError' || err.isTimeout || err.message?.toLowerCase().includes('abort')) {
+      const timeoutErr = new Error('Request timed out — please try again');
+      timeoutErr.name = 'TimeoutError';
+      timeoutErr.isTimeout = true;
+      throw timeoutErr;
+    }
+    throw err;
   }
-  return await res.json();
 }
 
 /**
@@ -640,18 +660,18 @@ export async function getUserProfile(token) {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/users/me`, {
       headers: { 'Authorization': `Bearer ${token}` }
-    });
+    }, USER_ACTION_TIMEOUT_MS);
     if (res.status === 401) {
-      console.error(`[RailPulse API] getUserProfile 401 Unauthorized: token is invalid or expired.`);
+      console.error(`[PredicTrack API] getUserProfile 401 Unauthorized: token is invalid or expired.`);
       return null;
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
     if (err.message && err.message.includes('401')) {
-      console.error(`[RailPulse API] getUserProfile 401 Unauthorized:`, err.message);
+      console.error(`[PredicTrack API] getUserProfile 401 Unauthorized:`, err.message);
     } else {
-      console.warn(`[RailPulse API] getUserProfile error:`, err.message);
+      console.warn(`[PredicTrack API] getUserProfile error:`, err.message);
     }
     return null;
   }
@@ -664,11 +684,11 @@ export async function getUserPreferences(token) {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/users/me/preferences`, {
       headers: { 'Authorization': `Bearer ${token}` }
-    });
+    }, USER_ACTION_TIMEOUT_MS);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] getUserPreferences error:`, err.message);
+    console.warn(`[PredicTrack API] getUserPreferences error:`, err.message);
     return [];
   }
 }
@@ -685,11 +705,11 @@ export async function addUserPreference(token, trainNumber) {
         'Authorization': `Bearer ${token}` 
       },
       body: JSON.stringify({ train_number: trainNumber })
-    });
+    }, USER_ACTION_TIMEOUT_MS);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] addUserPreference error:`, err.message);
+    console.warn(`[PredicTrack API] addUserPreference error:`, err.message);
     return { id: 'mock-pref-' + trainNumber, train_number: trainNumber, created_at: new Date().toISOString() };
   }
 }
@@ -702,11 +722,11 @@ export async function removeUserPreference(token, trainNumber) {
     const res = await fetchWithTimeout(`${BASE_URL}/users/me/preferences/${trainNumber}`, {
       method: 'DELETE',
       headers: { 'Authorization': `Bearer ${token}` }
-    });
+    }, USER_ACTION_TIMEOUT_MS);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] removeUserPreference error:`, err.message);
+    console.warn(`[PredicTrack API] removeUserPreference error:`, err.message);
     return { message: 'Removed' };
   }
 }
@@ -722,8 +742,13 @@ export async function submitDisruptionReport(trainNumber, { station_code, issue_
   const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports`, {
     method: 'POST',
     headers,
+<<<<<<< Updated upstream
     body: JSON.stringify({ station_code, issue_type, delay_bucket, description })
   });
+=======
+    body: JSON.stringify({ station_code, description })
+  }, USER_ACTION_TIMEOUT_MS);
+>>>>>>> Stashed changes
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.detail || `HTTP ${res.status}`);
@@ -773,11 +798,11 @@ export async function deleteAdminReport(reportId, token) {
 
 export async function getDisruptionReportSummary(trainNumber) {
   try {
-    const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports/summary`);
+    const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports/summary`, {}, 5000);
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] getDisruptionReportSummary error:`, err.message);
+    console.warn(`[PredicTrack API] getDisruptionReportSummary error:`, err.message);
     return {
       train_number: trainNumber,
       window_hours: 3,
@@ -797,14 +822,14 @@ export async function lookupPNR(pnrNumber) {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ pnr_number: pnrNumber })
-    });
+    }, USER_ACTION_TIMEOUT_MS);
     if (!res.ok) {
       const errData = await res.json().catch(() => ({}));
       throw new Error(errData.detail || `HTTP ${res.status}`);
     }
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] lookupPNR error:`, err.message);
+    console.warn(`[PredicTrack API] lookupPNR error:`, err.message);
     return {
       found: false,
       train_number: null,
@@ -823,18 +848,18 @@ export async function getAdminStations(authToken) {
     const headers = {};
     if (token) headers['Authorization'] = `Bearer ${token}`;
 
-    const res = await fetchWithTimeout(`${BASE_URL}/admin/stations`, { headers });
+    const res = await fetchWithTimeout(`${BASE_URL}/admin/stations`, { headers }, USER_ACTION_TIMEOUT_MS);
     if (res.status === 401) {
-      console.error(`[RailPulse API] getAdminStations 401 Unauthorized: admin token is invalid or expired.`);
+      console.error(`[PredicTrack API] getAdminStations 401 Unauthorized: admin token is invalid or expired.`);
       return [];
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } catch (err) {
     if (err.message && err.message.includes('401')) {
-      console.error(`[RailPulse API] getAdminStations 401 Unauthorized:`, err.message);
+      console.error(`[PredicTrack API] getAdminStations 401 Unauthorized:`, err.message);
     } else {
-      console.warn(`[RailPulse API] getAdminStations error:`, err.message);
+      console.warn(`[PredicTrack API] getAdminStations error:`, err.message);
     }
     return [];
   }
@@ -852,7 +877,7 @@ export async function getAdminStationArrivals(stationCode, authToken) {
   try {
     const res = await fetchWithTimeout(`${BASE_URL}/admin/station/${code}/arrivals`, { headers }, 18000);
     if (res.status === 401) {
-      console.error(`[RailPulse API] getAdminStationArrivals 401 Unauthorized for station ${code}: admin token is invalid or expired.`);
+      console.error(`[PredicTrack API] getAdminStationArrivals 401 Unauthorized for station ${code}: admin token is invalid or expired.`);
       throw new Error('Unauthorized: Admin session expired or invalid credentials.');
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -872,13 +897,13 @@ export async function getAdminStationArrivals(stationCode, authToken) {
     return data;
   } catch (err) {
     if (err.name === 'AbortError') {
-      console.warn(`[RailPulse API] getAdminStationArrivals timed out for station ${code}`);
+      console.warn(`[PredicTrack API] getAdminStationArrivals timed out for station ${code}`);
       throw new Error(`Request timed out while loading arrivals for ${code}. Please retry.`);
     }
     if (err.message && err.message.includes('401')) {
-      console.error(`[RailPulse API] getAdminStationArrivals 401 Unauthorized for station ${code}:`, err.message);
+      console.error(`[PredicTrack API] getAdminStationArrivals 401 Unauthorized for station ${code}:`, err.message);
     } else {
-      console.warn(`[RailPulse API] getAdminStationArrivals error:`, err.message);
+      console.warn(`[PredicTrack API] getAdminStationArrivals error:`, err.message);
     }
     throw err;
   }
@@ -898,12 +923,12 @@ export async function activateLiveTracking(trainNumber) {
       headers: { 'Content-Type': 'application/json' },
     }, 3500);
     if (!res.ok) {
-      console.warn(`[RailPulse API] activateLiveTracking HTTP ${res.status} for train ${cleanNum}`);
+      console.warn(`[PredicTrack API] activateLiveTracking HTTP ${res.status} for train ${cleanNum}`);
       return null;
     }
     return await res.json();
   } catch (err) {
-    console.warn(`[RailPulse API] activateLiveTracking failed for train ${cleanNum} (falling back to simulator):`, err.message);
+    console.warn(`[PredicTrack API] activateLiveTracking failed for train ${cleanNum} (falling back to simulator):`, err.message);
     return null;
   }
 }

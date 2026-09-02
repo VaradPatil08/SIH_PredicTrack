@@ -11,7 +11,7 @@ import app.models_db  # noqa: F401
 init_db()
 
 app = FastAPI(
-    title="RailPulse API",
+    title="PredicTrack API",
     description="Dynamic ETA prediction for Indian coaching trains — SIH project",
     version="0.1.0",
 )
@@ -41,5 +41,5 @@ app.include_router(admin.router)
 
 @app.get("/")
 def health_check():
-    return {"status": "ok", "service": "RailPulse API"}
+    return {"status": "ok", "service": "PredicTrack API"}
 

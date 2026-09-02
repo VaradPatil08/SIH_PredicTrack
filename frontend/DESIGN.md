@@ -1,6 +1,5 @@
 ---
-name: RailPulse
-colors:
+name: PredicTrack
   surface: '#181209'
   surface-dim: '#181209'
   surface-bright: '#40382d'

@@ -14,6 +14,7 @@ responses.
 """
 
 import hashlib
+import hmac
 import os
 import random
 import string
@@ -24,8 +25,13 @@ from typing import Optional
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
 from jose import jwt, JWTError
-from passlib.context import CryptContext
 from sqlalchemy.orm import Session
+
+try:
+    from passlib.context import CryptContext
+    pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
+except ImportError:
+    pwd_context = None
 
 from app.db import get_db
 from app.models_db import User, OTPCode
@@ -48,19 +54,35 @@ OTP_MAX_ATTEMPTS = 5
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/otp/verify", auto_error=False)
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-
 
 def hash_password(password: str) -> str:
-    """Hashes a password using passlib bcrypt."""
-    return pwd_context.hash(password)
+    """Hashes a password using passlib bcrypt if available, else standard pbkdf2_hmac."""
+    if pwd_context is not None:
+        try:
+            return pwd_context.hash(password)
+        except Exception:
+            pass
+    salt = os.urandom(16).hex()
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), 100000)
+    return f"pbkdf2_sha256${salt}${dk.hex()}"
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
-    """Verifies a plain password against its bcrypt hash."""
+    """Verifies a plain password against its bcrypt or pbkdf2 hash."""
     if not hashed_password or not plain_password:
         return False
-    return pwd_context.verify(plain_password, hashed_password)
+    if hashed_password.startswith("pbkdf2_sha256$"):
+        parts = hashed_password.split("$")
+        if len(parts) == 3:
+            salt = parts[1]
+            dk = hashlib.pbkdf2_hmac("sha256", plain_password.encode("utf-8"), salt.encode("utf-8"), 100000)
+            return hmac.compare_digest(dk.hex(), parts[2])
+    if pwd_context is not None and (hashed_password.startswith("$2a$") or hashed_password.startswith("$2b$") or hashed_password.startswith("$2y$")):
+        try:
+            return pwd_context.verify(plain_password, hashed_password)
+        except Exception:
+            pass
+    return hmac.compare_digest(plain_password, hashed_password)
 
 
 def _hash_code(code: str) -> str:

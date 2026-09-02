@@ -24,7 +24,7 @@ DEMO_ADMINS = [
     {
         "username": "admin_ndls",
         "name": "Station Controller NDLS",
-        "password": "railpulse@admin2026",
+        "password": "predictrack@admin2026",
         "role": "station_admin",
     },
     {
@@ -43,7 +43,7 @@ def seed_station_admins():
     db = SessionLocal()
     try:
         print("=" * 65)
-        print("  RailPulse — Station Admin Demo Credentials Provisioning")
+        print("  PredicTrack — Station Admin Demo Credentials Provisioning")
         print("=" * 65)
 
         for admin_data in DEMO_ADMINS:

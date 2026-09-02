@@ -64,8 +64,8 @@ export function useDeadReckonedPosition(currentPosition) {
       const now = Date.now();
       const elapsedSeconds = (now - anchor.syncedTimestamp) / 1000;
 
-      // Extrapolate if elapsed is between 0 and 600s (10 min safety cap)
-      if (elapsedSeconds > 0 && elapsedSeconds < 600) {
+      // Extrapolate if elapsed is between 0 and 25s (short inter-poll smoothing cap to prevent track drift)
+      if (elapsedSeconds > 0 && elapsedSeconds < 25) {
         const R = 6371.0; // Earth radius in km
         const distanceKm = anchor.speedKmh * (elapsedSeconds / 3600.0);
         const delta = distanceKm / R; // Angular distance in radians

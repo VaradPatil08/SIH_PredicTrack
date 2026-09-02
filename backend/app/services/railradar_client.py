@@ -1,6 +1,10 @@
 import logging
-import httpx
 from sqlalchemy.orm import Session
+
+try:
+    import httpx
+except ImportError:
+    httpx = None
 
 from app.config import RAILRADAR_API_KEY, RAILRADAR_BASE_URL
 from app.models_db import ApiQuotaUsage
@@ -38,6 +42,10 @@ def fetch_live(train_number: str, db: Session) -> dict | None:
     clean_train_number = str(train_number).strip()
     if not RAILRADAR_API_KEY:
         logger.warning(f"RailRadar schedule fetch failed for {clean_train_number}: No API key configured in environment")
+        return None
+
+    if httpx is None:
+        logger.warning(f"RailRadar live fetch failed for {clean_train_number}: 'httpx' is not installed in the python environment")
         return None
 
     url = f"{RAILRADAR_BASE_URL}/v1/trains/{clean_train_number}/live"

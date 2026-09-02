@@ -1,7 +1,7 @@
 """
 scripts/build_train_directory.py
 
-Builds the complete train directory for RailPulse by combining:
+Builds the complete train directory for PredicTrack by combining:
 1. The 24 hand-curated flagship train configurations from backend/app/data/mock_trains.json
 2. Real timetable sequences from data/processed/train_schedule_clean.csv
 3. Station geocoordinates from:
@@ -39,7 +39,7 @@ def download_or_load_station_coordinates():
             return json.load(f)
 
     print(f"[1/5] Fetching station coordinates from {DATAMEET_GEOJSON_URL}...")
-    req = urllib.request.Request(DATAMEET_GEOJSON_URL, headers={"User-Agent": "RailPulse-ETABuilder/1.0"})
+    req = urllib.request.Request(DATAMEET_GEOJSON_URL, headers={"User-Agent": "PredicTrack-ETABuilder/1.0"})
     with urllib.request.urlopen(req, timeout=30) as resp:
         geojson = json.loads(resp.read().decode("utf-8"))
 
@@ -137,7 +137,7 @@ def infer_zone(first_digit: str, origin_zone: str = None) -> str:
 
 
 def main():
-    print("=== RailPulse Train Directory Builder ===")
+    print("=== PredicTrack Train Directory Builder ===")
 
     # 1. Load coordinates reference
     ref_coords = download_or_load_station_coordinates()

@@ -89,20 +89,32 @@ function createRailwayStationIcon(status, code, colorHex, isDark = false) {
     textColor = isDark ? '#FDE68A' : '#D97706';
   }
 
+  // Use iconSize: [0, 0] and iconAnchor: [0, 0].
+  // Point (0, 0) is placed by Leaflet at the EXACT GPS coordinate of the station.
+  // The 9px station dot is centered at (0, 0) with transform: translate(-50%, -50%).
+  // The code label is centered horizontally at 0 and placed 7px below the dot.
   return L.divIcon({
     className: 'railway-station-node',
     html: `
-      <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -50%);">
+      <div class="railway-station-node-inner" style="position: relative; width: 0; height: 0; pointer-events: auto;">
         <div style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          transform: translate(-50%, -50%);
           width: 9px;
           height: 9px;
           border-radius: 50%;
           background-color: ${dotBg};
           border: 2px solid ${dotBorder};
           box-shadow: 0 1px 3px rgba(0,0,0,0.35);
+          z-index: 1;
         "></div>
         <div style="
-          margin-top: 2px;
+          position: absolute;
+          top: 7px;
+          left: 0;
+          transform: translateX(-50%);
           padding: 1px 3px;
           background: ${labelBg};
           border: 1px solid ${labelBorder};
@@ -113,13 +125,15 @@ function createRailwayStationIcon(status, code, colorHex, isDark = false) {
           color: ${textColor};
           box-shadow: 0 1px 2px rgba(0,0,0,0.15);
           white-space: nowrap;
+          pointer-events: none;
         ">
           ${code}
         </div>
       </div>
     `,
-    iconSize: [24, 24],
-    iconAnchor: [12, 12],
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+    popupAnchor: [0, -10],
   });
 }
 
@@ -138,83 +152,216 @@ function createLiveTrainIcon(trainNumber, speed, colorHex, isFocused = false, is
         ${isFocused ? `<span class="live-train-dot__label">LIVE · ${speed || 0} km/h</span>` : ''}
       </div>
     `,
-    iconSize: isFocused ? [110, 72] : [48, 48],
-    iconAnchor: isFocused ? [55, 36] : [24, 24],
+    iconSize: [48, 48],
+    iconAnchor: [24, 24],
     popupAnchor: [0, -22],
   });
 }
 
 /**
- * Individual Train Locomotive Marker component with dead reckoning hook support.
+ * Route layer for a single train: renders the completed polyline (solid),
+ * upcoming polyline (dashed), station node markers, and locomotive marker.
+ *
+ * The train's current position is included as the exact dividing point between
+ * the solid completed segment and the dashed upcoming segment.
  */
-function TrainLocomotiveMarker({ train, colorHex, isFocused, isDark, onFocusTrain, t }) {
+function TrainRouteLayer({ train, isFocused, isDark, onFocusTrain, t, language }) {
   const displayPosition = useDeadReckonedPosition(train.currentPosition);
-  if (!displayPosition?.lat || !displayPosition?.lng) return null;
+  const colorHex = train.color.currentHex;
+  const stns = train.stations || [];
 
-  const isRailRadar = displayPosition.source === 'railradar';
+  const { completed, upcoming } = useMemo(() => {
+    const validStations = stns.filter(s => s.lat != null && s.lng != null);
+    if (validStations.length === 0) return { completed: [], upcoming: [] };
+
+    const hasLivePos = displayPosition?.lat != null && displayPosition?.lng != null;
+    const liveCoord = hasLivePos ? [displayPosition.lat, displayPosition.lng] : null;
+
+    // If no live position is available, fallback to station-status-based partition
+    if (!liveCoord) {
+      const completedCoords = [];
+      const upcomingCoords = [];
+      let passedCurrent = false;
+
+      validStations.forEach((stn) => {
+        if (stn.status === 'reached') {
+          completedCoords.push([stn.lat, stn.lng]);
+        } else {
+          if (!passedCurrent && completedCoords.length > 0) {
+            completedCoords.push([stn.lat, stn.lng]);
+          }
+          upcomingCoords.push([stn.lat, stn.lng]);
+          passedCurrent = true;
+        }
+      });
+
+      return { completed: completedCoords, upcoming: upcomingCoords };
+    }
+
+    // Determine the next upcoming station index
+    let nextIdx = -1;
+    if (displayPosition.next_station_code) {
+      nextIdx = validStations.findIndex(s => s.code === displayPosition.next_station_code);
+    }
+    if (nextIdx === -1) {
+      nextIdx = validStations.findIndex(s => s.status !== 'reached');
+    }
+
+    // If train is in transit with live telemetry and nextIdx evaluated to 0,
+    // the upcoming station is at least index 1 (station 0 is the departed origin)
+    if (nextIdx <= 0 && validStations.length > 1) {
+      nextIdx = 1;
+    }
+
+    // All stations reached (arrived at terminus)
+    if (nextIdx === -1 || (nextIdx >= validStations.length - 1 && displayPosition.distance_to_next_km === 0)) {
+      return {
+        completed: validStations.map(s => [s.lat, s.lng]),
+        upcoming: [],
+      };
+    }
+
+    // Stations passed prior to nextIdx: slice(0, nextIdx)
+    const passedStations = validStations.slice(0, nextIdx).map(s => [s.lat, s.lng]);
+    const upcomingStations = validStations.slice(nextIdx).map(s => [s.lat, s.lng]);
+
+    // Solid line runs from origin through all passed stations up to the train dot.
+    // Dashed line starts at the train dot and continues through all upcoming stations.
+    const completedCoords = [...passedStations, liveCoord];
+    const upcomingCoords = [liveCoord, ...upcomingStations];
+
+    return { completed: completedCoords, upcoming: upcomingCoords };
+  }, [stns, displayPosition?.lat, displayPosition?.lng, displayPosition?.next_station_code]);
+
+  const isRailRadar = displayPosition?.source === 'railradar';
 
   return (
-    <Marker
-      position={[displayPosition.lat, displayPosition.lng]}
-      icon={createLiveTrainIcon(train.trainNumber, displayPosition.speed_kmh, colorHex, isFocused, isDark)}
-      zIndexOffset={isFocused ? 1000 : 500}
-    >
-      <Popup autoPan={false}>
-        <div className="font-sans text-xs space-y-1.5 min-w-[220px] text-foreground dark:text-slate-100">
-          <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
-            <span className="font-bold text-xs" style={{ color: colorHex }}>
-              #{train.trainNumber} {train.trainName}
-            </span>
-            <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
-              isRailRadar
-                ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
-                : 'bg-transit-green-light dark:bg-emerald-950 text-transit-green dark:text-emerald-400'
-            }`}>
-              {isRailRadar ? 'RailRadar Live' : t('liveTrack')}
-            </span>
-          </div>
-          <div className="space-y-1 text-[11px] text-muted dark:text-slate-400">
-            <div className="flex justify-between">
-              <span>{t('currentSpeed')}:</span>
-              <span className="font-bold" style={{ color: colorHex }}>
-                {displayPosition.speed_kmh || 0} {t('km')}/h
-              </span>
+    <React.Fragment key={train.trainNumber}>
+      {/* Completed Route Segment (Solid line up to train position) */}
+      {completed.length > 1 && (
+        <Polyline
+          positions={completed}
+          pathOptions={{
+            color: colorHex,
+            weight: isFocused ? 5 : 3.5,
+            opacity: isFocused ? 0.95 : 0.75,
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      )}
+
+      {/* Upcoming Route Segment (Dashed line from train position onwards) */}
+      {upcoming.length > 1 && (
+        <Polyline
+          positions={upcoming}
+          pathOptions={{
+            color: colorHex,
+            weight: isFocused ? 3.5 : 2.5,
+            opacity: isFocused ? 0.7 : 0.45,
+            dashArray: '6, 8',
+            lineCap: 'round',
+            lineJoin: 'round',
+          }}
+        />
+      )}
+
+      {/* Station Node Markers */}
+      {stns.map((stn, sIdx) => {
+        if (!stn.lat || !stn.lng) return null;
+        return (
+          <Marker
+            key={`${train.trainNumber}-${stn.code}-${sIdx}`}
+            position={[stn.lat, stn.lng]}
+            icon={createRailwayStationIcon(stn.status, stn.code, colorHex, isDark)}
+          >
+            <Popup>
+              <div className="font-sans text-xs space-y-1.5 text-foreground dark:text-slate-100 min-w-[200px]">
+                <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
+                  <span className="font-bold text-xs" style={{ color: colorHex }}>
+                    #{train.trainNumber} — {translateStationName(stn.name, language)}
+                  </span>
+                  <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 font-bold text-[10px]">
+                    {stn.code}
+                  </span>
+                </div>
+                <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-muted dark:text-slate-400 pt-0.5">
+                  <div>{t('distance')} <span className="text-foreground dark:text-slate-200 font-semibold">{stn.distance_km || 0} {t('km')}</span></div>
+                  <div>{t('statusLabel')}: <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'font-medium'}>{stn.status === 'reached' ? t('departed') : stn.status === 'delayed' ? t('delayed') : t('upcoming')}</span></div>
+                  <div>{t('scheduled')} <span className="text-foreground dark:text-slate-200 font-medium">+{stn.scheduled_offset_min}m</span></div>
+                  <div>{t('delayLabel')}: <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
+                </div>
+              </div>
+            </Popup>
+          </Marker>
+        );
+      })}
+
+      {/* Live Locomotive Marker: placed directly at the boundary between solid and dashed track */}
+      {displayPosition?.lat != null && displayPosition?.lng != null && (
+        <Marker
+          position={[displayPosition.lat, displayPosition.lng]}
+          icon={createLiveTrainIcon(train.trainNumber, displayPosition.speed_kmh, colorHex, isFocused, isDark)}
+          zIndexOffset={isFocused ? 1000 : 500}
+        >
+          <Popup autoPan={false}>
+            <div className="font-sans text-xs space-y-1.5 min-w-[220px] text-foreground dark:text-slate-100">
+              <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
+                <span className="font-bold text-xs" style={{ color: colorHex }}>
+                  #{train.trainNumber} {train.trainName}
+                </span>
+                <span className={`px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                  isRailRadar
+                    ? 'bg-blue-500/20 text-blue-400 border border-blue-500/30'
+                    : 'bg-transit-green-light dark:bg-emerald-950 text-transit-green dark:text-emerald-400'
+                }`}>
+                  {isRailRadar ? 'RailRadar Live' : t('liveTrack')}
+                </span>
+              </div>
+              <div className="space-y-1 text-[11px] text-muted dark:text-slate-400">
+                <div className="flex justify-between">
+                  <span>{t('currentSpeed')}:</span>
+                  <span className="font-bold" style={{ color: colorHex }}>
+                    {displayPosition.speed_kmh || 0} {t('km')}/h
+                  </span>
+                </div>
+                {displayPosition.bearing_degrees != null && (
+                  <div className="flex justify-between">
+                    <span>Bearing:</span>
+                    <span className="font-semibold text-foreground dark:text-slate-200">
+                      {Math.round(displayPosition.bearing_degrees)}°
+                    </span>
+                  </div>
+                )}
+                {displayPosition.next_station_name && (
+                  <div className="flex justify-between">
+                    <span>{t('nextStation')}:</span>
+                    <span className="font-semibold text-foreground dark:text-slate-200">
+                      {displayPosition.next_station_name}
+                    </span>
+                  </div>
+                )}
+                {isRailRadar && displayPosition.synced_at && (
+                  <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-0.5 border-t border-border dark:border-slate-800">
+                    <span>Synced At:</span>
+                    <span>{new Date(displayPosition.synced_at).toLocaleTimeString()}</span>
+                  </div>
+                )}
+              </div>
+              <div className="pt-1 border-t border-border dark:border-slate-700 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => onFocusTrain && onFocusTrain(train.trainNumber)}
+                  className="px-2 py-0.5 rounded text-[10px] font-semibold text-navy dark:text-blue-400 hover:underline"
+                >
+                  Focus Timeline & Metrics
+                </button>
+              </div>
             </div>
-            {displayPosition.bearing_degrees != null && (
-              <div className="flex justify-between">
-                <span>Bearing:</span>
-                <span className="font-semibold text-foreground dark:text-slate-200">
-                  {Math.round(displayPosition.bearing_degrees)}°
-                </span>
-              </div>
-            )}
-            {displayPosition.next_station_name && (
-              <div className="flex justify-between">
-                <span>{t('nextStation')}:</span>
-                <span className="font-semibold text-foreground dark:text-slate-200">
-                  {displayPosition.next_station_name}
-                </span>
-              </div>
-            )}
-            {isRailRadar && displayPosition.synced_at && (
-              <div className="flex justify-between text-[10px] text-slate-500 dark:text-slate-400 pt-0.5 border-t border-border dark:border-slate-800">
-                <span>Synced At:</span>
-                <span>{new Date(displayPosition.synced_at).toLocaleTimeString()}</span>
-              </div>
-            )}
-          </div>
-          <div className="pt-1 border-t border-border dark:border-slate-700 flex justify-end">
-            <button
-              type="button"
-              onClick={() => onFocusTrain && onFocusTrain(train.trainNumber)}
-              className="px-2 py-0.5 rounded text-[10px] font-semibold text-navy dark:text-blue-400 hover:underline"
-            >
-              Focus Timeline & Metrics
-            </button>
-          </div>
-        </div>
-      </Popup>
-    </Marker>
+          </Popup>
+        </Marker>
+      )}
+    </React.Fragment>
   );
 }
 
@@ -419,106 +566,18 @@ export default function TrainMap({
           onUserInteracted={() => setFollowTrain(false)}
         />
 
-        {/* Polylines and Markers for Each Tracked Train */}
-        {normalizedTrains.map((train) => {
-          const stns = train.stations || [];
-          const completed = [];
-          const upcoming = [];
-          let passedCurrent = false;
-
-          stns.forEach((stn) => {
-            if (stn.lat && stn.lng) {
-              if (stn.status === 'reached') {
-                completed.push([stn.lat, stn.lng]);
-              } else {
-                if (!passedCurrent && completed.length > 0) {
-                  completed.push([stn.lat, stn.lng]);
-                }
-                upcoming.push([stn.lat, stn.lng]);
-                passedCurrent = true;
-              }
-            }
-          });
-
-          const colorHex = train.color.currentHex;
-          const isFocused = train.isFocused;
-
-          return (
-            <React.Fragment key={train.trainNumber}>
-              
-              {/* Completed Route Segment */}
-              {completed.length > 1 && (
-                <Polyline
-                  positions={completed}
-                  pathOptions={{
-                    color: colorHex,
-                    weight: isFocused ? 5 : 3.5,
-                    opacity: isFocused ? 0.95 : 0.75,
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-              )}
-
-              {/* Upcoming Route Segment */}
-              {upcoming.length > 1 && (
-                <Polyline
-                  positions={upcoming}
-                  pathOptions={{
-                    color: colorHex,
-                    weight: isFocused ? 3.5 : 2.5,
-                    opacity: isFocused ? 0.7 : 0.45,
-                    dashArray: '6, 8',
-                    lineCap: 'round',
-                    lineJoin: 'round',
-                  }}
-                />
-              )}
-
-              {/* Station Node Markers */}
-              {stns.map((stn, sIdx) => {
-                if (!stn.lat || !stn.lng) return null;
-                return (
-                  <Marker
-                    key={`${train.trainNumber}-${stn.code}-${sIdx}`}
-                    position={[stn.lat, stn.lng]}
-                    icon={createRailwayStationIcon(stn.status, stn.code, colorHex, isDark)}
-                  >
-                    <Popup>
-                      <div className="font-sans text-xs space-y-1.5 text-foreground dark:text-slate-100 min-w-[200px]">
-                        <div className="flex items-center justify-between border-b border-border dark:border-slate-700 pb-1">
-                          <span className="font-bold text-xs" style={{ color: colorHex }}>
-                            #{train.trainNumber} — {translateStationName(stn.name, language)}
-                          </span>
-                          <span className="px-1.5 py-0.2 rounded bg-slate-100 dark:bg-slate-800 text-muted dark:text-slate-300 font-bold text-[10px]">
-                            {stn.code}
-                          </span>
-                        </div>
-                        <div className="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-muted dark:text-slate-400 pt-0.5">
-                          <div>{t('distance')} <span className="text-foreground dark:text-slate-200 font-semibold">{stn.distance_km || 0} {t('km')}</span></div>
-                          <div>{t('statusLabel')}: <span className={stn.status === 'delayed' ? 'text-transit-orange font-semibold' : stn.status === 'reached' ? 'text-transit-green font-semibold' : 'font-medium'}>{stn.status === 'reached' ? t('departed') : stn.status === 'delayed' ? t('delayed') : t('upcoming')}</span></div>
-                          <div>{t('scheduled')} <span className="text-foreground dark:text-slate-200 font-medium">+{stn.scheduled_offset_min}m</span></div>
-                          <div>{t('delayLabel')}: <span className={stn.predicted_delay_min > 2 ? 'text-transit-red dark:text-red-400 font-semibold' : 'text-transit-green dark:text-emerald-400 font-semibold'}>+{stn.predicted_delay_min || 0}m</span></div>
-                        </div>
-                      </div>
-                    </Popup>
-                  </Marker>
-                );
-              })}
-
-              {/* Live Locomotive Marker with Dead Reckoning */}
-              <TrainLocomotiveMarker
-                train={train}
-                colorHex={colorHex}
-                isFocused={isFocused}
-                isDark={isDark}
-                onFocusTrain={onFocusTrain}
-                t={t}
-              />
-
-            </React.Fragment>
-          );
-        })}
+        {/* Polylines, Markers, and Locomotive Marker for Each Tracked Train */}
+        {normalizedTrains.map((train) => (
+          <TrainRouteLayer
+            key={train.trainNumber}
+            train={train}
+            isFocused={train.isFocused}
+            isDark={isDark}
+            onFocusTrain={onFocusTrain}
+            t={t}
+            language={language}
+          />
+        ))}
       </MapContainer>
     </div>
   );

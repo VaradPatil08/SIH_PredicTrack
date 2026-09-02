@@ -4,7 +4,6 @@ import {
   X, 
   Sun, 
   Moon, 
-  Languages, 
   Globe,
   Check, 
   Settings as SettingsIcon

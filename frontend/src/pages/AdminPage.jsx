@@ -9,7 +9,7 @@ import {
   Clock, 
   AlertTriangle, 
   Building2, 
-  Train, 
+  Train,
   X, 
   ExternalLink,
   ArrowUpDown,
@@ -19,7 +19,6 @@ import { getAdminStations, getAdminStationArrivals, getAdminReports, deleteAdmin
 import { useSettings } from '../context/SettingsContext';
 import { useAuth } from '../context/AuthContext';
 import { translateStationName, translateTrainName } from '../locales/trainNames';
-import WhatIfSimulator from '../components/WhatIfSimulator';
 
 // Convert a station's schedule offset (relative to the train's origin departure)
 // into the actual HH:MM clock time used by the tracking page.

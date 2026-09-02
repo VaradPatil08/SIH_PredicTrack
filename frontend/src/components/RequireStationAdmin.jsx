@@ -12,13 +12,19 @@ import { getUserProfile } from '../services/api';
  * Prevents AdminPage from mounting or rendering empty shell for unauthorized users.
  */
 export default function RequireStationAdmin({ children }) {
-  const { token, isStationAdmin, logout, openAdminLoginModal } = useAuth();
+  const { token, isStationAdmin, authChecking, logout, openAdminLoginModal } = useAuth();
   const [status, setStatus] = useState('checking'); // 'checking' | 'authorized' | 'unauthorized'
 
   useEffect(() => {
     let isMounted = true;
 
     async function verifyAdminSession() {
+      // Wait for AuthContext to finish restoring/clearing any persisted session.
+      if (authChecking) {
+        if (isMounted) setStatus('checking');
+        return;
+      }
+
       // 1. If not logged in as station_admin or missing token
       if (!token || !isStationAdmin) {
         if (isMounted) setStatus('unauthorized');
@@ -59,7 +65,7 @@ export default function RequireStationAdmin({ children }) {
     return () => {
       isMounted = false;
     };
-  }, [token, isStationAdmin, logout, openAdminLoginModal]);
+  }, [token, isStationAdmin, authChecking, logout, openAdminLoginModal]);
 
   if (status === 'checking') {
     return (

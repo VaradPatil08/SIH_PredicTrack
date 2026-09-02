@@ -1,16 +1,11 @@
-import React from 'react';
 import { motion } from 'framer-motion';
 import { Link } from 'react-router-dom';
 import { 
   ArrowLeft, 
   Cpu, 
   Layers, 
-  Database, 
   CheckCircle2, 
   ShieldCheck, 
-  Code2, 
-  LineChart, 
-  GitBranch, 
   Sparkles,
   Server
 } from 'lucide-react';

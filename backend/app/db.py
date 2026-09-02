@@ -5,20 +5,29 @@ Design decision: static reference data (trains, stations, schedules)
 stays in data/mock_trains.json — it doesn't change per-request and is
 easiest to seed/expand from public datasets as flat files.
 
-This SQLite DB is only for data that's created at runtime by users:
-accounts, saved preferences, and crowdsourced disruption reports.
-SQLite is enough for a hackathon; swap SQLALCHEMY_DATABASE_URL for a
-Postgres URL later with no code changes elsewhere.
+The runtime database is selected by DATABASE_URL. Local development falls
+back to SQLite; production should use PostgreSQL so user accounts, preferences,
+and crowdsourced reports survive Render restarts/redeploys.
 """
+
+import logging
+import os
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-SQLALCHEMY_DATABASE_URL = "sqlite:///./railpulse.db"
+logger = logging.getLogger(__name__)
 
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL, connect_args={"check_same_thread": False}
-)
+# Render provides DATABASE_URL for PostgreSQL; local development keeps the
+# existing SQLite fallback. SQLAlchemy/psycopg2 accepts the standard URL.
+SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./railpulse.db")
+_is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
+
+engine_kwargs = {}
+if _is_sqlite:
+    engine_kwargs["connect_args"] = {"check_same_thread": False}
+
+engine = create_engine(SQLALCHEMY_DATABASE_URL, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
@@ -41,7 +50,7 @@ def _rebuild_reports_table_for_nullable_description(conn):
         return
 
     existing = {row[1] for row in table_info}
-    print("[DB] Migrating reports.description from NOT NULL to nullable")
+    logger.info("Migrating reports.description from NOT NULL to nullable")
 
     # Avoid foreign-key checks while SQLite replaces the table. The reports
     # table is recreated with the same FK afterwards.
@@ -141,6 +150,9 @@ def _deduplicate_active_reports(conn):
 def init_db():
     """Initialize tables and apply backward-compatible SQLite migrations."""
     Base.metadata.create_all(bind=engine)
+    if not _is_sqlite:
+        return
+
     with engine.connect() as conn:
         try:
             result = conn.execute(text("PRAGMA table_info(users)"))
@@ -151,14 +163,10 @@ def init_db():
                 if "password_hash" not in cols:
                     conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
 
-            # Reports gained structured/lifecycle fields after the original schema.
             result = conn.execute(text("PRAGMA table_info(reports)"))
             report_cols = {row[1] for row in result.fetchall()}
             if report_cols:
-                # IMPORTANT: existing SQLite columns cannot be made nullable with
-                # ALTER TABLE. Rebuild the table before adding/using the unique index.
                 _rebuild_reports_table_for_nullable_description(conn)
-
                 result = conn.execute(text("PRAGMA table_info(reports)"))
                 report_cols = {row[1] for row in result.fetchall()}
                 migrations = {
@@ -174,18 +182,15 @@ def init_db():
                     if col not in report_cols:
                         conn.execute(text(ddl))
 
-                # Existing legacy rows may have been assigned user IDs during a
-                # previous migration. Clean duplicates before creating the index.
                 _deduplicate_active_reports(conn)
-
                 conn.execute(text(
                     "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_report_user_train "
                     "ON reports(user_id, train_number) WHERE is_active = 1"
                 ))
             conn.commit()
-        except Exception as e:
+        except Exception as exc:
             conn.rollback()
-            print(f"[DB] Migration check notice: {e}")
+            logger.warning("Database migration check failed: %s", exc, exc_info=True)
 
 
 def get_db():

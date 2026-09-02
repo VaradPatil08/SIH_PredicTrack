@@ -41,14 +41,15 @@ class Report(Base):
     """A crowdsourced report representing a user's current disruption experience."""
     __tablename__ = "reports"
     __table_args__ = (
-        # SQLite supports this partial unique index; the endpoint also performs
-        # an UPSERT so the application remains correct on other DB backends.
+        # Keep one active report per user/train while allowing historical/inactive rows.
+        # Both SQLite and PostgreSQL use a partial unique index.
         Index(
             "uq_active_report_user_train",
             "user_id",
             "train_number",
             unique=True,
             sqlite_where=text("is_active = 1"),
+            postgresql_where=text("is_active = true"),
         ),
     )
 

@@ -1,0 +1,36 @@
+services:
+  - type: web
+    name: railpulse-backend
+    runtime: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: "3.11"
+      - key: RAILPULSE_DEV_MODE
+        value: "false"
+      - key: RAILRADAR_API_KEY
+        sync: false
+      - key: RAILRADAR_BASE_URL
+        value: https://api.railradar.in
+      - key: RAILRADAR_MONTHLY_LIMIT
+        value: "1000"
+      - key: RAILRADAR_SAFETY_MARGIN
+        value: "50"
+      - key: RAILRADAR_CACHE_TTL_SECONDS
+        value: "300"
+      - key: RAILPULSE_JWT_SECRET
+        generateValue: true
+      - key: DATABASE_URL
+        fromDatabase:
+          name: railpulse-db
+          property: connectionString
+      - key: FRONTEND_ORIGIN
+        sync: false
+
+databases:
+  - name: railpulse-db
+    databaseName: railpulse
+    user: railpulse
+    plan: free

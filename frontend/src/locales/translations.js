@@ -295,13 +295,6 @@ export const translations = {
     modelArchLabel: 'Active ML Model',
     restApiReference: 'REST API Telemetry Endpoints',
 
-    // Footer
-    footerTitle: 'PredicTrack',
-    footerSub: 'LIVE ENQUIRY',
-    liveTrainsFooter: 'Live Trains',
-    liveRouteTracking: 'Live Route Tracking',
-    fastApiMicroservice: 'Live Service',
-    gradientBoostedRegressor: 'Delay Estimator',
     evaluationReady: 'Indian Railways Passenger Portal',
     sihFooter: 'Smart India Hackathon 2026',
   },
@@ -603,12 +596,6 @@ export const translations = {
     restApiReference: 'REST API टेलीमेट्री एंडपॉइंट्स',
 
     // Footer
-    footerTitle: 'PredicTrack',
-    footerSub: 'लाइव पूछताछ',
-    liveTrainsFooter: 'लाइव ट्रेनें',
-    liveRouteTracking: 'लाइव रूट ट्रैकिंग',
-    fastApiMicroservice: 'लाइव सेवा',
-    gradientBoostedRegressor: 'विलंब अनुमानक',
     evaluationReady: 'भारतीय रेल यात्री पोर्टल',
     sihFooter: 'स्मार्ट इंडिया हैकाथॉन 2026',
   }

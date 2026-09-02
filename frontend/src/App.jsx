@@ -79,9 +79,6 @@ function MainApp() {
               } 
             />
 
-            {/* Fallback to Home */}
-            <Route path="*" element={<Navigate to="/" replace />} />
-
             {/* Station Admin View — Guarded by RequireStationAdmin */}
             <Route
               path="/admin"
@@ -113,6 +110,9 @@ function MainApp() {
                 </RequireStationAdmin>
               }
             />
+
+            {/* Fallback to Home */}
+            <Route path="*" element={<Navigate to="/" replace />} />
 
           </Routes>
         </AnimatePresence>

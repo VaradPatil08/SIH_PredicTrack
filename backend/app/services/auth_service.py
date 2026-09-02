@@ -18,6 +18,7 @@ import os
 import random
 import string
 import datetime
+import logging
 from typing import Optional
 
 from fastapi import Depends, HTTPException, status
@@ -29,9 +30,17 @@ from sqlalchemy.orm import Session
 from app.db import get_db
 from app.models_db import User, OTPCode
 
+logger = logging.getLogger(__name__)
+
 # --- Config ---
 DEV_MODE = os.getenv("RAILPULSE_DEV_MODE", "true").lower() == "true"
-JWT_SECRET = os.getenv("RAILPULSE_JWT_SECRET", "dev-secret-change-before-deploying")
+JWT_SECRET = os.getenv("RAILPULSE_JWT_SECRET")
+if not JWT_SECRET:
+    if DEV_MODE:
+        JWT_SECRET = "dev-secret-change-before-deploying"
+        logger.warning("Using development JWT secret; set RAILPULSE_JWT_SECRET before deployment.")
+    else:
+        raise RuntimeError("RAILPULSE_JWT_SECRET is required when RAILPULSE_DEV_MODE is false")
 JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 OTP_EXPIRE_MINUTES = 5
@@ -68,7 +77,7 @@ def _send_otp_sms(phone_number: str, code: str) -> None:
     Firebase Phone Auth is the easiest path (free tier, no DLT
     registration needed since Firebase handles delivery).
     """
-    print(f"[DEV] OTP for {phone_number}: {code}  (would be sent via SMS in production)")
+    logger.debug("[DEV] OTP generated for %s", phone_number)
 
 
 def request_otp(phone_number: str, db: Session) -> Optional[str]:

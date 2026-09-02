@@ -29,7 +29,8 @@ export default function Navbar() {
     isStationAdmin, 
     logout, 
     openLoginModal, 
-    openAdminLoginModal 
+    openAdminLoginModal,
+    authChecking,
   } = useAuth();
 
   // Close dropdown on click outside
@@ -42,6 +43,8 @@ export default function Navbar() {
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
+
+  if (authChecking) return <header className="h-16 bg-white dark:bg-slate-900 border-b border-border dark:border-slate-800" aria-hidden="true" />;
 
   const navItems = [
     { label: t('liveTrains'), path: '/' },

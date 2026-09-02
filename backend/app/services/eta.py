@@ -15,6 +15,7 @@ import json
 import os
 import random
 import sys
+import logging
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "..", "ml"))
 
@@ -25,6 +26,7 @@ _METRICS_PATH = os.path.join(_ML_DIR, "model", "metrics.json")
 _model = None
 _model_load_attempted = False
 _hist_averages = None
+logger = logging.getLogger(__name__)
 
 
 def _try_load_model():
@@ -40,12 +42,12 @@ def _try_load_model():
             from features import load_historical_averages
             _model = joblib.load(_MODEL_PATH)
             _hist_averages = load_historical_averages()
-            print(f"[eta.py] Loaded trained model from {_MODEL_PATH}")
+            logger.info("Loaded trained model from %s", _MODEL_PATH)
         except Exception as e:
-            print(f"[eta.py] Found model file but failed to load it ({e}). Falling back to placeholder.")
+            logger.warning("Found model file but failed to load it (%s). Falling back to placeholder.", e)
             _model = None
     else:
-        print(f"[eta.py] No trained model found at {_MODEL_PATH}. Using placeholder formula until ML leads train one.")
+        logger.info("No trained model found at %s. Using placeholder formula.", _MODEL_PATH)
 
 
 def predict_delay_minutes(

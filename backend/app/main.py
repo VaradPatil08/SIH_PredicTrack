@@ -1,8 +1,10 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+import os
 
 from app.routers import trains, auth, preferences, reports, pnr, admin
 from app.db import init_db
+from app.services.auth_service import DEV_MODE
 import app.models_db  # noqa: F401
 
 # Create database tables and apply migrations
@@ -14,11 +16,17 @@ app = FastAPI(
     version="0.1.0",
 )
 
-# Wide-open CORS for hackathon dev speed. Tighten before final deployment
-# (restrict allow_origins to your deployed frontend URL).
+frontend_origin = os.getenv("FRONTEND_ORIGIN")
+if frontend_origin:
+    allowed_origins = [origin.strip().rstrip("/") for origin in frontend_origin.split(",") if origin.strip()]
+elif DEV_MODE:
+    allowed_origins = ["*"]
+else:
+    raise RuntimeError("FRONTEND_ORIGIN is required when RAILPULSE_DEV_MODE is false")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_methods=["*"],
     allow_headers=["*"],
 )

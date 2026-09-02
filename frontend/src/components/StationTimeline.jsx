@@ -20,13 +20,22 @@ export default function StationTimeline({
   // Multi-train support props:
   trains = [],
   focusedTrainNumber = null,
-  onFocusTrain = null
+  onFocusTrain = null,
+  reasonRefreshKey = 0
 }) {
   const { theme, t, language } = useSettings();
   const isDark = theme === 'dark';
   const [expandedStation, setExpandedStation] = useState(null);
   const [delayReasons, setDelayReasons] = useState({});
   const [loadingReasons, setLoadingReasons] = useState({});
+
+  // Crowd reports can change the backend reason result without changing the
+  // station list. Clear the per-station reason cache after a report is submitted
+  // so an already-expanded station does not keep showing stale synthetic reasons.
+  React.useEffect(() => {
+    setDelayReasons({});
+    setLoadingReasons({});
+  }, [reasonRefreshKey]);
 
   // Normalize trains input: support both unified trains array and single-train legacy props
   const normalizedTrains = useMemo(() => {

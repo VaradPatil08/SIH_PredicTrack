@@ -8,7 +8,7 @@ easiest to seed/expand from public datasets as flat files.
 This SQLite DB is only for data that's created at runtime by users:
 accounts, saved preferences, and crowdsourced disruption reports.
 SQLite is enough for a hackathon; swap SQLALCHEMY_DATABASE_URL for a
-Postgres URL later with no code changes elsewhere if needed.
+Postgres URL later with no code changes elsewhere.
 """
 
 from sqlalchemy import create_engine, text
@@ -23,8 +23,123 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
 
+def _rebuild_reports_table_for_nullable_description(conn):
+    """Rebuild an old SQLite reports table whose description is still NOT NULL.
+
+    SQLite does not support ALTER COLUMN, so changing the SQLAlchemy model from
+    nullable=False to nullable=True is not enough for an already-created DB.
+    This migration preserves existing rows while replacing the old table with
+    the current reports schema. It is intentionally local to SQLite so the
+    runtime database remains self-contained and requires no new dependency.
+    """
+    table_info = conn.execute(text("PRAGMA table_info(reports)")).fetchall()
+    if not table_info:
+        return
+
+    description = next((row for row in table_info if row[1] == "description"), None)
+    if description is None or int(description[3]) == 0:
+        return
+
+    existing = {row[1] for row in table_info}
+    print("[DB] Migrating reports.description from NOT NULL to nullable")
+
+    # Avoid foreign-key checks while SQLite replaces the table. The reports
+    # table is recreated with the same FK afterwards.
+    conn.execute(text("PRAGMA foreign_keys=OFF"))
+    try:
+        conn.execute(text("DROP INDEX IF EXISTS uq_active_report_user_train"))
+        conn.execute(text("DROP TABLE IF EXISTS reports__new"))
+        conn.execute(text("""
+            CREATE TABLE reports__new (
+                id VARCHAR PRIMARY KEY,
+                train_number VARCHAR NOT NULL,
+                station_code VARCHAR,
+                issue_type VARCHAR NOT NULL DEFAULT 'other',
+                delay_bucket VARCHAR NOT NULL DEFAULT 'on_time',
+                description VARCHAR,
+                phone_number VARCHAR,
+                user_id VARCHAR REFERENCES users(id),
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                resolved_at DATETIME,
+                plausibility_score FLOAT NOT NULL DEFAULT 1.0,
+                created_at DATETIME
+            )
+        """))
+
+        def expr(column, default_sql):
+            return column if column in existing else default_sql
+
+        conn.execute(text(f"""
+            INSERT INTO reports__new (
+                id, train_number, station_code, issue_type, delay_bucket,
+                description, phone_number, user_id, is_active, resolved_at,
+                plausibility_score, created_at
+            )
+            SELECT
+                {expr('id', "NULL")},
+                {expr('train_number', "''")},
+                {expr('station_code', "NULL")},
+                COALESCE({expr('issue_type', "'other'")}, 'other'),
+                COALESCE({expr('delay_bucket', "'on_time'")}, 'on_time'),
+                {expr('description', "NULL")},
+                {expr('phone_number', "NULL")},
+                {expr('user_id', "NULL")},
+                COALESCE({expr('is_active', "1")}, 1),
+                {expr('resolved_at', "NULL")},
+                COALESCE({expr('plausibility_score', "1.0")}, 1.0),
+                {expr('created_at', "NULL")}
+            FROM reports
+        """))
+
+        conn.execute(text("DROP TABLE reports"))
+        conn.execute(text("ALTER TABLE reports__new RENAME TO reports"))
+
+        # Restore the indexes that SQLAlchemy expects for the Report model.
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_reports_train_number "
+            "ON reports(train_number)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_reports_user_id "
+            "ON reports(user_id)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_reports_is_active "
+            "ON reports(is_active)"
+        ))
+        conn.execute(text(
+            "CREATE INDEX IF NOT EXISTS ix_reports_created_at "
+            "ON reports(created_at)"
+        ))
+    finally:
+        conn.execute(text("PRAGMA foreign_keys=ON"))
+
+
+def _deduplicate_active_reports(conn):
+    """Keep only the newest active report for each user/train pair."""
+    conn.execute(text("""
+        UPDATE reports
+        SET is_active = 0,
+            resolved_at = COALESCE(resolved_at, CURRENT_TIMESTAMP)
+        WHERE id IN (
+            SELECT older.id
+            FROM reports AS older
+            JOIN reports AS newer
+              ON older.user_id = newer.user_id
+             AND older.train_number = newer.train_number
+             AND older.is_active = 1
+             AND newer.is_active = 1
+             AND older.user_id IS NOT NULL
+             AND (
+                 older.created_at < newer.created_at
+                 OR (older.created_at = newer.created_at AND older.id < newer.id)
+             )
+        )
+    """))
+
+
 def init_db():
-    """Initializes tables and applies backward-compatible column migrations if needed."""
+    """Initialize tables and apply backward-compatible SQLite migrations."""
     Base.metadata.create_all(bind=engine)
     with engine.connect() as conn:
         try:
@@ -37,10 +152,15 @@ def init_db():
                     conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
 
             # Reports gained structured/lifecycle fields after the original schema.
-            # Keep this deliberately lightweight for the hackathon's SQLite DB.
             result = conn.execute(text("PRAGMA table_info(reports)"))
             report_cols = {row[1] for row in result.fetchall()}
             if report_cols:
+                # IMPORTANT: existing SQLite columns cannot be made nullable with
+                # ALTER TABLE. Rebuild the table before adding/using the unique index.
+                _rebuild_reports_table_for_nullable_description(conn)
+
+                result = conn.execute(text("PRAGMA table_info(reports)"))
+                report_cols = {row[1] for row in result.fetchall()}
                 migrations = {
                     "issue_type": "ALTER TABLE reports ADD COLUMN issue_type VARCHAR DEFAULT 'other'",
                     "delay_bucket": "ALTER TABLE reports ADD COLUMN delay_bucket VARCHAR DEFAULT 'on_time'",
@@ -54,13 +174,17 @@ def init_db():
                     if col not in report_cols:
                         conn.execute(text(ddl))
 
-                # Enforce one active report per user/train at the DB layer too.
+                # Existing legacy rows may have been assigned user IDs during a
+                # previous migration. Clean duplicates before creating the index.
+                _deduplicate_active_reports(conn)
+
                 conn.execute(text(
                     "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_report_user_train "
                     "ON reports(user_id, train_number) WHERE is_active = 1"
                 ))
             conn.commit()
         except Exception as e:
+            conn.rollback()
             print(f"[DB] Migration check notice: {e}")
 
 
@@ -71,4 +195,3 @@ def get_db():
         yield db
     finally:
         db.close()
-

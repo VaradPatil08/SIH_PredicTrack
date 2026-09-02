@@ -631,6 +631,7 @@ def get_station_delay_reasons(
     freight_precedence: bool = False,
     tsr_speed_limit: bool = False,
     platform_hold: bool = False,
+    db: Session = Depends(get_db),
 ):
     """Returns dynamic root-cause attribution reasons for a station."""
     raw_num = str(train_number).strip()
@@ -659,6 +660,19 @@ def get_station_delay_reasons(
         else:
             predicted_delay = current_delay
 
+    # The timeline asks for reasons through this dedicated endpoint rather than
+    # using the reasons embedded in the main ETA payload. Re-run the crowd
+    # aggregation here so the expanded "why is this train delayed?" card sees
+    # the same rider corroboration as the main ETA endpoint.
+    crowd_estimate = report_aggregation.get_crowd_delay_estimate(clean_num, db)
+    crowd_issue_type = None
+    crowd_confidence = 0.0
+    crowd_report_count = 0
+    if crowd_estimate:
+        crowd_issue_type = crowd_estimate.get("dominant_issue_type")
+        crowd_confidence = float(crowd_estimate.get("confidence", 0.0))
+        crowd_report_count = int(crowd_estimate.get("report_count", 0))
+
     reasons = eta.get_delay_reasons(
         station_code=stn,
         predicted_delay=predicted_delay,
@@ -669,6 +683,9 @@ def get_station_delay_reasons(
         freight_precedence=freight_precedence,
         tsr_speed_limit=tsr_speed_limit,
         platform_hold=platform_hold,
+        crowd_issue_type=crowd_issue_type,
+        crowd_confidence=crowd_confidence,
+        crowd_report_count=crowd_report_count,
     )
     return DelayReasonsResponse(reasons=reasons)
 

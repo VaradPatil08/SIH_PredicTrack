@@ -69,6 +69,7 @@ export default function TrackingPage() {
   trainsEtaRef.current = trainsEta;
   const [reportSummary, setReportSummary] = useState(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState(false);
+  const [reasonRefreshKey, setReasonRefreshKey] = useState(0);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(null);
@@ -776,6 +777,7 @@ export default function TrackingPage() {
                 trains={trainsData}
                 focusedTrainNumber={focusedTrainNumber}
                 onFocusTrain={(num) => setFocusedTrainNumber(num)}
+                reasonRefreshKey={reasonRefreshKey}
               />
 
               {/* Delay Progression Sparkline Graph (Scoped to Focused Train) */}
@@ -793,6 +795,7 @@ export default function TrackingPage() {
                 trains={trainsData}
                 focusedTrainNumber={focusedTrainNumber}
                 onFocusTrain={(num) => setFocusedTrainNumber(num)}
+                reasonRefreshKey={reasonRefreshKey}
               />
             </div>
 
@@ -808,6 +811,7 @@ export default function TrackingPage() {
         trainName={focusedTrain?.trainName || ''}
         stations={focusedStations}
         onReportSubmitted={() => {
+          setReasonRefreshKey((value) => value + 1);
           fetchAllTelemetry(true);
         }}
       />

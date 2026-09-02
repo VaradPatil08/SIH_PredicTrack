@@ -20,6 +20,9 @@ from app.main import app as backend_app  # noqa: E402
 
 
 # Keep API endpoints isolated under /api while the Vite single-page app owns
-# the remaining routes.  The frontend uses the same-origin /api base URL.
+# the remaining routes. The root mount is a compatibility fallback for Vercel
+# function invocations that have already stripped the /api file prefix before
+# handing the request to the ASGI application.
 app = FastAPI(title="PredicTrack Vercel Gateway")
 app.mount("/api", backend_app)
+app.mount("/", backend_app)

@@ -39,17 +39,15 @@ export default function AuthModal() {
       }
       setStep(2);
     } catch (err) {
-<<<<<<< Updated upstream
-      setError(err?.message ? { key: 'apiError', fallback: err.message } : { key: 'reportFailed' });
-=======
       if (err.name === 'AbortError' || err.name === 'TimeoutError' || err.isTimeout || err.message?.toLowerCase().includes('abort') || err.message?.toLowerCase().includes('timed out')) {
         setError('Request timed out — please try again.');
       } else if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
         setError('Backend server is unreachable. Please ensure the FastAPI backend is running on port 8000.');
+      } else if (err?.message) {
+        setError({ key: 'apiError', fallback: err.message });
       } else {
-        setError(err.message || t('reportFailed'));
+        setError({ key: 'reportFailed' });
       }
->>>>>>> Stashed changes
     } finally {
       setLoading(false);
     }

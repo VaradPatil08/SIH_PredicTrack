@@ -742,13 +742,8 @@ export async function submitDisruptionReport(trainNumber, { station_code, issue_
   const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports`, {
     method: 'POST',
     headers,
-<<<<<<< Updated upstream
     body: JSON.stringify({ station_code, issue_type, delay_bucket, description })
-  });
-=======
-    body: JSON.stringify({ station_code, description })
   }, USER_ACTION_TIMEOUT_MS);
->>>>>>> Stashed changes
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));
     throw new Error(errData.detail || `HTTP ${res.status}`);

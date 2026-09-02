@@ -42,11 +42,7 @@ export default function TrackingPage() {
 
   const { theme, t, language } = useSettings();
   const isDark = theme === 'dark';
-<<<<<<< Updated upstream
-  const { isAuthenticated, openLoginModal, user, token } = useAuth();
-=======
-  const { isAuthenticated, openLoginModal, isStationAdmin } = useAuth();
->>>>>>> Stashed changes
+  const { isAuthenticated, openLoginModal, isStationAdmin, user, token } = useAuth();
 
   // Parse tracked train numbers from URL (:trainNumber and ?compare=...)
   const compareParam = searchParams.get('compare') || '';

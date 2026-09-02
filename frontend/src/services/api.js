@@ -714,7 +714,7 @@ export async function removeUserPreference(token, trainNumber) {
 /**
  * 11. REPORTS: POST /trains/{train_number}/reports
  */
-export async function submitDisruptionReport(trainNumber, { station_code, description }, token) {
+export async function submitDisruptionReport(trainNumber, { station_code, issue_type, delay_bucket, description }, token) {
   const headers = { 'Content-Type': 'application/json' };
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -722,7 +722,7 @@ export async function submitDisruptionReport(trainNumber, { station_code, descri
   const res = await fetchWithTimeout(`${BASE_URL}/trains/${trainNumber}/reports`, {
     method: 'POST',
     headers,
-    body: JSON.stringify({ station_code, description })
+    body: JSON.stringify({ station_code, issue_type, delay_bucket, description })
   });
   if (!res.ok) {
     const errData = await res.json().catch(() => ({}));

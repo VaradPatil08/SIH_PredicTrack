@@ -18,6 +18,8 @@ export default function ReportModal({
   const { t, language } = useSettings();
 
   const [stationCode, setStationCode] = useState('');
+  const [issueType, setIssueType] = useState('delay');
+  const [delayBucket, setDelayBucket] = useState('15min');
   const [description, setDescription] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -38,10 +40,6 @@ export default function ReportModal({
     setError(null);
 
     const trimmedDesc = description.trim();
-    if (trimmedDesc.length < 3) {
-      setError(t('reportMinChars'));
-      return;
-    }
 
     try {
       setLoading(true);
@@ -49,7 +47,9 @@ export default function ReportModal({
         trainNumber,
         {
           station_code: stationCode || null,
-          description: trimmedDesc,
+          issue_type: issueType,
+          delay_bucket: delayBucket,
+          description: trimmedDesc || null,
         },
         token
       );
@@ -63,6 +63,8 @@ export default function ReportModal({
         setSuccessMsg(null);
         setDescription('');
         setStationCode('');
+        setIssueType('delay');
+        setDelayBucket('15min');
         onClose();
       }, 1200);
     } catch (err) {
@@ -183,11 +185,52 @@ export default function ReportModal({
               </div>
             </div>
 
-            {/* Description Textarea */}
+            {/* Structured issue type */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
+                {t('disruptionType')} *
+              </label>
+              <select
+                value={issueType}
+                onChange={(e) => setIssueType(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-foreground dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500"
+              >
+                <option value="delay">{t('issueTypeDelay')}</option>
+                <option value="signal_fault">{t('issueTypeSignalFault')}</option>
+                <option value="crowding">{t('issueTypeCrowding')}</option>
+                <option value="accident">{t('issueTypeAccident')}</option>
+                <option value="weather">{t('issueTypeWeather')}</option>
+                <option value="track_obstruction">{t('issueTypeTrackObstruction')}</option>
+                <option value="other">{t('issueTypeOther')}</option>
+              </select>
+            </div>
+
+            {/* Structured delay bucket */}
+            <div className="space-y-1.5">
+              <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
+                {t('delayBucketLabel')} *
+              </label>
+              <select
+                value={delayBucket}
+                onChange={(e) => setDelayBucket(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-foreground dark:text-slate-100 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500"
+              >
+                <option value="on_time">{t('delayBucketOnTime')}</option>
+                <option value="15min">{t('delayBucket15')}</option>
+                <option value="30min">{t('delayBucket30')}</option>
+                <option value="1hr">{t('delayBucket1hr')}</option>
+                <option value="2hr_plus">{t('delayBucket2hrPlus')}</option>
+                <option value="cancelled_looking">{t('delayBucketCancelled')}</option>
+              </select>
+            </div>
+
+            {/* Optional supplementary description */}
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
-                  {t('disruptionType')} *
+                  {t('supplementaryDescription')}
                 </label>
                 <span className="text-[11px] text-muted dark:text-slate-400 font-mono">
                   {description.length}/500
@@ -198,7 +241,6 @@ export default function ReportModal({
                 onChange={(e) => setDescription(e.target.value)}
                 maxLength={500}
                 rows={4}
-                required
                 placeholder={t('disruptionPlaceholder')}
                 className="w-full p-3 rounded-lg border border-border dark:border-slate-700 bg-slate-50 dark:bg-slate-800/80 text-foreground dark:text-slate-100 placeholder:text-muted dark:placeholder:text-slate-500 text-sm focus:outline-none focus:ring-2 focus:ring-navy dark:focus:ring-blue-500 focus:border-navy dark:focus:border-blue-500 focus:bg-white dark:focus:bg-slate-800 resize-none transition-all"
               />
@@ -216,7 +258,7 @@ export default function ReportModal({
 
               <button
                 type="submit"
-                disabled={loading || description.trim().length < 3}
+                disabled={loading}
                 className="flex-1 py-2.5 rounded-lg bg-railway-red hover:bg-railway-dark dark:bg-red-600 dark:hover:bg-red-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
               >
                 {loading ? (

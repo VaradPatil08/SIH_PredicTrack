@@ -151,6 +151,9 @@ def get_delay_reasons(
     freight_precedence: bool = False,
     tsr_speed_limit: bool = False,
     platform_hold: bool = False,
+    crowd_issue_type: str | None = None,
+    crowd_confidence: float = 0.0,
+    crowd_report_count: int = 0,
 ) -> list:
     """
     Dynamically attributes root causes for predicted station delay based on the
@@ -169,6 +172,32 @@ def get_delay_reasons(
     tid = str(train_number).zfill(5) if train_number else ""
     fog_severity = max(0, min(int(fog_severity), 30))
     override_candidates = []
+    crowd_confidence = max(0.0, min(float(crowd_confidence or 0.0), 1.0))
+    crowd_report_count = max(0, int(crowd_report_count or 0))
+    crowd_category = {
+        "delay": "CROWD_DELAY",
+        "signal_fault": "SIGNAL_INTERLOCKING",
+        "crowding": "PASSENGER_CROWDING",
+        "accident": "ACCIDENT_DISRUPTION",
+        "weather": "WEATHER_CAUTION",
+        "track_obstruction": "TRACK_OBSTRUCTION",
+        "other": "CROWD_DISRUPTION",
+    }.get(str(crowd_issue_type or "").lower(), "CROWD_DISRUPTION")
+    if crowd_issue_type and crowd_confidence > 0.5:
+        rider_word = "rider" if crowd_report_count == 1 else "riders"
+        count_text = str(crowd_report_count) if crowd_report_count else "Multiple"
+        override_candidates.append((
+            125.0 + crowd_confidence * 20.0,
+            {
+                "category": crowd_category,
+                "reason": (
+                    f"{count_text} {rider_word} reported {str(crowd_issue_type).replace('_', ' ')} "
+                    f"near {stn} in the last 3h."
+                ),
+                "_crowd": True,
+                "_crowd_confidence": crowd_confidence,
+            }
+        ))
     if fog_severity > 0:
         override_candidates.append((110.0 + fog_severity, {
             "category": "WEATHER_CAUTION",
@@ -299,9 +328,18 @@ def get_delay_reasons(
     impact_2 = max(1, predicted_delay - impact_1)
 
     selected[0]["impact_min"] = impact_1
-    selected[0]["confidence"] = round(min(0.96, 0.88 + 0.003 * predicted_delay), 2)
+    if selected[0].get("_crowd"):
+        selected[0]["confidence"] = selected[0].pop("_crowd_confidence")
+        selected[0].pop("_crowd", None)
+    else:
+        selected[0]["confidence"] = round(min(0.96, 0.88 + 0.003 * predicted_delay), 2)
+
     selected[1]["impact_min"] = impact_2
-    selected[1]["confidence"] = round(min(0.92, 0.82 + 0.002 * predicted_delay), 2)
+    if selected[1].get("_crowd"):
+        selected[1]["confidence"] = selected[1].pop("_crowd_confidence")
+        selected[1].pop("_crowd", None)
+    else:
+        selected[1]["confidence"] = round(min(0.92, 0.82 + 0.002 * predicted_delay), 2)
 
     return selected if return_structured else [f["reason"] for f in selected]
 

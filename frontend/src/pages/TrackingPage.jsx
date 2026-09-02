@@ -745,6 +745,15 @@ export default function TrackingPage() {
                   <span>
                     {t('verifiedPassengerReports', { count: reportSummary.report_count, countWord: reportSummary.report_count === 1 ? 'report' : 'reports', hours: reportSummary.window_hours })}
                   </span>
+                  {focusedTrain?.etaData?.crowd_signal && (
+                    <span className="block mt-1 font-semibold">
+                      {t('crowdDelaySignal', {
+                        count: focusedTrain.etaData.crowd_signal.report_count,
+                        issue: focusedTrain.etaData.crowd_signal.dominant_issue_type?.replaceAll('_', ' ') || 'disruption',
+                        confidence: Math.round(focusedTrain.etaData.crowd_signal.confidence * 100),
+                      })}
+                    </span>
+                  )}
                 </div>
               </div>
               <button

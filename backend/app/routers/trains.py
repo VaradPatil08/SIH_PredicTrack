@@ -27,6 +27,7 @@ from app.services import (
     live_feed,
     live_sync,
     railradar_interpolation,
+    report_aggregation,
 )
 
 logger = logging.getLogger(__name__)
@@ -422,8 +423,29 @@ def get_train_eta(
     # Ensure the ETA model's historical averages are loaded
     eta._try_load_model()
 
-    # Continuously-evolving delay estimate
+    # Continuously-evolving ML/base delay, then corroborate with active rider reports.
     base_delay = _compute_base_delay(clean_num, stations, float(elapsed_min))
+    crowd_estimate = report_aggregation.get_crowd_delay_estimate(clean_num, db)
+    crowd_signal = None
+    final_delay = base_delay
+    crowd_issue_type = None
+    crowd_confidence = 0.0
+    crowd_report_count = 0
+
+    if crowd_estimate and crowd_estimate.get("confidence", 0.0) > 0.5:
+        crowd_confidence = float(crowd_estimate["confidence"])
+        crowd_weight = min(0.5, crowd_confidence * 0.5)
+        final_delay = round(
+            float(base_delay) * (1.0 - crowd_weight)
+            + float(crowd_estimate["crowd_delay_min"]) * crowd_weight
+        )
+        crowd_issue_type = crowd_estimate.get("dominant_issue_type")
+        crowd_report_count = int(crowd_estimate.get("report_count", 0))
+        crowd_signal = {
+            "report_count": crowd_report_count,
+            "confidence": crowd_confidence,
+            "dominant_issue_type": crowd_issue_type,
+        }
 
     station_etas = []
     railradar_schedule_used = False
@@ -512,6 +534,9 @@ def get_train_eta(
                                 freight_precedence=freight_precedence,
                                 tsr_speed_limit=tsr_speed_limit,
                                 platform_hold=platform_hold,
+                                crowd_issue_type=crowd_issue_type,
+                                crowd_confidence=crowd_confidence,
+                                crowd_report_count=crowd_report_count,
                             ),
                         )
                     )
@@ -533,10 +558,10 @@ def get_train_eta(
 
             if idx < current_station_index:
                 status = "reached"
-                delay = 0 if idx == 0 else max(0, base_delay - (current_station_index - idx) * 2)
+                delay = 0 if idx == 0 else max(0, final_delay - (current_station_index - idx) * 2)
             elif idx == current_station_index:
-                status = "delayed" if base_delay > 2 else "on_time"
-                delay = base_delay
+                status = "delayed" if final_delay > 2 else "on_time"
+                delay = final_delay
             else:
                 delay, _ = eta.predict_delay_minutes(
                     train_number=clean_num,
@@ -573,6 +598,9 @@ def get_train_eta(
                         freight_precedence=freight_precedence,
                         tsr_speed_limit=tsr_speed_limit,
                         platform_hold=platform_hold,
+                        crowd_issue_type=crowd_issue_type,
+                        crowd_confidence=crowd_confidence,
+                        crowd_report_count=crowd_report_count,
                     ),
                 )
             )
@@ -590,6 +618,7 @@ def get_train_eta(
         elapsed_min=elapsed_min,
         stations=station_etas,
         is_mock=False,
+        crowd_signal=crowd_signal,
     )
 
 

@@ -73,6 +73,7 @@ class TrainETAResponse(BaseModel):
     elapsed_min: int
     stations: List[StationETA]
     is_mock: bool = False
+    crowd_signal: Optional[dict] = None
 
 
 class TrainRouteResponse(BaseModel):

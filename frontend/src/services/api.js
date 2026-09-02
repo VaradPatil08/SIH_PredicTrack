@@ -820,7 +820,20 @@ export async function getAdminStationArrivals(stationCode, authToken) {
       throw new Error('Unauthorized: Admin session expired or invalid credentials.');
     }
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    return await res.json();
+    const data = await res.json();
+    const extraDelay = 
+      (simulationOverrides.fogSeverity || 0) +
+      (simulationOverrides.freightPrecedence ? 12 : 0) +
+      (simulationOverrides.tsrSpeedLimit ? 8 : 0) +
+      (simulationOverrides.platformHold ? 6 : 0);
+    if (extraDelay > 0 && Array.isArray(data)) {
+      return data.map(item => ({
+        ...item,
+        predicted_delay_min: (item.predicted_delay_min || 0) + extraDelay,
+        predicted_arrival_offset_min: (item.predicted_arrival_offset_min || 0) + extraDelay,
+      }));
+    }
+    return data;
   } catch (err) {
     if (err.name === 'AbortError') {
       console.warn(`[RailPulse API] getAdminStationArrivals timed out for station ${code}`);

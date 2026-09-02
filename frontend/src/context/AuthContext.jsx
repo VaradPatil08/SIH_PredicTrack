@@ -3,7 +3,8 @@ import {
   getUserProfile, 
   getUserPreferences, 
   addUserPreference, 
-  removeUserPreference 
+  removeUserPreference,
+  resetSimulationOverrides
 } from '../services/api';
 
 const AuthContext = createContext();
@@ -77,6 +78,7 @@ export function AuthProvider({ children }) {
     setToken(null);
     setUser(null);
     setFavorites([]);
+    resetSimulationOverrides();
     localStorage.removeItem('railpulse_token');
     localStorage.removeItem('railpulse_user');
   };

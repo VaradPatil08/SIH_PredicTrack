@@ -171,6 +171,12 @@ export const translations = {
     applyRecalculate: 'Apply & Update Times',
     activeInjectedDelay: 'Simulated Delay:',
     resetAll: 'Reset All',
+    stationAdminExclusive: 'Station Admin Exclusive',
+    stationAdminOnlyDesc: 'Operational disruption controls are restricted to authorized Station Admins.',
+    stationAdminAuthRequired: 'Station Admin Access Required',
+    stationAdminAuthDesc: 'Real-time operational delay injection, weather simulation, and track caution controls are reserved for verified Station Controllers. Sign in with admin credentials to unlock scenario testing.',
+    loginAsStationAdmin: 'Login as Station Admin',
+    adminControllerMode: 'Controller Mode (Admin)',
 
     // Crowdsourced Report Modal
     reportTitle: 'Report Delay or Disruption',
@@ -430,6 +436,12 @@ export const translations = {
     applyRecalculate: 'लागू करें एवं समय अपडेट करें',
     activeInjectedDelay: 'अनुमानित विलंब:',
     resetAll: 'सभी रीसेट करें',
+    stationAdminExclusive: 'केवल स्टेशन व्यवस्थापक',
+    stationAdminOnlyDesc: 'परिचालन विलंब नियंत्रण अधिकृत स्टेशन नियंत्रकों के लिए सीमित हैं।',
+    stationAdminAuthRequired: 'स्टेशन व्यवस्थापक प्रमाणीकरण आवश्यक',
+    stationAdminAuthDesc: 'वास्तविक समय परिचालन विलंब, मौसम सिमुलेशन और ट्रैक सावधानी नियंत्रण अधिकृत स्टेशन नियंत्रकों के लिए आरक्षित हैं। सिमुलेशन अनलॉक करने हेतु व्यवस्थापक क्रेडेंशियल से लॉगिन करें।',
+    loginAsStationAdmin: 'स्टेशन व्यवस्थापक लॉगिन करें',
+    adminControllerMode: 'नियंत्रक मोड (व्यवस्थापक)',
 
     // Crowdsourced Report Modal
     reportTitle: 'विलंब या व्यवधान रिपोर्ट करें',

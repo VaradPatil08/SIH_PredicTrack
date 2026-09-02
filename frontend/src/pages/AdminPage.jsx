@@ -17,6 +17,7 @@ import {
 import { getAdminStations, getAdminStationArrivals } from '../services/api';
 import { useSettings } from '../context/SettingsContext';
 import { translateStationName, translateTrainName } from '../locales/trainNames';
+import WhatIfSimulator from '../components/WhatIfSimulator';
 
 // Convert a station's schedule offset (relative to the train's origin departure)
 // into the actual HH:MM clock time used by the tracking page.

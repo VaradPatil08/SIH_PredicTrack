@@ -12,6 +12,7 @@ and crowdsourced reports survive Render restarts/redeploys.
 
 import logging
 import os
+from pathlib import Path
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, declarative_base
@@ -19,8 +20,26 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 logger = logging.getLogger(__name__)
 
 # Render provides DATABASE_URL for PostgreSQL; local development keeps the
-# existing SQLite fallback. SQLAlchemy/psycopg2 accepts the standard URL.
-SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./railpulse.db")
+# existing SQLite fallback. Deterministically locate railpulse.db regardless
+# of whether uvicorn is launched from project root or inside backend/.
+_env_db_url = os.getenv("DATABASE_URL")
+if not _env_db_url:
+    _backend_dir = Path(__file__).resolve().parent.parent
+    _root_dir = _backend_dir.parent
+    _backend_db = _backend_dir / "railpulse.db"
+    _root_db = _root_dir / "railpulse.db"
+
+    if _backend_db.exists() and _backend_db.stat().st_size > 0:
+        _chosen_db = _backend_db
+    elif _root_db.exists() and _root_db.stat().st_size > 0:
+        _chosen_db = _root_db
+    else:
+        _chosen_db = _backend_db
+
+    SQLALCHEMY_DATABASE_URL = f"sqlite:///{_chosen_db.as_posix()}"
+else:
+    SQLALCHEMY_DATABASE_URL = _env_db_url
+
 _is_sqlite = SQLALCHEMY_DATABASE_URL.startswith("sqlite")
 
 engine_kwargs = {}
@@ -191,6 +210,35 @@ def init_db():
         except Exception as exc:
             conn.rollback()
             logger.warning("Database migration check failed: %s", exc, exc_info=True)
+
+    # Ensure demo station admin accounts exist with valid credentials
+    try:
+        from app.models_db import User
+        from app.services.auth_service import hash_password
+        with SessionLocal() as session:
+            admin_ndls = session.query(User).filter(User.phone_number == "admin_ndls").first()
+            if not admin_ndls:
+                admin_ndls = User(
+                    phone_number="admin_ndls",
+                    name="NDLS Station Controller",
+                    role="station_admin",
+                    password_hash=hash_password("predictrack@admin2026"),
+                )
+                session.add(admin_ndls)
+
+            station_admin = session.query(User).filter(User.phone_number == "station_admin").first()
+            if not station_admin:
+                station_admin = User(
+                    phone_number="station_admin",
+                    name="Station Master",
+                    role="station_admin",
+                    password_hash=hash_password("adminpassword123"),
+                )
+                session.add(station_admin)
+
+            session.commit()
+    except Exception as exc:
+        logger.warning("Station admin auto-seed notice: %s", exc)
 
 
 def get_db():

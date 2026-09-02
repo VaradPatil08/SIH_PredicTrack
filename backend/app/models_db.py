@@ -1,7 +1,7 @@
 import datetime
 import uuid
 
-from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean, Integer, Float, Text, UniqueConstraint
+from sqlalchemy import Column, String, DateTime, ForeignKey, Boolean, Integer, Float, Text, UniqueConstraint, Index, text
 from sqlalchemy.orm import relationship
 
 from app.db import Base
@@ -22,6 +22,7 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.datetime.utcnow)
 
     preferences = relationship("Preference", back_populates="user", cascade="all, delete-orphan")
+    reports = relationship("Report", back_populates="user", cascade="all, delete-orphan")
 
 
 class Preference(Base):
@@ -37,15 +38,34 @@ class Preference(Base):
 
 
 class Report(Base):
-    """A crowdsourced report of a disruption affecting a train/section."""
+    """A crowdsourced report representing a user's current disruption experience."""
     __tablename__ = "reports"
+    __table_args__ = (
+        # SQLite supports this partial unique index; the endpoint also performs
+        # an UPSERT so the application remains correct on other DB backends.
+        Index(
+            "uq_active_report_user_train",
+            "user_id",
+            "train_number",
+            unique=True,
+            sqlite_where=text("is_active = 1"),
+        ),
+    )
 
     id = Column(String, primary_key=True, default=_uuid)
     train_number = Column(String, nullable=False, index=True)
     station_code = Column(String, nullable=True)
-    description = Column(String, nullable=False)
-    phone_number = Column(String, nullable=True)  # optional, if reporter was OTP-verified
+    issue_type = Column(String, nullable=False, default="other")
+    delay_bucket = Column(String, nullable=False, default="on_time")
+    description = Column(String, nullable=True)
+    phone_number = Column(String, nullable=True)  # retained for backward compatibility/display
+    user_id = Column(String, ForeignKey("users.id"), nullable=True, index=True)
+    is_active = Column(Boolean, nullable=False, default=True, index=True)
+    resolved_at = Column(DateTime, nullable=True)
+    plausibility_score = Column(Float, nullable=False, default=1.0)
     created_at = Column(DateTime, default=datetime.datetime.utcnow, index=True)
+
+    user = relationship("User", back_populates="reports")
 
 
 class OTPCode(Base):

@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Optional, List
+from typing import Optional, List, Literal
 from pydantic import BaseModel, Field
 
 
@@ -64,14 +64,23 @@ class PreferenceOut(BaseModel):
 
 class ReportIn(BaseModel):
     station_code: Optional[str] = None
-    description: str = Field(..., min_length=3, max_length=500)
+    issue_type: Literal[
+        "delay", "signal_fault", "crowding", "accident",
+        "weather", "track_obstruction", "other"
+    ]
+    delay_bucket: Literal[
+        "on_time", "15min", "30min", "1hr", "2hr_plus", "cancelled_looking"
+    ]
+    description: Optional[str] = Field(None, max_length=500)
 
 
 class ReportOut(BaseModel):
     id: str
     train_number: str
     station_code: Optional[str]
-    description: str
+    issue_type: str
+    delay_bucket: str
+    description: Optional[str] = None
     created_at: datetime
 
     class Config:

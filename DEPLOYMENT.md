@@ -34,7 +34,9 @@ Add these variables in **Project Settings → Environment Variables** for Produc
 | `RAILRADAR_SAFETY_MARGIN` | Optional | For example, `50` |
 | `RAILRADAR_CACHE_TTL_SECONDS` | Optional | For example, `300` |
 
-Do **not** set `VITE_API_BASE_URL` for this deployment. The production bundle defaults to the same-origin `/api` path. Set it only if intentionally pointing the frontend at a different API host.
+Do **not** set `VITE_API_BASE_URL` for this deployment. Production is always
+same-origin `/api`; this prevents an old Render URL from being baked into the
+frontend bundle. The variable is only used for local development.
 
 `FRONTEND_ORIGIN` is optional on Vercel: the backend derives the deployment origin from Vercel's `VERCEL_URL` variable. It can still be set when a known, fixed custom origin needs to make cross-origin API requests.
 

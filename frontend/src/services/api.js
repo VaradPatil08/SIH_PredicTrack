@@ -5,12 +5,8 @@
  * Features an offline simulation fallback; real What-If controls are sent to the backend.
  */
 
-// Production is intentionally a single Vercel deployment. Do not allow a
-// stale VITE_API_BASE_URL from an older Render split-deployment to redirect
-// requests away from this project's /api function.
-const BASE_URL = import.meta.env.PROD
-  ? '/api'
-  : (import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000');
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? '/api' : 'http://localhost:8000');
 
 // Simulation disruption overrides for the interactive What-If sandbox
 let simulationOverrides = {

@@ -1,10 +1,12 @@
 /**
  * PredicTrack API Client Service
- * Connects to the FastAPI backend (default: http://localhost:8000).
+ * Connects to the FastAPI backend. In a Vercel deployment it uses the
+ * same-origin /api route; local development still defaults to localhost:8000.
  * Features an offline simulation fallback; real What-If controls are sent to the backend.
  */
 
-const BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000';
+const BASE_URL = import.meta.env.VITE_API_BASE_URL ||
+  (import.meta.env.PROD ? '/api' : 'http://localhost:8000');
 
 // Simulation disruption overrides for the interactive What-If sandbox
 let simulationOverrides = {
@@ -927,4 +929,3 @@ export async function activateLiveTracking(trainNumber) {
     return null;
   }
 }
-

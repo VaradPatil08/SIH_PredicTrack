@@ -7,7 +7,7 @@ easiest to seed/expand from public datasets as flat files.
 
 The runtime database is selected by DATABASE_URL. Local development falls
 back to SQLite; production should use PostgreSQL so user accounts, preferences,
-and crowdsourced reports survive Render restarts/redeploys.
+and crowdsourced reports survive serverless restarts/redeploys.
 """
 
 import logging
@@ -19,7 +19,7 @@ from sqlalchemy.orm import sessionmaker, declarative_base
 
 logger = logging.getLogger(__name__)
 
-# Render provides DATABASE_URL for PostgreSQL; local development keeps the
+# A managed PostgreSQL provider supplies DATABASE_URL in production; local development keeps the
 # existing SQLite fallback. Deterministically locate railpulse.db regardless
 # of whether uvicorn is launched from project root or inside backend/.
 _env_db_url = os.getenv("DATABASE_URL")

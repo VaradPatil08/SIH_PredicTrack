@@ -52,7 +52,7 @@ export default function AuthModal() {
     setError(null);
 
     const cleanedPhone = phoneNumber.trim();
-    if (!/^\\+[1-9]\\d{7,14}$/.test(cleanedPhone)) {
+    if (!/^\+[1-9]\d{7,14}$/.test(cleanedPhone)) {
       setError('Enter the phone number in international format, e.g. +919876543210.');
       return;
     }
@@ -93,7 +93,7 @@ export default function AuthModal() {
       setError('Please request a new OTP first.');
       return;
     }
-    if (!/^\\d{6}$/.test(cleanedCode)) {
+    if (!/^\d{6}$/.test(cleanedCode)) {
       setError({ key: 'invalidOtp' });
       return;
     }

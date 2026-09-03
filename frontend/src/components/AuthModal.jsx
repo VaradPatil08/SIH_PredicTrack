@@ -295,18 +295,6 @@ export default function AuthModal() {
           {step === 2 && (
             <form onSubmit={handleVerifyOTP} className="space-y-4">
               
-              {devOtp && (
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs text-navy dark:text-blue-300 space-y-1">
-                  <div className="font-semibold flex items-center gap-1.5 text-navy dark:text-blue-300">
-                    <span className="w-2 h-2 rounded-full bg-blue-500 inline-block" />
-                    <span>{t('brandBadge')}</span>
-                  </div>
-                  <p className="text-muted dark:text-slate-400 text-[11px]">
-                    {t('devOtpNotice', { otp: devOtp })}
-                  </p>
-                </div>
-              )}
-
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
                   <label className="block text-xs font-semibold text-foreground dark:text-slate-200">

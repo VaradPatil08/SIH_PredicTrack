@@ -169,47 +169,48 @@ def _deduplicate_active_reports(conn):
 def init_db():
     """Initialize tables and apply backward-compatible SQLite migrations."""
     Base.metadata.create_all(bind=engine)
-    if not _is_sqlite:
-        return
 
-    with engine.connect() as conn:
-        try:
-            result = conn.execute(text("PRAGMA table_info(users)"))
-            cols = {row[1] for row in result.fetchall()}
-            if cols:
-                if "role" not in cols:
-                    conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'passenger'"))
-                if "password_hash" not in cols:
-                    conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
+    # SQLite-only migrations. PostgreSQL gets its tables from create_all and
+    # must still continue to the demo-admin provisioning below.
+    if _is_sqlite:
+        with engine.connect() as conn:
+            try:
+                result = conn.execute(text("PRAGMA table_info(users)"))
+                cols = {row[1] for row in result.fetchall()}
+                if cols:
+                    if "role" not in cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN role VARCHAR DEFAULT 'passenger'"))
+                    if "password_hash" not in cols:
+                        conn.execute(text("ALTER TABLE users ADD COLUMN password_hash VARCHAR"))
 
-            result = conn.execute(text("PRAGMA table_info(reports)"))
-            report_cols = {row[1] for row in result.fetchall()}
-            if report_cols:
-                _rebuild_reports_table_for_nullable_description(conn)
                 result = conn.execute(text("PRAGMA table_info(reports)"))
                 report_cols = {row[1] for row in result.fetchall()}
-                migrations = {
-                    "issue_type": "ALTER TABLE reports ADD COLUMN issue_type VARCHAR DEFAULT 'other'",
-                    "delay_bucket": "ALTER TABLE reports ADD COLUMN delay_bucket VARCHAR DEFAULT 'on_time'",
-                    "description": "ALTER TABLE reports ADD COLUMN description VARCHAR",
-                    "user_id": "ALTER TABLE reports ADD COLUMN user_id VARCHAR",
-                    "is_active": "ALTER TABLE reports ADD COLUMN is_active BOOLEAN DEFAULT 1",
-                    "resolved_at": "ALTER TABLE reports ADD COLUMN resolved_at DATETIME",
-                    "plausibility_score": "ALTER TABLE reports ADD COLUMN plausibility_score FLOAT DEFAULT 1.0",
-                }
-                for col, ddl in migrations.items():
-                    if col not in report_cols:
-                        conn.execute(text(ddl))
+                if report_cols:
+                    _rebuild_reports_table_for_nullable_description(conn)
+                    result = conn.execute(text("PRAGMA table_info(reports)"))
+                    report_cols = {row[1] for row in result.fetchall()}
+                    migrations = {
+                        "issue_type": "ALTER TABLE reports ADD COLUMN issue_type VARCHAR DEFAULT 'other'",
+                        "delay_bucket": "ALTER TABLE reports ADD COLUMN delay_bucket VARCHAR DEFAULT 'on_time'",
+                        "description": "ALTER TABLE reports ADD COLUMN description VARCHAR",
+                        "user_id": "ALTER TABLE reports ADD COLUMN user_id VARCHAR",
+                        "is_active": "ALTER TABLE reports ADD COLUMN is_active BOOLEAN DEFAULT 1",
+                        "resolved_at": "ALTER TABLE reports ADD COLUMN resolved_at DATETIME",
+                        "plausibility_score": "ALTER TABLE reports ADD COLUMN plausibility_score FLOAT DEFAULT 1.0",
+                    }
+                    for col, ddl in migrations.items():
+                        if col not in report_cols:
+                            conn.execute(text(ddl))
 
-                _deduplicate_active_reports(conn)
-                conn.execute(text(
-                    "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_report_user_train "
-                    "ON reports(user_id, train_number) WHERE is_active = 1"
-                ))
-            conn.commit()
-        except Exception as exc:
-            conn.rollback()
-            logger.warning("Database migration check failed: %s", exc, exc_info=True)
+                    _deduplicate_active_reports(conn)
+                    conn.execute(text(
+                        "CREATE UNIQUE INDEX IF NOT EXISTS uq_active_report_user_train "
+                        "ON reports(user_id, train_number) WHERE is_active = 1"
+                    ))
+                conn.commit()
+            except Exception as exc:
+                conn.rollback()
+                logger.warning("Database migration check failed: %s", exc, exc_info=True)
 
     # Ensure demo station admin accounts exist with valid credentials
     try:
@@ -218,23 +219,19 @@ def init_db():
         with SessionLocal() as session:
             admin_ndls = session.query(User).filter(User.phone_number == "admin_ndls").first()
             if not admin_ndls:
-                admin_ndls = User(
-                    phone_number="admin_ndls",
-                    name="NDLS Station Controller",
-                    role="station_admin",
-                    password_hash=hash_password("predictrack@admin2026"),
-                )
+                admin_ndls = User(phone_number="admin_ndls")
                 session.add(admin_ndls)
+            admin_ndls.name = "NDLS Station Controller"
+            admin_ndls.role = "station_admin"
+            admin_ndls.password_hash = hash_password("predictrack@admin2026")
 
             station_admin = session.query(User).filter(User.phone_number == "station_admin").first()
             if not station_admin:
-                station_admin = User(
-                    phone_number="station_admin",
-                    name="Station Master",
-                    role="station_admin",
-                    password_hash=hash_password("adminpassword123"),
-                )
+                station_admin = User(phone_number="station_admin")
                 session.add(station_admin)
+            station_admin.name = "Station Master"
+            station_admin.role = "station_admin"
+            station_admin.password_hash = hash_password("adminpassword123")
 
             session.commit()
     except Exception as exc:

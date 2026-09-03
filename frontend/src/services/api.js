@@ -591,11 +591,8 @@ export async function requestOTP(phoneNumber) {
     return await res.json();
   } catch (err) {
     console.warn(`[PredicTrack API] requestOTP error:`, err.message);
-    // Offline simulation fallback
-    return {
-      message: 'DEV_MODE: Simulated OTP generated (offline fallback).',
-      dev_otp: '123456'
-    };
+    // Do not fabricate an OTP when the backend is unreachable.
+    throw err;
   }
 }
 
@@ -616,13 +613,7 @@ export async function verifyOTP(phoneNumber, code, name = null) {
     return await res.json();
   } catch (err) {
     console.warn(`[PredicTrack API] verifyOTP error:`, err.message);
-    if (code === '123456') {
-      return {
-        access_token: 'mock-jwt-token-' + Date.now(),
-        token_type: 'bearer',
-        user_id: 'mock-user-' + phoneNumber.replace(/\D/g, '')
-      };
-    }
+    // Never authenticate locally when the backend rejected/unreachable.
     throw err;
   }
 }

@@ -47,13 +47,36 @@ export default function AuthModal() {
     window.__predictrackRecaptchaVerifier = null;
   };
 
+  const normalizePhoneNumber = (value) => {
+    // Accept common human-friendly formats such as:
+    // +91 1234 567 890, +91-1234-567-890, +911234567890, or 1234567890.
+    const raw = String(value || '').trim();
+    const compact = raw.replace(/[\s().-]/g, '');
+
+    if (/^\+\d{8,15}$/.test(compact)) {
+      return compact;
+    }
+
+    // Convenience for Indian passengers entering a 10-digit mobile number.
+    if (/^\d{10}$/.test(compact)) {
+      return `+91${compact}`;
+    }
+
+    // Also accept 91XXXXXXXXXX without the leading +.
+    if (/^91\d{10}$/.test(compact)) {
+      return `+${compact}`;
+    }
+
+    return null;
+  };
+
   const handleRequestOTP = async (e) => {
     e?.preventDefault();
     setError(null);
 
-    const cleanedPhone = phoneNumber.trim();
-    if (!/^\+[1-9]\d{7,14}$/.test(cleanedPhone)) {
-      setError('Enter the phone number in international format, e.g. +919876543210.');
+    const cleanedPhone = normalizePhoneNumber(phoneNumber);
+    if (!cleanedPhone) {
+      setError('Enter a valid phone number, e.g. +91 1234 567 890.');
       return;
     }
 

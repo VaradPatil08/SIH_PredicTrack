@@ -3,7 +3,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ShieldCheck, Phone, KeyRound, User, ArrowRight, RefreshCw, CheckCircle2, AlertCircle, LogIn } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
 import { useSettings } from '../context/SettingsContext';
-import { requestOTP, verifyOTP, getUserProfile } from '../services/api';
+import { verifyFirebaseToken, getUserProfile } from '../services/api';
+import { firebaseAuth } from '../services/firebase';
+import { RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
 
 export default function AuthModal() {
   const { isLoginModalOpen, closeLoginModal, login } = useAuth();
@@ -13,40 +15,69 @@ export default function AuthModal() {
   const [phoneNumber, setPhoneNumber] = useState('+91');
   const [otpCode, setOtpCode] = useState('');
   const [displayName, setDisplayName] = useState('');
-  const [devOtp, setDevOtp] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [confirmationResult, setConfirmationResult] = useState(null);
 
   if (!isLoginModalOpen) return null;
 
+  const getRecaptchaVerifier = () => {
+    if (window.__predictrackRecaptchaVerifier) {
+      return window.__predictrackRecaptchaVerifier;
+    }
+
+    const verifier = new RecaptchaVerifier(firebaseAuth, 'firebase-send-otp-button', {
+      size: 'invisible',
+      callback: () => {},
+      'expired-callback': () => {
+        try { verifier.clear(); } catch {}
+        window.__predictrackRecaptchaVerifier = null;
+      },
+    });
+
+    window.__predictrackRecaptchaVerifier = verifier;
+    return verifier;
+  };
+
+  const resetRecaptcha = () => {
+    try {
+      window.__predictrackRecaptchaVerifier?.clear();
+    } catch {}
+    window.__predictrackRecaptchaVerifier = null;
+  };
+
   const handleRequestOTP = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError(null);
 
     const cleanedPhone = phoneNumber.trim();
-    if (cleanedPhone.length < 10) {
-      setError({ key: 'invalidPhone' });
+    if (!/^\\+[1-9]\\d{7,14}$/.test(cleanedPhone)) {
+      setError('Enter the phone number in international format, e.g. +919876543210.');
       return;
     }
 
     try {
       setLoading(true);
-      const res = await requestOTP(cleanedPhone);
-      if (res.dev_otp) {
-        setDevOtp(res.dev_otp);
-        setOtpCode(res.dev_otp);
-      }
+      const verifier = getRecaptchaVerifier();
+      const result = await signInWithPhoneNumber(firebaseAuth, cleanedPhone, verifier);
+      setConfirmationResult(result);
       setStep(2);
+      setOtpCode('');
+      setSuccessMsg('Verification code sent by SMS.');
     } catch (err) {
-      if (err.name === 'AbortError' || err.name === 'TimeoutError' || err.isTimeout || err.message?.toLowerCase().includes('abort') || err.message?.toLowerCase().includes('timed out')) {
-        setError('Request timed out — please try again.');
-      } else if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-        setError('Backend server is unreachable. Please ensure the FastAPI backend is running on port 8000.');
-      } else if (err?.message) {
-        setError({ key: 'apiError', fallback: err.message });
+      resetRecaptcha();
+      const code = err?.code || '';
+      if (code === 'auth/too-many-requests') {
+        setError('Too many attempts. Please wait and try again later.');
+      } else if (code === 'auth/invalid-phone-number') {
+        setError('Invalid phone number. Use E.164 format, e.g. +919876543210.');
+      } else if (code === 'auth/quota-exceeded') {
+        setError('Firebase SMS quota has been reached. Try again later or use a Firebase test phone number.');
+      } else if (code === 'auth/operation-not-allowed') {
+        setError('Phone sign-in is not enabled in Firebase Authentication.');
       } else {
-        setError({ key: 'reportFailed' });
+        setError(err?.message || 'Could not send the verification code.');
       }
     } finally {
       setLoading(false);
@@ -58,16 +89,22 @@ export default function AuthModal() {
     setError(null);
 
     const cleanedCode = otpCode.trim();
-    if (cleanedCode.length !== 6) {
+    if (!confirmationResult) {
+      setError('Please request a new OTP first.');
+      return;
+    }
+    if (!/^\\d{6}$/.test(cleanedCode)) {
       setError({ key: 'invalidOtp' });
       return;
     }
 
     try {
       setLoading(true);
-      const res = await verifyOTP(phoneNumber.trim(), cleanedCode, displayName.trim() || null);
-      
-      let profile = { id: res.user_id, phone_number: phoneNumber.trim(), name: displayName.trim() || null };
+      const credential = await confirmationResult.confirm(cleanedCode);
+      const firebaseIdToken = await credential.user.getIdToken();
+      const res = await verifyFirebaseToken(firebaseIdToken, displayName.trim() || null);
+
+      let profile = { id: res.user_id, phone_number: credential.user.phoneNumber, name: displayName.trim() || null };
       try {
         const fetchedProfile = await getUserProfile(res.access_token);
         if (fetchedProfile) profile = fetchedProfile;
@@ -77,21 +114,25 @@ export default function AuthModal() {
 
       login(res.access_token, profile);
       setSuccessMsg('Authentication successful.');
-      
+
       setTimeout(() => {
         closeLoginModal();
+        resetRecaptcha();
         setStep(1);
         setOtpCode('');
-        setDevOtp(null);
+        setConfirmationResult(null);
         setSuccessMsg(null);
       }, 700);
     } catch (err) {
-      if (err.name === 'AbortError' || err.name === 'TimeoutError' || err.isTimeout || err.message?.toLowerCase().includes('abort') || err.message?.toLowerCase().includes('timed out')) {
-        setError('Request timed out — please try again.');
-      } else if (err.message === 'Failed to fetch' || err.name === 'TypeError') {
-        setError('Backend server is unreachable. Please ensure the FastAPI backend is running on port 8000.');
+      const code = err?.code || '';
+      if (code === 'auth/invalid-verification-code') {
+        setError('Incorrect OTP. Please check the SMS and try again.');
+      } else if (code === 'auth/code-expired') {
+        setError('This OTP has expired. Request a new one.');
+      } else if (err?.message) {
+        setError(err.message);
       } else {
-        setError(err.message || t('invalidOtp'));
+        setError(t('invalidOtp'));
       }
     } finally {
       setLoading(false);
@@ -102,7 +143,8 @@ export default function AuthModal() {
     closeLoginModal();
     setStep(1);
     setOtpCode('');
-    setDevOtp(null);
+    setConfirmationResult(null);
+    resetRecaptcha();
     setError(null);
     setSuccessMsg(null);
   };
@@ -206,6 +248,7 @@ export default function AuthModal() {
               </div>
 
               <button
+                id="firebase-send-otp-button"
                 type="submit"
                 disabled={loading}
                 className="w-full py-2.5 rounded-lg bg-navy hover:bg-navy-light dark:bg-blue-600 dark:hover:bg-blue-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 disabled:opacity-50 shadow-xs active:scale-98"
@@ -246,13 +289,23 @@ export default function AuthModal() {
                   <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
                     {t('enterOtp')}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => { setStep(1); setError(null); }}
-                    className="text-xs text-navy dark:text-blue-400 hover:text-navy-light dark:hover:text-blue-300 font-semibold hover:underline"
-                  >
-                    Change Number
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={() => { setStep(1); setConfirmationResult(null); setError(null); }}
+                      className="text-xs text-navy dark:text-blue-400 hover:text-navy-light dark:hover:text-blue-300 font-semibold hover:underline"
+                    >
+                      Change Number
+                    </button>
+                    <button
+                      type="button"
+                      disabled={loading}
+                      onClick={handleRequestOTP}
+                      className="text-xs text-navy dark:text-blue-400 hover:text-navy-light dark:hover:text-blue-300 font-semibold hover:underline disabled:opacity-50"
+                    >
+                      Resend OTP
+                    </button>
+                  </div>
                 </div>
 
                 <div className="relative">

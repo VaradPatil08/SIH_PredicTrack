@@ -23,6 +23,11 @@ class OTPVerifyIn(BaseModel):
     name: Optional[str] = None  # optional display name on first verify
 
 
+class FirebaseVerifyIn(BaseModel):
+    id_token: str = Field(..., min_length=20, description="Firebase Authentication ID token")
+    name: Optional[str] = None
+
+
 class AdminLoginIn(BaseModel):
     username: str = Field(..., description="Admin username, phone number, or employee ID")
     password: str = Field(..., min_length=1, description="Admin account password")

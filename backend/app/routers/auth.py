@@ -6,6 +6,7 @@ from app.models.auth_schemas import (
     OTPRequestIn,
     OTPRequestOut,
     OTPVerifyIn,
+    FirebaseVerifyIn,
     TokenOut,
     AdminLoginIn,
 )
@@ -37,6 +38,14 @@ def verify_otp(payload: OTPVerifyIn, db: Session = Depends(get_db)):
         user.name = payload.name
         db.commit()
 
+    token = auth_service.create_access_token(user.id, role=user.role)
+    return TokenOut(access_token=token, user_id=user.id)
+
+
+@router.post("/firebase/verify", response_model=TokenOut)
+def verify_firebase(payload: FirebaseVerifyIn, db: Session = Depends(get_db)):
+    """Verifies a Firebase Phone Auth ID token and returns PredicTrack's JWT."""
+    user = auth_service.authenticate_firebase_passenger(payload.id_token, payload.name, db)
     token = auth_service.create_access_token(user.id, role=user.role)
     return TokenOut(access_token=token, user_id=user.id)
 

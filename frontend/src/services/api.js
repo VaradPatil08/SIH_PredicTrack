@@ -619,6 +619,27 @@ export async function verifyOTP(phoneNumber, code, name = null) {
 }
 
 /**
+ * Firebase Phone Auth: exchange a Firebase ID token for PredicTrack's backend JWT.
+ */
+export async function verifyFirebaseToken(idToken, name = null) {
+  try {
+    const res = await fetchWithTimeout(`${BASE_URL}/auth/firebase/verify`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id_token: idToken, name })
+    }, USER_ACTION_TIMEOUT_MS);
+    if (!res.ok) {
+      const errData = await res.json().catch(() => ({}));
+      throw new Error(errData.detail || `HTTP ${res.status}`);
+    }
+    return await res.json();
+  } catch (err) {
+    console.warn(`[PredicTrack API] verifyFirebaseToken error:`, err.message);
+    throw err;
+  }
+}
+
+/**
  * 6b. AUTH: POST /auth/admin/login
  */
 export async function adminLogin(username, password) {

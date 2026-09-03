@@ -1,11 +1,12 @@
 """
-Auth service — OTP + JWT.
+Auth service — Firebase Phone Auth + JWT.
 
-SMS SENDING IS STUBBED. For the hackathon deployment, DEV_MODE returns
-the generated OTP in the API response so the frontend can display it.
-For a real public deployment, replace `_send_otp_sms` with Firebase
-Phone Auth, MSG91, Twilio, or another compliant SMS provider and set
-RAILPULSE_DEV_MODE=false.
+Passenger OTP verification is performed by Firebase Authentication in the
+browser. The backend verifies the resulting Firebase ID token with the
+Firebase Admin SDK and then issues the normal PredicTrack JWT.
+
+The legacy local OTP functions remain available for development/backward
+compatibility, but the passenger frontend uses Firebase verification.
 """
 
 import hashlib
@@ -16,6 +17,14 @@ import string
 import datetime
 import logging
 from typing import Optional
+
+try:
+    import firebase_admin
+    from firebase_admin import auth as firebase_auth, credentials as firebase_credentials
+except ImportError:
+    firebase_admin = None
+    firebase_auth = None
+    firebase_credentials = None
 
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
@@ -46,6 +55,75 @@ JWT_ALGORITHM = "HS256"
 JWT_EXPIRE_MINUTES = 60 * 24 * 7  # 7 days
 OTP_EXPIRE_MINUTES = 5
 OTP_MAX_ATTEMPTS = 5
+
+FIREBASE_ENABLED = os.getenv("FIREBASE_ENABLED", "false").lower() == "true"
+FIREBASE_SERVICE_ACCOUNT_JSON = os.getenv("FIREBASE_SERVICE_ACCOUNT_JSON", "").strip()
+
+_firebase_app = None
+
+
+def _init_firebase():
+    """Initialize Firebase Admin once using a Render secret containing service-account JSON."""
+    global _firebase_app
+    if not FIREBASE_ENABLED:
+        return None
+    if firebase_admin is None or firebase_auth is None:
+        raise RuntimeError("firebase-admin is not installed on the backend")
+    if _firebase_app is not None:
+        return _firebase_app
+    if not FIREBASE_SERVICE_ACCOUNT_JSON:
+        raise RuntimeError("FIREBASE_SERVICE_ACCOUNT_JSON is required when FIREBASE_ENABLED=true")
+    try:
+        service_account_info = __import__("json").loads(FIREBASE_SERVICE_ACCOUNT_JSON)
+        cred = firebase_credentials.Certificate(service_account_info)
+        _firebase_app = firebase_admin.initialize_app(cred)
+        return _firebase_app
+    except Exception as exc:
+        logger.exception("Firebase Admin initialization failed")
+        raise RuntimeError("Firebase authentication is not configured correctly") from exc
+
+
+def verify_firebase_id_token(id_token: str) -> dict:
+    """Verify an ID token minted by Firebase Authentication."""
+    if not id_token:
+        raise HTTPException(status_code=400, detail="Firebase ID token is required.")
+    try:
+        _init_firebase()
+        decoded = firebase_auth.verify_id_token(id_token)
+        if not decoded.get("phone_number"):
+            raise HTTPException(status_code=400, detail="Firebase account has no verified phone number.")
+        return decoded
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.warning("Firebase ID token verification failed: %s", type(exc).__name__)
+        raise HTTPException(status_code=401, detail="Invalid or expired Firebase authentication token.")
+
+
+def authenticate_firebase_passenger(id_token: str, name: Optional[str], db: Session) -> User:
+    """Verify Firebase phone authentication and map the Firebase user to a local passenger."""
+    decoded = verify_firebase_id_token(id_token)
+    phone_number = decoded["phone_number"]
+    firebase_uid = decoded["uid"]
+
+    user = db.query(User).filter(User.phone_number == phone_number).first()
+    if not user:
+        user = User(phone_number=phone_number, role="passenger")
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+
+    if user.role != "passenger":
+        raise HTTPException(status_code=403, detail="This phone number is not registered as a passenger.")
+
+    if name and not user.name:
+        user.name = name.strip()[:120]
+        db.commit()
+        db.refresh(user)
+
+    logger.info("Firebase passenger authenticated: uid=%s user_id=%s", firebase_uid, user.id)
+    return user
+
 
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="auth/otp/verify", auto_error=False)
 

@@ -8,10 +8,13 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
-      # Demo mode intentionally exposes the OTP in the API/UI so the
-      # deployed hackathon demo works without an SMS provider.
+      # Passenger OTP is handled by Firebase Phone Authentication.
       - key: RAILPULSE_DEV_MODE
+        value: "false"
+      - key: FIREBASE_ENABLED
         value: "true"
+      - key: FIREBASE_SERVICE_ACCOUNT_JSON
+        sync: false
       - key: RAILRADAR_API_KEY
         sync: false
       - key: RAILRADAR_BASE_URL

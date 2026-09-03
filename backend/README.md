@@ -236,3 +236,14 @@ The feature vector is defined exclusively in `backend/ml/features.py` (`build_fe
 
 `frontend/src/services/api.js` includes automatic client-side synthetic fallback. If the backend is unreachable during a demo, the frontend generates structurally identical responses with smooth kinematic simulation drift — no crashes, no error screens.
 
+
+
+## Firebase passenger OTP
+
+The deployed passenger login uses Firebase Phone Authentication. The browser performs the SMS verification with Firebase and sends the resulting Firebase ID token to `POST /auth/firebase/verify`. The backend verifies the ID token with `firebase-admin` before issuing the normal PredicTrack JWT.
+
+Required backend environment variables:
+- `FIREBASE_ENABLED=true`
+- `FIREBASE_SERVICE_ACCOUNT_JSON=<complete Firebase service-account JSON>`
+
+The service-account JSON is a server secret and must never be exposed to the frontend.

@@ -142,3 +142,20 @@ VITE_API_BASE_URL=http://localhost:8000
 - Real SMS delivery is still a separate production integration: the current OTP sender is intentionally a development stub. Set `RAILPULSE_DEV_MODE=false` for deployment and integrate a real SMS/phone-auth provider before relying on OTP authentication in production.
 - RailRadar credentials and quota values are deployment-specific and must be supplied manually.
 - The repository cannot create/configure your GitHub, Render, PostgreSQL, or Vercel accounts from source code alone.
+
+
+## Passenger OTP with Twilio Verify
+
+The passenger login uses Twilio Verify when `TWILIO_VERIFY_ENABLED=true`. The backend sends an SMS through Verify and asks Twilio to verify the code; the OTP is not returned to the frontend or stored in the local OTP table.
+
+Set these **Render backend** environment variables (never put the Account SID/Auth Token in Vercel):
+
+- `RAILPULSE_DEV_MODE=false`
+- `TWILIO_VERIFY_ENABLED=true`
+- `TWILIO_ACCOUNT_SID`
+- `TWILIO_AUTH_TOKEN`
+- `TWILIO_VERIFY_SERVICE_SID`
+
+Create a Verify Service in Twilio Console and copy its `VA...` Service SID. Twilio Verify does not require you to buy a phone number for the Verify flow. On a Twilio trial account, SMS can only be sent to phone numbers that you have verified in Twilio Console, so verify the phone number you will use for the SIH demo before testing.
+
+The frontend continues to use `VITE_API_BASE_URL` to reach the Render backend. No Twilio credentials belong in Vercel.

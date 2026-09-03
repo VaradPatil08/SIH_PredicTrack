@@ -237,7 +237,7 @@ export const translations = {
     adminSessionExpired: 'Your session has expired, please log in again.',
     apiError: '{message}',
     invalidOtp: 'Please enter the 6-digit OTP.',
-    devOtpNotice: 'DEV MODE: Use OTP {otp} for instant verification.',
+    devOtpNotice: 'Development mode: use OTP {otp}. Twilio SMS is not active.',
 
     // Admin Arrivals Board
     adminStationBoard: 'Station Live Arrivals & Terminal Board',
@@ -537,7 +537,7 @@ export const translations = {
     adminSessionExpired: 'आपका सत्र समाप्त हो गया है, कृपया फिर से लॉगिन करें।',
     apiError: '{message}',
     invalidOtp: 'कृपया 6-अंकीय ओटीपी दर्ज करें।',
-    devOtpNotice: 'डेव मोड: तत्काल सत्यापन के लिए ओटीपी {otp} का उपयोग करें।',
+    devOtpNotice: 'डेव मोड: ओटीपी {otp} का उपयोग करें। Twilio SMS सक्रिय नहीं है।',
 
     // Admin Arrivals Board
     adminStationBoard: 'स्टेशन लाइव आगमन एवं टर्मिनल बोर्ड',

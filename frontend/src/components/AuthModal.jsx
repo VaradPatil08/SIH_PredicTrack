@@ -17,12 +17,14 @@ export default function AuthModal() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [successMsg, setSuccessMsg] = useState(null);
+  const [otpSentMsg, setOtpSentMsg] = useState(null);
 
   if (!isLoginModalOpen) return null;
 
   const handleRequestOTP = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     setError(null);
+    setOtpSentMsg(null);
 
     const cleanedPhone = phoneNumber.trim();
     if (cleanedPhone.length < 10) {
@@ -36,6 +38,10 @@ export default function AuthModal() {
       if (res.dev_otp) {
         setDevOtp(res.dev_otp);
         setOtpCode(res.dev_otp);
+      } else {
+        setDevOtp(null);
+        setOtpCode('');
+        setOtpSentMsg(res.message || 'A verification code has been sent by SMS.');
       }
       setStep(2);
     } catch (err) {
@@ -83,6 +89,7 @@ export default function AuthModal() {
         setStep(1);
         setOtpCode('');
         setDevOtp(null);
+        setOtpSentMsg(null);
         setSuccessMsg(null);
       }, 700);
     } catch (err) {
@@ -103,6 +110,7 @@ export default function AuthModal() {
     setStep(1);
     setOtpCode('');
     setDevOtp(null);
+    setOtpSentMsg(null);
     setError(null);
     setSuccessMsg(null);
   };
@@ -229,6 +237,16 @@ export default function AuthModal() {
           {step === 2 && (
             <form onSubmit={handleVerifyOTP} className="space-y-4">
               
+              {otpSentMsg && !devOtp && (
+                <div className="p-3 rounded-lg bg-green-50 dark:bg-emerald-950/40 border border-green-200 dark:border-emerald-800 text-xs text-foreground dark:text-emerald-200">
+                  <div className="font-semibold flex items-center gap-1.5">
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>OTP sent by SMS</span>
+                  </div>
+                  <p className="text-muted dark:text-slate-400 text-[11px] mt-1">{otpSentMsg}</p>
+                </div>
+              )}
+
               {devOtp && (
                 <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-950/60 border border-blue-200 dark:border-blue-800 text-xs text-navy dark:text-blue-300 space-y-1">
                   <div className="font-semibold flex items-center gap-1.5 text-navy dark:text-blue-300">
@@ -246,13 +264,23 @@ export default function AuthModal() {
                   <label className="block text-xs font-semibold text-foreground dark:text-slate-200">
                     {t('enterOtp')}
                   </label>
-                  <button
-                    type="button"
-                    onClick={() => { setStep(1); setError(null); }}
-                    className="text-xs text-navy dark:text-blue-400 hover:text-navy-light dark:hover:text-blue-300 font-semibold hover:underline"
-                  >
-                    Change Number
-                  </button>
+                  <div className="flex items-center gap-3">
+                    <button
+                      type="button"
+                      onClick={handleRequestOTP}
+                      disabled={loading}
+                      className="text-xs text-navy dark:text-blue-400 hover:text-navy-light dark:hover:text-blue-300 font-semibold hover:underline disabled:opacity-50"
+                    >
+                      Resend OTP
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setStep(1); setError(null); setOtpSentMsg(null); }}
+                      className="text-xs text-navy dark:text-blue-400 hover:text-navy-light dark:hover:text-blue-300 font-semibold hover:underline"
+                    >
+                      Change Number
+                    </button>
+                  </div>
                 </div>
 
                 <div className="relative">

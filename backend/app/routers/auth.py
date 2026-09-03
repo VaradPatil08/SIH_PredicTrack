@@ -23,7 +23,7 @@ def request_otp(payload: OTPRequestIn, db: Session = Depends(get_db)):
     """
     code = auth_service.request_otp(payload.phone_number, db)
     return OTPRequestOut(
-        message="OTP sent." if code is None else "DEV_MODE: OTP generated (see dev_otp field).",
+        message="OTP sent via SMS." if code is None else "DEV_MODE: OTP generated (see dev_otp field).",
         dev_otp=code,
     )
 

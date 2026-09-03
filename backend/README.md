@@ -236,8 +236,3 @@ The feature vector is defined exclusively in `backend/ml/features.py` (`build_fe
 
 `frontend/src/services/api.js` includes automatic client-side synthetic fallback. If the backend is unreachable during a demo, the frontend generates structurally identical responses with smooth kinematic simulation drift — no crashes, no error screens.
 
-
-
-### Twilio Verify OTP
-
-Passenger OTP can use Twilio Verify v2. Configure `TWILIO_VERIFY_ENABLED`, `TWILIO_ACCOUNT_SID`, `TWILIO_AUTH_TOKEN`, and `TWILIO_VERIFY_SERVICE_SID`. With Twilio enabled, OTP generation and verification are performed by Twilio.

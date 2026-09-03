@@ -8,17 +8,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
-      # Passenger OTP is delivered and verified by Twilio Verify.
+      # Demo mode intentionally exposes the OTP in the API/UI so the
+      # deployed hackathon demo works without an SMS provider.
       - key: RAILPULSE_DEV_MODE
-        value: "false"
-      - key: TWILIO_VERIFY_ENABLED
         value: "true"
-      - key: TWILIO_ACCOUNT_SID
-        sync: false
-      - key: TWILIO_AUTH_TOKEN
-        sync: false
-      - key: TWILIO_VERIFY_SERVICE_SID
-        sync: false
       - key: RAILRADAR_API_KEY
         sync: false
       - key: RAILRADAR_BASE_URL

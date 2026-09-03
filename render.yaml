@@ -8,8 +8,10 @@ services:
     envVars:
       - key: PYTHON_VERSION
         value: "3.11"
+      # Demo mode intentionally exposes the OTP in the API/UI so the
+      # deployed hackathon demo works without an SMS provider.
       - key: RAILPULSE_DEV_MODE
-        value: "false"
+        value: "true"
       - key: RAILRADAR_API_KEY
         sync: false
       - key: RAILRADAR_BASE_URL

@@ -1,16 +1,11 @@
 """
 Auth service — OTP + JWT.
 
-SMS SENDING IS STUBBED. In production, `_send_otp_sms` is where you'd
-call Firebase Phone Auth, MSG91, or Twilio. For the hackathon, DEV_MODE
-returns the OTP directly in the API response and logs it, so the team
-can test/demo the full login flow without a paid SMS provider or DLT
-sender-ID registration (which real Indian SMS services require and
-which you will not get approved in time for the hackathon).
-
-Before any real deployment: set DEV_MODE = False and implement
-_send_otp_sms for a real provider, or OTPs will be exposed in API
-responses.
+SMS SENDING IS STUBBED. For the hackathon deployment, DEV_MODE returns
+the generated OTP in the API response so the frontend can display it.
+For a real public deployment, replace `_send_otp_sms` with Firebase
+Phone Auth, MSG91, Twilio, or another compliant SMS provider and set
+RAILPULSE_DEV_MODE=false.
 """
 
 import hashlib
